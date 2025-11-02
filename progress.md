@@ -100,14 +100,30 @@
 
 ## 🎯 次にやること
 
-### 今すぐ
-1. **Supabaseアカウント作成・プロジェクト作成**
-2. **SupabaseのAPIキー取得**
-3. **環境変数設定**（Vercel + ローカル）
+### ⚠️ 今すぐやること（環境構築の残り）
 
-### その後
-4. **データベース設計開始**
-5. **認証機能の実装開始**（Phase 1）
+1. **404エラーの修正** 🔴 **優先**
+   - Vercelの設定確認（Root Directory、Framework Preset）
+   - ビルドログの確認
+   - 再デプロイを実行
+   - サイトが正常に表示されるか確認
+
+2. **Vercelの環境変数設定確認** 🔴 **優先**
+   - Vercelダッシュボードで環境変数が正しく設定されているか確認
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+
+### ✅ Phase 0完了後の次のステップ
+
+3. **データベース設計開始**（Phase 1）
+   - ER図作成
+   - テーブル設計
+   - Supabaseでマイグレーション実行
+
+4. **認証機能の実装開始**（Phase 1）
+   - Supabase Authの統合
+   - ログイン機能の実装
 
 ---
 
