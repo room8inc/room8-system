@@ -102,18 +102,22 @@
 
 ### ⚠️ 今すぐやること（環境構築の残り）
 
-1. **404エラーの修正** 🔴 **優先**
+1. **404エラーの修正** ✅ **完了**
    - [x] Vercelの設定確認（Root Directory、Framework Preset）
    - [x] Framework Preset: `Next.js` を選択 ✅
    - [x] Settings → Generalで設定を再確認 ✅
    - [x] 再デプロイを実行 ✅
-   - [ ] **まだエラーが出る場合は、プロジェクトを再インポート** 🔴 **最終手段**
+   - [x] Root Directoryを完全に空白にする ✅
+   - [x] Build Commandを設定（`npm run build`、`npm install`）✅
+   - [x] **プロジェクトを削除して再インポート** ✅ **解決**
      - 環境変数をメモ
      - プロジェクトを削除
      - 新しいプロジェクトとして再インポート
      - Framework Preset: `Next.js`、Root Directory: 空白を設定
      - 環境変数を再設定
-     - デプロイ
+     - デプロイ成功 ✅
+   - [x] ビルドログで`package.json`が正しく検出される ✅
+   - [x] サイトが正常に表示される ✅
    - [ ] ビルドログで`next`が検出されるか確認
    - [ ] サイトが正常に表示されるか確認
 
