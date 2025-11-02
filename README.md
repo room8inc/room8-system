@@ -75,15 +75,39 @@ Room8/
 ├── requirements.md           # 要件定義書
 ├── system-specs.md           # システム仕様書
 ├── development-plan.md       # 開発計画書（開発手順・フェーズ）
-├── setup-guide.md            # セットアップガイド（アカウント作成手順）
-├── git-setup-guide.md        # Git / GitHub セットアップガイド
-├── vercel-env-setup.md       # Vercel 環境変数設定ガイド
-├── vercel-deployment-guide.md # Vercel デプロイ確認ガイド
 ├── pricing.md                # 料金プラン・プラン体系（統合）
 ├── infrastructure.md         # サーバー構成・コスト・成長戦略（統合）
 ├── auth.md                   # 認証・ログイン・チェックイン（統合）
-└── line-integration.md       # LINE連携（統合）
+├── line-integration.md       # LINE連携（統合）
+├── database-design.md        # データベース設計書
+├── _guides/                  # 一時的なガイドファイル（Git管理外）
+└── supabase/
+    └── migrations/           # データベースマイグレーションファイル
 ```
+
+### 📝 ドキュメント管理ルール
+
+#### Git管理下（ルート）
+**永続的なドキュメント**をGit管理下に配置します：
+- 仕様書（requirements.md, system-specs.md, etc.）
+- 設計書（database-design.md, etc.）
+- 計画書（development-plan.md, etc.）
+- プロジェクト概要（README.md）
+
+#### Git管理外（`_guides/`）
+**一時的なガイドファイル**は`_guides/`ディレクトリに保存し、Git管理外にします：
+- 設定手順ガイド（環境構築手順など）
+- トラブルシューティングガイド
+- 一時的なメモや作業ログ
+
+**理由**：
+- 一度設定が完了すれば不要になるファイルはGit履歴に残さない
+- リポジトリをクリーンに保つ
+- 必要な場合は`_guides/`ディレクトリをローカルで参照可能
+
+**注意**：
+- `_guides/`ディレクトリは`.gitignore`で除外されているため、Gitにコミットされません
+- ローカルでのみ保存され、必要に応じて削除可能です
 
 ## 🔄 プロジェクトステータス
 
