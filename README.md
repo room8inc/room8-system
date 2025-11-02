@@ -77,6 +77,8 @@ Room8/
 ├── development-plan.md       # 開発計画書（開発手順・フェーズ）
 ├── setup-guide.md            # セットアップガイド（アカウント作成手順）
 ├── git-setup-guide.md        # Git / GitHub セットアップガイド
+├── vercel-env-setup.md       # Vercel 環境変数設定ガイド
+├── vercel-deployment-guide.md # Vercel デプロイ確認ガイド
 ├── pricing.md                # 料金プラン・プラン体系（統合）
 ├── infrastructure.md         # サーバー構成・コスト・成長戦略（統合）
 ├── auth.md                   # 認証・ログイン・チェックイン（統合）
