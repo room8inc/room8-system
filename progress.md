@@ -121,11 +121,20 @@
    - [ ] ビルドログで`next`が検出されるか確認
    - [ ] サイトが正常に表示されるか確認
 
-2. **Vercelの環境変数設定確認** 🔴 **優先**
-   - Vercelダッシュボードで環境変数が正しく設定されているか確認
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+2. **Vercelの環境変数設定** 🔴 **優先**
+   - [x] Environment Variablesページを確認 ✅
+   - [ ] **Supabaseダッシュボードから環境変数の値を取得**
+     - Settings → API
+     - Project URL: `NEXT_PUBLIC_SUPABASE_URL` の値
+     - anon public: `NEXT_PUBLIC_SUPABASE_ANON_KEY` の値
+     - service_role secret: `SUPABASE_SERVICE_ROLE_KEY` の値
+   - [ ] **Vercelで環境変数を設定**
+     - `NEXT_PUBLIC_SUPABASE_URL`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+     - `SUPABASE_SERVICE_ROLE_KEY`
+   - [ ] **Environments: Production, Preview, Development すべてにチェック** ✅
+   - [ ] **「Save」ボタンをクリック** ✅
+   - [ ] **再デプロイを実行**（環境変数を追加した後）
 
 ### ✅ Phase 0完了後の次のステップ
 
