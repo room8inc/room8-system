@@ -103,10 +103,11 @@
 ### ⚠️ 今すぐやること（環境構築の残り）
 
 1. **404エラーの修正** 🔴 **優先**
-   - Vercelの設定確認（Root Directory、Framework Preset）
-   - ビルドログの確認
-   - 再デプロイを実行
-   - サイトが正常に表示されるか確認
+   - [x] Vercelの設定確認（Root Directory、Framework Preset）
+   - [x] Framework Preset: `Next.js` を選択 ✅
+   - [ ] 「OK」をクリックして設定を保存
+   - [ ] 再デプロイを実行
+   - [ ] サイトが正常に表示されるか確認
 
 2. **Vercelの環境変数設定確認** 🔴 **優先**
    - Vercelダッシュボードで環境変数が正しく設定されているか確認
