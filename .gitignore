@@ -36,3 +36,6 @@ Thumbs.db
 *.tmp
 .cache/
 
+# 一時的なガイドファイル（設定手順など）
+_guides/
+
