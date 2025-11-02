@@ -105,6 +105,7 @@
 1. **404エラーの修正** 🔴 **優先**
    - [x] Vercelの設定確認（Root Directory、Framework Preset）
    - [x] Framework Preset: `Next.js` を選択 ✅
+   - [ ] Root Directoryを確認・修正（`./`または空白にする）⚠️ **重要**
    - [ ] 「OK」をクリックして設定を保存
    - [ ] 再デプロイを実行
    - [ ] サイトが正常に表示されるか確認
