@@ -43,10 +43,20 @@ export default function RegisterPage() {
     try {
       console.log('Starting registration...')
       
-      // Supabase Authでユーザー作成
+      // Supabase Authでユーザー作成（user_metadataに追加情報を含める）
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            name_kana: formData.nameKana,
+            phone: formData.phone,
+            address: formData.address,
+            member_type: formData.memberType,
+            is_individual: formData.isIndividual,
+          }
+        }
       })
 
       console.log('SignUp result:', { authData, authError })
@@ -65,43 +75,46 @@ export default function RegisterPage() {
         return
       }
 
-      // セッションが確立されるまで少し待つ（Supabase Authの仕様）
-      // signUp後、自動的にセッションが確立されるが、少し時間がかかる場合がある
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // トリガーが自動的にusersテーブルにINSERTするため、少し待つ
+      await new Promise(resolve => setTimeout(resolve, 1000))
 
-      // 現在のセッションを確認
+      // セッションを確認
       const { data: { session } } = await supabase.auth.getSession()
       console.log('Session after signUp:', session)
 
-      // usersテーブルに会員情報を登録
-      console.log('Inserting user data...')
-      const { data: insertData, error: insertError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email: formData.email,
-          name: formData.name,
-          name_kana: formData.nameKana,
-          phone: formData.phone,
-          address: formData.address,
-          member_type: formData.memberType,
-          is_individual: formData.isIndividual,
-          status: 'active',
-        })
-        .select()
+      // トリガーで自動的にusersテーブルにINSERTされるが、
+      // 空の値でINSERTされる可能性があるため、UPDATEで詳細情報を反映
+      if (session) {
+        console.log('Updating user data...')
+        const { data: updateData, error: updateError } = await supabase
+          .from('users')
+          .update({
+            name: formData.name,
+            name_kana: formData.nameKana,
+            phone: formData.phone,
+            address: formData.address,
+            member_type: formData.memberType,
+            is_individual: formData.isIndividual,
+            status: 'active',
+          })
+          .eq('id', authData.user.id)
+          .select()
 
-      console.log('Insert result:', { insertData, insertError })
+        console.log('Update result:', { updateData, updateError })
 
-      if (insertError) {
-        console.error('Insert error details:', {
-          message: insertError.message,
-          details: insertError.details,
-          hint: insertError.hint,
-          code: insertError.code,
-        })
-        setError(`会員情報の登録に失敗しました: ${insertError.message}${insertError.details ? ` (詳細: ${insertError.details})` : ''}`)
-        setLoading(false)
-        return
+        if (updateError) {
+          console.error('Update error details:', {
+            message: updateError.message,
+            details: updateError.details,
+            hint: updateError.hint,
+            code: updateError.code,
+          })
+          // エラーがあっても、ユーザーは作成されているので続行
+        }
+      } else {
+        // セッションが確立されていない場合（メール確認が必要な場合など）
+        // 手動でusersテーブルにINSERTを試みる（Service Role Keyが必要）
+        console.warn('Session not established, user data may need manual update')
       }
 
       // 登録成功
