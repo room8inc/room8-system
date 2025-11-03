@@ -5,6 +5,11 @@
 -- users テーブルのポリシー
 -- ============================================
 
+-- 既存のポリシーを削除（存在する場合）
+DROP POLICY IF EXISTS "Allow authenticated users to insert their own data" ON users;
+DROP POLICY IF EXISTS "Allow users to read their own data" ON users;
+DROP POLICY IF EXISTS "Allow users to update their own data" ON users;
+
 -- ポリシー1: 認証済みユーザーは自分の情報をINSERTできる（会員登録時）
 -- 会員登録時に、認証済みユーザーが自分の情報をusersテーブルにINSERTできるようにする
 -- 注意: signUp後は自動的にセッションが確立されるので、auth.uid()が使える

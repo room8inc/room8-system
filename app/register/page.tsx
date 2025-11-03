@@ -38,47 +38,76 @@ export default function RegisterPage() {
     }
 
     setLoading(true)
+    setError(null)
 
     try {
+      console.log('Starting registration...')
+      
       // Supabase Authでユーザー作成
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
       })
 
+      console.log('SignUp result:', { authData, authError })
+
       if (authError) {
+        console.error('Auth error:', authError)
         setError(authError.message)
         setLoading(false)
         return
       }
 
-      if (authData.user) {
-        // usersテーブルに会員情報を登録
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            email: formData.email,
-            name: formData.name,
-            name_kana: formData.nameKana,
-            phone: formData.phone,
-            address: formData.address,
-            member_type: formData.memberType,
-            is_individual: formData.isIndividual,
-            status: 'active',
-          })
-
-        if (insertError) {
-          console.error('Insert error:', insertError)
-          setError(`会員情報の登録に失敗しました: ${insertError.message}`)
-          setLoading(false)
-          return
-        }
-
-        // 登録成功
-        router.push('/dashboard')
-        router.refresh()
+      if (!authData.user) {
+        console.error('No user data returned')
+        setError('ユーザー作成に失敗しました')
+        setLoading(false)
+        return
       }
+
+      // セッションが確立されるまで少し待つ（Supabase Authの仕様）
+      // signUp後、自動的にセッションが確立されるが、少し時間がかかる場合がある
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // 現在のセッションを確認
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('Session after signUp:', session)
+
+      // usersテーブルに会員情報を登録
+      console.log('Inserting user data...')
+      const { data: insertData, error: insertError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: formData.email,
+          name: formData.name,
+          name_kana: formData.nameKana,
+          phone: formData.phone,
+          address: formData.address,
+          member_type: formData.memberType,
+          is_individual: formData.isIndividual,
+          status: 'active',
+        })
+        .select()
+
+      console.log('Insert result:', { insertData, insertError })
+
+      if (insertError) {
+        console.error('Insert error details:', {
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code,
+        })
+        setError(`会員情報の登録に失敗しました: ${insertError.message}${insertError.details ? ` (詳細: ${insertError.details})` : ''}`)
+        setLoading(false)
+        return
+      }
+
+      // 登録成功
+      console.log('Registration successful!')
+      router.push('/dashboard')
+      router.refresh()
     } catch (err) {
       console.error('Registration error:', err)
       setError(`会員登録に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`)
