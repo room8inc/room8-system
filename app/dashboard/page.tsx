@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { LogoutButton } from './logout-button'
-import Link from 'next/link'
+import { QRScannerButton } from './qr-scanner-button'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -87,24 +87,22 @@ export default async function DashboardPage() {
                     チェックイン時刻: {new Date(currentCheckin.checkin_at).toLocaleString('ja-JP')}
                   </p>
                 )}
-                <Link
-                  href="/checkin"
-                  className="mt-4 inline-block rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
-                >
-                  チェックアウト
-                </Link>
+                <QRScannerButton
+                  mode="checkout"
+                  buttonText="チェックアウト"
+                  buttonClassName="mt-4 inline-block rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+                />
               </>
             ) : (
               <>
                 <p className="mt-2 text-sm text-gray-600">
                   現在チェックイン中ではありません
                 </p>
-                <Link
-                  href="/checkin"
-                  className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-                >
-                  チェックイン
-                </Link>
+                <QRScannerButton
+                  mode="checkin"
+                  buttonText="チェックイン"
+                  buttonClassName="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                />
               </>
             )}
           </div>
