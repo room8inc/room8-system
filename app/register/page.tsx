@@ -69,7 +69,8 @@ export default function RegisterPage() {
           })
 
         if (insertError) {
-          setError('会員情報の登録に失敗しました')
+          console.error('Insert error:', insertError)
+          setError(`会員情報の登録に失敗しました: ${insertError.message}`)
           setLoading(false)
           return
         }
@@ -79,7 +80,8 @@ export default function RegisterPage() {
         router.refresh()
       }
     } catch (err) {
-      setError('会員登録に失敗しました')
+      console.error('Registration error:', err)
+      setError(`会員登録に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`)
       setLoading(false)
     }
   }
