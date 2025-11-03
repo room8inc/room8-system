@@ -35,6 +35,14 @@ export default async function DashboardPage() {
     .order('checkin_at', { ascending: false })
     .limit(10)
 
+  // 利用履歴を取得（最新30件）
+  const { data: checkinHistory } = await supabase
+    .from('checkins')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('checkin_at', { ascending: false })
+    .limit(30)
+
   // 今日の総利用時間を計算（チェックアウト済みのみ）
   const todayDuration = todayCheckins
     ?.filter((c) => c.checkout_at && c.duration_minutes)
@@ -142,6 +150,79 @@ export default async function DashboardPage() {
               <p className="mt-2 text-sm text-gray-600">
                 プラン未登録
               </p>
+            )}
+          </div>
+        </div>
+
+        {/* 利用履歴セクション */}
+        <div className="mt-8">
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">利用履歴</h2>
+            {checkinHistory && checkinHistory.length > 0 ? (
+              <div className="space-y-3">
+                {checkinHistory.map((checkin) => {
+                  const checkinAt = new Date(checkin.checkin_at)
+                  const checkoutAt = checkin.checkout_at ? new Date(checkin.checkout_at) : null
+                  const duration = checkin.duration_minutes || null
+                  
+                  return (
+                    <div
+                      key={checkin.id}
+                      className="rounded-md border border-gray-200 p-4"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900">
+                              {checkinAt.toLocaleDateString('ja-JP', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })}
+                            </span>
+                            {!checkoutAt && (
+                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                                チェックイン中
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 text-sm text-gray-600">
+                            <span className="mr-4">
+                              入室: {checkinAt.toLocaleTimeString('ja-JP', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                            {checkoutAt && (
+                              <span>
+                                退室: {checkoutAt.toLocaleTimeString('ja-JP', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-2 text-right sm:mt-0">
+                          {duration !== null ? (
+                            <div className="text-sm text-gray-900">
+                              <span className="font-medium">
+                                {Math.floor(duration / 60)}時間{duration % 60}分
+                              </span>
+                            </div>
+                          ) : checkoutAt ? (
+                            <div className="text-xs text-gray-500">時間未計算</div>
+                          ) : (
+                            <div className="text-xs text-gray-500">利用中</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">利用履歴がありません</p>
             )}
           </div>
         </div>
