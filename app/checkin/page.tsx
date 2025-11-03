@@ -127,12 +127,22 @@ export default function CheckInPage() {
   const handleCheckin = async (venueId: string) => {
     setStatus('checking-in')
     setMessage('チェックイン中...')
+    setError(null)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('ログインが必要です')
+      // ユーザー認証確認
+      const { data: { user }, error: userAuthError } = await supabase.auth.getUser()
+      
+      if (userAuthError) {
+        console.error('Auth error:', userAuthError)
+        throw new Error(`認証エラー: ${userAuthError.message}`)
       }
+
+      if (!user) {
+        throw new Error('ログインが必要です。再度ログインしてください。')
+      }
+
+      console.log('User authenticated:', user.id)
 
       // ユーザー情報を取得
       const { data: userData, error: userError } = await supabase
@@ -142,25 +152,66 @@ export default function CheckInPage() {
         .single()
 
       if (userError) {
-        throw new Error('ユーザー情報の取得に失敗しました')
+        console.error('User data fetch error:', userError)
+        throw new Error(`ユーザー情報の取得に失敗しました: ${userError.message}`)
+      }
+
+      console.log('User data:', userData)
+
+      // 定期会員の場合、現在のプランIDを取得
+      let planIdAtCheckin = null
+      if (userData.member_type === 'regular') {
+        const { data: activePlan, error: planError } = await supabase
+          .from('user_plans')
+          .select('plan_id')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .is('ended_at', null)
+          .single()
+
+        if (planError && planError.code !== 'PGRST116') {
+          // PGRST116は「データが見つからない」エラー（プラン未登録の場合）
+          console.warn('Active plan fetch warning:', planError)
+        } else if (activePlan) {
+          planIdAtCheckin = activePlan.plan_id
+          console.log('Active plan found:', planIdAtCheckin)
+        }
       }
 
       // チェックイン記録を挿入
-      const { data: checkinData, error: insertError } = await supabase
+      const checkinData = {
+        user_id: user.id,
+        checkin_at: new Date().toISOString(),
+        venue_id: venueId,
+        member_type_at_checkin: userData.member_type || 'regular',
+        ...(planIdAtCheckin && { plan_id_at_checkin: planIdAtCheckin }),
+      }
+
+      console.log('Inserting checkin data:', checkinData)
+
+      const { data: insertedCheckin, error: insertError } = await supabase
         .from('checkins')
-        .insert({
-          user_id: user.id,
-          checkin_at: new Date().toISOString(),
-          venue_id: venueId,
-          member_type_at_checkin: userData.member_type || 'regular',
-        })
+        .insert(checkinData)
         .select()
         .single()
 
       if (insertError) {
-        console.error('Checkin insert error:', insertError)
-        throw new Error(`チェックインに失敗しました: ${insertError.message}`)
+        console.error('Checkin insert error details:', {
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code,
+        })
+        
+        // RLSポリシーエラーの場合は詳細なメッセージを表示
+        if (insertError.code === '42501' || insertError.message.includes('row-level security')) {
+          throw new Error(`権限エラー: チェックインの権限がありません。RLSポリシーを確認してください。詳細: ${insertError.message}`)
+        }
+        
+        throw new Error(`チェックインに失敗しました: ${insertError.message} (コード: ${insertError.code})`)
       }
+
+      console.log('Checkin successful:', insertedCheckin)
 
       setStatus('success')
       setMessage('チェックインしました！')
@@ -168,10 +219,14 @@ export default function CheckInPage() {
       // 3秒後にダッシュボードにリダイレクト
       setTimeout(() => {
         router.push('/dashboard')
+        router.refresh()
       }, 3000)
     } catch (err) {
       console.error('Checkin error:', err)
-      setError(err instanceof Error ? err.message : 'チェックインに失敗しました')
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'チェックインに失敗しました。ブラウザのコンソールを確認してください。'
+      setError(errorMessage)
       setStatus('idle')
       setMessage(null)
     }
