@@ -26,18 +26,23 @@
 | 環境変数名 | 用途 | 取得方法 |
 |-----------|------|---------|
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Google Service Accountのメールアドレス | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Accountのメールアドレス<br>**またはJSONファイルの`client_email`フィールド** |
-| `GOOGLE_PRIVATE_KEY` | Google Service Accountの秘密鍵（JSON形式の`private_key`フィールド） | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Account > Keys > JSONキーをダウンロードして`private_key`フィールドの値を取得<br>**JSONファイルの`private_key`フィールドをそのまま使用（改行文字`\n`を含む）** |
-| `GOOGLE_CALENDAR_ID` | GoogleカレンダーのID（予約管理用） | Google Calendar > 設定 > 共有したいカレンダーの「カレンダーID」を確認（通常は`primary`またはメールアドレス形式） |
+| `GOOGLE_PRIVATE_KEY` | Google Service Accountの秘密鍵（JSON形式の`private_key`フィールド） | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Account > Keys > JSONキーをダウンロードして`private_key`フィールドの値を取得<br>**JSONファイルの`private_key`フィールドをそのまま使用（改行文字`\n`を含む）**<br>**または、Base64エンコードされたJSON全体を`GOOGLE_PRIVATE_KEY_BASE64`に設定** |
+| `GOOGLE_PRIVATE_KEY_BASE64` | Google Service AccountのJSONファイル全体をBase64エンコードした値（オプション） | JSONファイル全体をBase64エンコード（`base64 -i service-account.json`）<br>**`error:1E08010C:DECODER routines::unsupported`エラーが出る場合は、この方法を使用** |
+| `GOOGLE_CALENDAR_ID` | GoogleカレンダーのID（予約管理用・オプション） | Google Calendar > 設定 > 共有したいカレンダーの「カレンダーID」を確認（通常は`primary`またはメールアドレス形式）<br>**※ 管理画面でカレンダーを選択できるため、環境変数での設定は不要（後方互換性のために残す）** |
 
-**注意**: `GOOGLE_PRIVATE_KEY`は機密情報です。クライアントサイドでは使用しないでください。
+**注意**: `GOOGLE_PRIVATE_KEY`と`GOOGLE_PRIVATE_KEY_BASE64`は機密情報です。クライアントサイドでは使用しないでください。
 **設定方法**: 
 1. Google Cloud Consoleでプロジェクトを作成
 2. Google Calendar APIを有効化
 3. Service Accountを作成し、JSONキーをダウンロード
-4. JSONファイルの`client_email`フィールドの値を`GOOGLE_SERVICE_ACCOUNT_EMAIL`に設定
-5. JSONファイルの`private_key`フィールドの値を`GOOGLE_PRIVATE_KEY`に設定（改行文字`\n`はそのまま保持、ダブルクォートで囲む）
-6. Service Accountのメールアドレスをカレンダーに共有（編集権限を付与）
-7. カレンダーIDを`GOOGLE_CALENDAR_ID`に設定
+4. **方法1（通常）**: JSONファイルの`client_email`フィールドの値を`GOOGLE_SERVICE_ACCOUNT_EMAIL`に設定
+5. **方法2（通常）**: JSONファイルの`private_key`フィールドの値を`GOOGLE_PRIVATE_KEY`に設定（改行文字`\n`はそのまま保持、ダブルクォートで囲む）
+6. **方法3（エラーが出る場合）**: JSONファイル全体をBase64エンコードして`GOOGLE_PRIVATE_KEY_BASE64`に設定（`GOOGLE_PRIVATE_KEY`は設定不要）
+7. Service Accountのメールアドレスをカレンダーに共有（編集権限を付与）
+8. 管理画面（`/admin/google-calendar`）で使用するカレンダーを選択
+
+**エラーが発生する場合**:
+- `error:1E08010C:DECODER routines::unsupported` エラーが出る場合は、`GOOGLE_PRIVATE_KEY_BASE64`を使用してください（方法3）。
 
 **詳細は** `docs/GOOGLE_CALENDAR_SETUP.md` を参照してください。
 

@@ -14,7 +14,9 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL=calendar-access@room8-system.iam.gserviceaccount.co
 
 ### 2. GOOGLE_PRIVATE_KEY
 
-**JSONファイルの`private_key`フィールドの値をそのまま使用**
+**方法1: JSONファイルの`private_key`フィールドの値をそのまま使用**
+
+Vercelの場合、環境変数設定画面で以下のように設定します：
 
 ```
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDPrvx3civfFJu2\n..."
@@ -24,6 +26,38 @@ GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAAS
 - 値をダブルクォート（`"`）で囲む
 - 改行文字（`\n`）はそのまま保持する
 - 全体を1行で設定する
+
+**方法2: Base64エンコード方式（推奨・より確実）**
+
+1. JSONファイル全体をBase64エンコードします：
+   ```bash
+   # macOS/Linux
+   base64 -i service-account-key.json > encoded.txt
+   
+   # Windows (PowerShell)
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("service-account-key.json")) | Out-File -Encoding utf8 encoded.txt
+   ```
+
+2. エンコードされた文字列を環境変数に設定：
+   ```
+   GOOGLE_PRIVATE_KEY_BASE64=<Base64エンコードされた文字列>
+   ```
+
+**方法3: Vercel環境変数設定画面で実際の改行を入力**
+
+Vercelの環境変数設定画面では、複数行の値を直接入力できます：
+1. Vercel Dashboard → Settings → Environment Variables
+2. `GOOGLE_PRIVATE_KEY`を追加
+3. 値の入力欄で、実際の改行を含めて入力：
+   ```
+   -----BEGIN PRIVATE KEY-----
+   MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDPrvx3civfFJu2
+   ...
+   -----END PRIVATE KEY-----
+   ```
+
+**エラーが発生する場合**:
+- `error:1E08010C:DECODER routines::unsupported` エラーが出る場合は、方法2（Base64エンコード）を試してください。
 
 ### 3. GOOGLE_CALENDAR_ID
 

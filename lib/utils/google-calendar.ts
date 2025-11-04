@@ -5,21 +5,65 @@ import { google } from 'googleapis'
  */
 export function getGoogleCalendarClientFromEnv() {
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+  let privateKey = process.env.GOOGLE_PRIVATE_KEY
 
   if (!serviceAccountEmail || !privateKey) {
     throw new Error('Google Calendarの環境変数（GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY）が設定されていません')
   }
 
-  const auth = new google.auth.JWT({
-    email: serviceAccountEmail,
-    key: privateKey,
-    scopes: ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar'],
-  })
+  // Private Keyの処理: 複数の形式に対応
+  // 1. Base64エンコードされた場合（GOOGLE_PRIVATE_KEY_BASE64が設定されている場合）
+  if (process.env.GOOGLE_PRIVATE_KEY_BASE64) {
+    try {
+      const decoded = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, 'base64').toString('utf-8')
+      const parsed = JSON.parse(decoded)
+      privateKey = parsed.private_key || privateKey
+    } catch (error) {
+      console.warn('Base64デコードに失敗しました。通常の形式で処理します:', error)
+    }
+  }
 
-  const calendar = google.calendar({ version: 'v3', auth })
+  // 2. 改行文字の処理: 複数の形式に対応
+  // - `\\n` (エスケープされた改行) → 実際の改行に変換
+  // - すでに実際の改行がある場合はそのまま使用
+  if (privateKey && !privateKey.includes('\n')) {
+    // エスケープされた改行文字を実際の改行に変換
+    privateKey = privateKey.replace(/\\n/g, '\n')
+  }
 
-  return { calendar }
+  // Private Keyの形式を検証
+  if (!privateKey || (!privateKey.includes('BEGIN PRIVATE KEY') && !privateKey.includes('BEGIN RSA PRIVATE KEY'))) {
+    throw new Error(
+      'GOOGLE_PRIVATE_KEYの形式が正しくありません。\n' +
+      'JSONファイルの`private_key`フィールドの値を、改行文字（\\n）を含めてそのまま設定してください。\n' +
+      'または、Base64エンコードされたJSON全体をGOOGLE_PRIVATE_KEY_BASE64に設定することもできます。'
+    )
+  }
+
+  try {
+    const auth = new google.auth.JWT({
+      email: serviceAccountEmail,
+      key: privateKey,
+      scopes: ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar'],
+    })
+
+    const calendar = google.calendar({ version: 'v3', auth })
+
+    return { calendar }
+  } catch (error: any) {
+    // より詳細なエラーメッセージを提供
+    if (error.message?.includes('DECODER') || error.message?.includes('unsupported')) {
+      throw new Error(
+        'GOOGLE_PRIVATE_KEYのデコードに失敗しました。\n' +
+        '環境変数の設定方法を確認してください：\n' +
+        '1. JSONファイルの`private_key`フィールドの値を、改行文字（\\n）を含めてそのまま設定\n' +
+        '2. または、JSON全体をBase64エンコードしてGOOGLE_PRIVATE_KEY_BASE64に設定\n' +
+        '3. Vercelの場合、環境変数設定画面で実際の改行を入力するか、\\nをエスケープして入力\n' +
+        `元のエラー: ${error.message}`
+      )
+    }
+    throw error
+  }
 }
 
 /**
