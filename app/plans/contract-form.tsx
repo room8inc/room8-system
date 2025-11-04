@@ -7,11 +7,12 @@ import { createClient } from '@/lib/supabase/client'
 interface ContractFormProps {
   planId: string
   planName: string
+  planPrice: number // プランの基本料金
   planFeatures?: any // プランのfeatures情報
   planData?: any // プランの全データ（available_days等を含む）
 }
 
-export function ContractForm({ planId, planName, planFeatures, planData }: ContractFormProps) {
+export function ContractForm({ planId, planName, planPrice, planFeatures, planData }: ContractFormProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -22,6 +23,10 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
     const today = new Date()
     return today.toISOString().split('T')[0]
   })
+  
+  // 契約期間と支払い方法
+  const [contractTerm, setContractTerm] = useState<'monthly' | 'yearly'>('monthly')
+  const [paymentMethod, setPaymentMethod] = useState<'monthly' | 'annual_prepaid'>('monthly')
   
   // オプションの状態管理
   const [options, setOptions] = useState({
@@ -202,6 +207,8 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
           plan_id: planId,
           started_at: startDate,
           status: 'active',
+          contract_term: contractTerm,
+          payment_method: paymentMethod,
           options: selectedOptions,
         })
 
@@ -254,17 +261,53 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
     }
   }
 
-  // オプション料金を計算
-  // TODO: ロッカーの料金を確認して設定
-  const LOCKER_PRICE = 0 // 料金要確認
+  // ロッカーの料金（税込み、割引対象外）
+  const LOCKER_PRICE_LARGE = 4950 // 大ロッカー: 月4,950円
+  const LOCKER_PRICE_SMALL = 2200 // 小ロッカー: 月2,200円
+  
+  // オプション料金を計算（割引対象外）
   const calculateOptionPrice = () => {
     let total = 0
     if (options.company_registration && availableOptions.company_registration) total += 5500
     if (options.printer && availableOptions.printer) total += 1100
     if (options.twenty_four_hours) total += 5500
     if (options.fixed_seat) total += 23100
-    if (options.locker) total += LOCKER_PRICE
+    if (options.locker && options.locker_size) {
+      // ロッカーの料金はサイズによって異なる（割引対象外）
+      total += options.locker_size === 'large' ? LOCKER_PRICE_LARGE : LOCKER_PRICE_SMALL
+    }
     return total
+  }
+  
+  // プラン料金を計算（割引適用）
+  const calculatePlanPrice = () => {
+    let basePrice = planPrice
+    
+    // 長期契約割引（20%off）
+    if (contractTerm === 'yearly') {
+      basePrice = Math.floor(basePrice * 0.8)
+    }
+    
+    // 年一括前払い割引（30%off）
+    if (paymentMethod === 'annual_prepaid') {
+      basePrice = Math.floor(basePrice * 0.7)
+    }
+    
+    return basePrice
+  }
+  
+  // 合計金額を計算
+  const calculateTotalPrice = () => {
+    const planPriceAfterDiscount = calculatePlanPrice()
+    const optionPrice = calculateOptionPrice()
+    
+    // 年一括前払いの場合は12ヶ月分
+    if (paymentMethod === 'annual_prepaid') {
+      return (planPriceAfterDiscount + optionPrice) * 12
+    }
+    
+    // 月払いの場合は1ヶ月分
+    return planPriceAfterDiscount + optionPrice
   }
 
   return (
@@ -281,6 +324,75 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
             onChange={(e) => setStartDate(e.target.value)}
             className="w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 text-sm shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
           />
+        </div>
+
+        {/* 契約期間と支払い方法 */}
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-room-charcoal mb-2">
+              契約期間
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name={`contract-term-${planId}`}
+                  checked={contractTerm === 'monthly'}
+                  onChange={() => setContractTerm('monthly')}
+                  className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                />
+                <span className="text-xs text-room-charcoal">
+                  月契約（通常価格）
+                </span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name={`contract-term-${planId}`}
+                  checked={contractTerm === 'yearly'}
+                  onChange={() => setContractTerm('yearly')}
+                  className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                />
+                <span className="text-xs text-room-charcoal">
+                  年契約（20%割引）
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-room-charcoal mb-2">
+              支払い方法
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name={`payment-method-${planId}`}
+                  checked={paymentMethod === 'monthly'}
+                  onChange={() => setPaymentMethod('monthly')}
+                  className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                />
+                <span className="text-xs text-room-charcoal">
+                  月払い
+                </span>
+              </label>
+              {contractTerm === 'yearly' && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`payment-method-${planId}`}
+                    checked={paymentMethod === 'annual_prepaid'}
+                    onChange={() => setPaymentMethod('annual_prepaid')}
+                    className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                  />
+                  <span className="text-xs text-room-charcoal">
+                    年一括前払い（30%割引）
+                  </span>
+                </label>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* オプション選択 */}
@@ -362,7 +474,7 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
                       className="rounded border-room-base-dark text-room-main focus:ring-room-main"
                     />
                     <span className="text-xs text-room-charcoal">
-                      ロッカー {LOCKER_PRICE > 0 ? <span className="text-room-main">+¥{LOCKER_PRICE.toLocaleString()}/月</span> : '(料金要確認)'}
+                      ロッカー <span className="text-room-main">(サイズ選択後に料金表示)</span>
                     </span>
                   </label>
                   {options.locker && lockerInventory && (
@@ -377,7 +489,7 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
                           className="rounded border-room-base-dark text-room-main focus:ring-room-main disabled:opacity-50"
                         />
                         <span className={`text-xs ${lockerInventory.large.available === 0 ? 'text-room-charcoal-light' : 'text-room-charcoal'}`}>
-                          大ロッカー {lockerInventory.large.available > 0 ? (
+                          大ロッカー <span className="text-room-main">+¥{LOCKER_PRICE_LARGE.toLocaleString()}/月</span> {lockerInventory.large.available > 0 ? (
                             <span className="text-room-main">(空き{lockerInventory.large.available}個)</span>
                           ) : (
                             <span className="text-red-600">(満室)</span>
@@ -394,7 +506,7 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
                           className="rounded border-room-base-dark text-room-main focus:ring-room-main disabled:opacity-50"
                         />
                         <span className={`text-xs ${lockerInventory.small.available === 0 ? 'text-room-charcoal-light' : 'text-room-charcoal'}`}>
-                          小ロッカー {lockerInventory.small.available > 0 ? (
+                          小ロッカー <span className="text-room-main">+¥{LOCKER_PRICE_SMALL.toLocaleString()}/月</span> {lockerInventory.small.available > 0 ? (
                             <span className="text-room-main">(空き{lockerInventory.small.available}個)</span>
                           ) : (
                             <span className="text-red-600">(満室)</span>
@@ -406,13 +518,42 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
                 </div>
               )}
             </div>
-            {calculateOptionPrice() > 0 && (
-              <p className="mt-2 text-xs text-room-main font-medium">
-                オプション追加料金: +¥{calculateOptionPrice().toLocaleString()}/月
-              </p>
-            )}
           </div>
         )}
+
+        {/* 料金サマリー */}
+        <div className="rounded-md bg-room-base-dark p-3 space-y-1">
+          <div className="flex justify-between text-xs">
+            <span className="text-room-charcoal">プラン料金:</span>
+            <span className="text-room-charcoal">
+              {contractTerm === 'yearly' || paymentMethod === 'annual_prepaid' ? (
+                <>
+                  <span className="line-through text-room-charcoal-light">¥{planPrice.toLocaleString()}</span>{' '}
+                  ¥{calculatePlanPrice().toLocaleString()}
+                  {paymentMethod === 'annual_prepaid' && <span className="text-room-main">/月（30%割引）</span>}
+                  {contractTerm === 'yearly' && paymentMethod === 'monthly' && <span className="text-room-main">/月（20%割引）</span>}
+                </>
+              ) : (
+                <>¥{planPrice.toLocaleString()}/月</>
+              )}
+            </span>
+          </div>
+          {calculateOptionPrice() > 0 && (
+            <div className="flex justify-between text-xs">
+              <span className="text-room-charcoal">オプション料金（割引対象外）:</span>
+              <span className="text-room-charcoal">+¥{calculateOptionPrice().toLocaleString()}/月</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm font-bold pt-2 border-t border-room-base">
+            <span className="text-room-charcoal">
+              {paymentMethod === 'annual_prepaid' ? '年一括前払い' : '月額'}合計:
+            </span>
+            <span className="text-room-main">
+              ¥{calculateTotalPrice().toLocaleString()}
+              {paymentMethod === 'annual_prepaid' && <span className="text-xs font-normal">（12ヶ月分）</span>}
+            </span>
+          </div>
+        </div>
 
         {error && (
           <div className="rounded-md bg-room-main bg-opacity-10 border border-room-main p-2">
@@ -440,11 +581,31 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
               <p>
                 「<span className="font-semibold">{planName}</span>」で会員契約を結びますか？
               </p>
-              {calculateOptionPrice() > 0 && (
-                <p className="text-xs text-room-main">
-                  オプション追加料金: +¥{calculateOptionPrice().toLocaleString()}/月
-                </p>
-              )}
+              <div className="text-xs space-y-1 pt-2 border-t border-room-base-dark">
+                <div className="flex justify-between">
+                  <span>プラン料金:</span>
+                  <span className="font-medium">
+                    {contractTerm === 'yearly' || paymentMethod === 'annual_prepaid' ? (
+                      <>
+                        <span className="line-through text-room-charcoal-light">¥{planPrice.toLocaleString()}</span>{' '}
+                        ¥{calculatePlanPrice().toLocaleString()}/月
+                      </>
+                    ) : (
+                      <>¥{planPrice.toLocaleString()}/月</>
+                    )}
+                  </span>
+                </div>
+                {calculateOptionPrice() > 0 && (
+                  <div className="flex justify-between">
+                    <span>オプション料金（割引対象外）:</span>
+                    <span className="font-medium">+¥{calculateOptionPrice().toLocaleString()}/月</span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-1 font-bold text-room-main">
+                  <span>{paymentMethod === 'annual_prepaid' ? '年一括前払い' : '月額'}合計:</span>
+                  <span>¥{calculateTotalPrice().toLocaleString()}</span>
+                </div>
+              </div>
             </div>
             <div className="flex gap-3">
               <button

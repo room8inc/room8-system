@@ -165,7 +165,7 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
                       </p>
                     </div>
                   ) : (
-                    <ContractForm planId={plan.id} planName={plan.name} planFeatures={features} planData={plan} />
+                    <ContractForm planId={plan.id} planName={plan.name} planPrice={plan.price} planFeatures={features} planData={plan} />
                   )}
                 </div>
               )
