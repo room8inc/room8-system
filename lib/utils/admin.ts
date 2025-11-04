@@ -8,31 +8,42 @@ export async function isAdmin(): Promise<boolean> {
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser()
+
+  if (authError) {
+    console.error('isAdmin: Auth error:', authError)
+    return false
+  }
 
   if (!user) {
     console.log('isAdmin: No authenticated user')
     return false
   }
 
+  console.log('isAdmin: Checking user:', user.id, user.email)
+
+  // RLSポリシーで自分の情報を読み取れるか確認
   const { data: userData, error } = await supabase
     .from('users')
-    .select('is_admin, email')
+    .select('is_admin, email, id')
     .eq('id', user.id)
     .single()
 
   if (error) {
     console.error('isAdmin: Error fetching user data:', error)
+    console.error('isAdmin: Error details:', JSON.stringify(error, null, 2))
     return false
   }
 
   if (!userData) {
-    console.log('isAdmin: User data not found')
+    console.log('isAdmin: User data not found in users table')
+    console.log('isAdmin: This might mean the user record does not exist in the users table')
     return false
   }
 
   const isAdminResult = userData.is_admin === true
-  console.log(`isAdmin: User ${userData.email} is_admin=${userData.is_admin}, result=${isAdminResult}`)
+  console.log(`isAdmin: User ${userData.email} (id: ${userData.id}) is_admin=${userData.is_admin}, result=${isAdminResult}`)
   
   return isAdminResult
 }
