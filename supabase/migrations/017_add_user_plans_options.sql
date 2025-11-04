@@ -12,7 +12,8 @@ ALTER TABLE user_plans
 --   "company_registration": true,  // 法人登記（+5,500円/月）
 --   "printer": true,                // プリンター（+1,100円/月）
 --   "twenty_four_hours": true,      // 24時間利用（+5,500円/月）
---   "fixed_seat": true              // 固定席化（+23,100円/月）
+--   "fixed_seat": true,             // 固定席化（+23,100円/月）
+--   "locker": true                  // ロッカー（料金要確認）
 -- }
 
 -- インデックス（オプション検索用）

@@ -29,6 +29,7 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
     printer: false,                // プリンター（+1,100円/月）- ワークスペースプランのみ
     twenty_four_hours: false,      // 24時間利用（+5,500円/月）- 特定のプランのみ
     fixed_seat: false,             // 固定席化（+23,100円/月）- 全プラン
+    locker: false,                 // ロッカー（料金要確認）- 全プラン
   })
   
   // プランの種類を判定
@@ -61,6 +62,7 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
     printer: planType === 'coworking' && !planFeatures?.printer,
     twenty_four_hours: isTwentyFourHoursAvailable(),
     fixed_seat: true, // 全プランで利用可能
+    locker: true, // 全プランで利用可能
   }
   
   // 起業家プランの場合は法人登記は標準装備なので選択不可
@@ -123,6 +125,7 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
       if (options.printer) selectedOptions.printer = true
       if (options.twenty_four_hours) selectedOptions.twenty_four_hours = true
       if (options.fixed_seat) selectedOptions.fixed_seat = true
+      if (options.locker) selectedOptions.locker = true
       
       // 起業家プランの場合は法人登記を自動的に含める
       if (planFeatures?.company_registration?.standard) {
@@ -178,12 +181,15 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
   }
 
   // オプション料金を計算
+  // TODO: ロッカーの料金を確認して設定
+  const LOCKER_PRICE = 0 // 料金要確認
   const calculateOptionPrice = () => {
     let total = 0
     if (options.company_registration && availableOptions.company_registration) total += 5500
     if (options.printer && availableOptions.printer) total += 1100
     if (options.twenty_four_hours) total += 5500
     if (options.fixed_seat) total += 23100
+    if (options.locker) total += LOCKER_PRICE
     return total
   }
 
@@ -204,7 +210,7 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
         </div>
 
         {/* オプション選択 */}
-        {(availableOptions.company_registration || availableOptions.printer || availableOptions.twenty_four_hours || availableOptions.fixed_seat) && (
+        {(availableOptions.company_registration || availableOptions.printer || availableOptions.twenty_four_hours || availableOptions.fixed_seat || availableOptions.locker) && (
           <div>
             <label className="block text-xs font-medium text-room-charcoal mb-2">
               オプション（追加料金）
@@ -259,6 +265,19 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
                   />
                   <span className="text-xs text-room-charcoal">
                     固定席化 <span className="text-room-main">+¥23,100/月</span>
+                  </span>
+                </label>
+              )}
+              {availableOptions.locker && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={options.locker}
+                    onChange={(e) => setOptions({ ...options, locker: e.target.checked })}
+                    className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                  />
+                  <span className="text-xs text-room-charcoal">
+                    ロッカー {LOCKER_PRICE > 0 ? <span className="text-room-main">+¥{LOCKER_PRICE.toLocaleString()}/月</span> : '(料金要確認)'}
                   </span>
                 </label>
               )}
