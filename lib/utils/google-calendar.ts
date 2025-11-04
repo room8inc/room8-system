@@ -1,26 +1,60 @@
 import { google } from 'googleapis'
 
 /**
- * Google Calendar APIクライアントを取得
+ * Google Calendar APIクライアントを取得（環境変数から）
  */
-export function getGoogleCalendarClient() {
+export function getGoogleCalendarClientFromEnv() {
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
   const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-  const calendarId = process.env.GOOGLE_CALENDAR_ID
 
-  if (!serviceAccountEmail || !privateKey || !calendarId) {
-    throw new Error('Google Calendarの環境変数が設定されていません')
+  if (!serviceAccountEmail || !privateKey) {
+    throw new Error('Google Calendarの環境変数（GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY）が設定されていません')
   }
 
   const auth = new google.auth.JWT({
     email: serviceAccountEmail,
     key: privateKey,
-    scopes: ['https://www.googleapis.com/auth/calendar'],
+    scopes: ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar'],
   })
 
   const calendar = google.calendar({ version: 'v3', auth })
 
-  return { calendar, calendarId }
+  return { calendar }
+}
+
+/**
+ * Google Calendar APIクライアントを取得（データベースからカレンダーIDを取得）
+ */
+export async function getGoogleCalendarClient() {
+  const { calendar } = getGoogleCalendarClientFromEnv()
+  
+  // データベースからアクティブなカレンダーIDを取得
+  const { createClient } = await import('@supabase/supabase-js')
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabaseの環境変数が設定されていません')
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey)
+
+  const { data: settings, error } = await supabase
+    .from('google_calendar_settings')
+    .select('calendar_id')
+    .eq('is_active', true)
+    .single()
+
+  if (error || !settings) {
+    // データベースに設定がない場合は環境変数から取得（後方互換性）
+    const calendarId = process.env.GOOGLE_CALENDAR_ID
+    if (!calendarId) {
+      throw new Error('GoogleカレンダーIDが設定されていません。管理画面でカレンダーを選択してください。')
+    }
+    return { calendar, calendarId }
+  }
+
+  return { calendar, calendarId: settings.calendar_id }
 }
 
 /**
@@ -36,7 +70,7 @@ export async function checkGoogleCalendarAvailability(
   endTime: string
 ): Promise<{ available: boolean; reason?: string }> {
   try {
-    const { calendar, calendarId } = getGoogleCalendarClient()
+    const { calendar, calendarId } = await getGoogleCalendarClient()
 
     // 日時をISO形式に変換
     const startDateTime = new Date(`${date}T${startTime}:00+09:00`)
@@ -89,7 +123,7 @@ export async function createGoogleCalendarEvent(
   description?: string
 ): Promise<string> {
   try {
-    const { calendar, calendarId } = getGoogleCalendarClient()
+    const { calendar, calendarId } = await getGoogleCalendarClient()
 
     // 日時をISO形式に変換（日本時間）
     const startDateTime = new Date(`${date}T${startTime}:00+09:00`)
@@ -130,7 +164,7 @@ export async function createGoogleCalendarEvent(
  */
 export async function deleteGoogleCalendarEvent(eventId: string): Promise<void> {
   try {
-    const { calendar, calendarId } = getGoogleCalendarClient()
+    const { calendar, calendarId } = await getGoogleCalendarClient()
 
     await calendar.events.delete({
       calendarId: calendarId,

@@ -14,14 +14,65 @@ interface ConnectionStatus {
   }
 }
 
+interface Calendar {
+  id: string
+  name: string
+  description?: string
+  accessRole?: string
+}
+
+interface Settings {
+  id: string
+  calendar_id: string
+  calendar_name: string
+  is_active: boolean
+}
+
 export function GoogleCalendarSettings() {
   const [status, setStatus] = useState<ConnectionStatus | null>(null)
   const [loading, setLoading] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [calendars, setCalendars] = useState<Calendar[]>([])
+  const [loadingCalendars, setLoadingCalendars] = useState(false)
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string>('')
+  const [currentSettings, setCurrentSettings] = useState<Settings | null>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     checkConnection()
+    loadCurrentSettings()
+    loadCalendars()
   }, [])
+
+  const loadCurrentSettings = async () => {
+    try {
+      const response = await fetch('/api/admin/google-calendar/settings')
+      const data = await response.json()
+      if (data.settings) {
+        setCurrentSettings(data.settings)
+        setSelectedCalendarId(data.settings.calendar_id)
+      }
+    } catch (error: any) {
+      console.error('Failed to load current settings:', error)
+    }
+  }
+
+  const loadCalendars = async () => {
+    setLoadingCalendars(true)
+    try {
+      const response = await fetch('/api/admin/google-calendar/list')
+      const data = await response.json()
+      if (data.calendars) {
+        setCalendars(data.calendars)
+      } else if (data.error) {
+        console.error('Failed to load calendars:', data.error)
+      }
+    } catch (error: any) {
+      console.error('Failed to load calendars:', error)
+    } finally {
+      setLoadingCalendars(false)
+    }
+  }
 
   const checkConnection = async () => {
     setLoading(true)
@@ -58,6 +109,42 @@ export function GoogleCalendarSettings() {
       alert(`接続テストに失敗しました: ${error.message}`)
     } finally {
       setTesting(false)
+    }
+  }
+
+  const saveCalendarSelection = async () => {
+    if (!selectedCalendarId) {
+      alert('カレンダーを選択してください')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const selectedCalendar = calendars.find((cal) => cal.id === selectedCalendarId)
+      const response = await fetch('/api/admin/google-calendar/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          calendarId: selectedCalendarId,
+          calendarName: selectedCalendar?.name || selectedCalendarId,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || '設定の保存に失敗しました')
+      }
+
+      alert('カレンダー設定を保存しました！')
+      await loadCurrentSettings()
+      await checkConnection() // 接続状況を再確認
+    } catch (error: any) {
+      alert(`設定の保存に失敗しました: ${error.message}`)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -140,6 +227,62 @@ export function GoogleCalendarSettings() {
             </div>
           )}
 
+          {/* カレンダー選択 */}
+          {status.connected && (
+            <div className="rounded-md bg-room-wood bg-opacity-10 border border-room-wood p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-room-wood-dark">
+                  使用するカレンダーを選択
+                </h3>
+                <button
+                  onClick={loadCalendars}
+                  disabled={loadingCalendars}
+                  className="text-xs text-room-main hover:text-room-main-light disabled:opacity-50"
+                >
+                  {loadingCalendars ? '読み込み中...' : '再読み込み'}
+                </button>
+              </div>
+
+              {loadingCalendars ? (
+                <p className="text-sm text-room-charcoal-light">カレンダーを読み込み中...</p>
+              ) : calendars.length === 0 ? (
+                <p className="text-sm text-room-charcoal-light">
+                  カレンダーが見つかりません。Service Accountに編集権限が付与されたカレンダーがありません。
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <select
+                    value={selectedCalendarId}
+                    onChange={(e) => setSelectedCalendarId(e.target.value)}
+                    className="block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
+                  >
+                    <option value="">カレンダーを選択してください</option>
+                    {calendars.map((cal) => (
+                      <option key={cal.id} value={cal.id}>
+                        {cal.name} {cal.id === currentSettings?.calendar_id ? '(現在選択中)' : ''}
+                      </option>
+                    ))}
+                  </select>
+
+                  {currentSettings && (
+                    <div className="text-xs text-room-charcoal-light">
+                      <p>現在選択中のカレンダー: <strong>{currentSettings.calendar_name}</strong></p>
+                      <p className="mt-1">カレンダーID: {currentSettings.calendar_id}</p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={saveCalendarSelection}
+                    disabled={!selectedCalendarId || saving || selectedCalendarId === currentSettings?.calendar_id}
+                    className="w-full rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? '保存中...' : 'カレンダーを保存'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 設定方法の説明 */}
           {!status.connected && (
             <div className="rounded-md bg-room-wood bg-opacity-10 border border-room-wood p-4">
@@ -151,7 +294,8 @@ export function GoogleCalendarSettings() {
                 <li>Google Calendar APIを有効化</li>
                 <li>Service Accountを作成し、JSONキーをダウンロード</li>
                 <li>Service Accountのメールアドレスをカレンダーに共有（編集権限を付与）</li>
-                <li>環境変数をVercelに設定</li>
+                <li>環境変数（GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY）をVercelに設定</li>
+                <li>接続テストが成功したら、使用するカレンダーを選択</li>
               </ol>
               <p className="text-xs text-room-charcoal-light mt-2">
                 詳細は <code className="bg-room-base-dark px-1 rounded">ENV_VARIABLES.md</code> を参照してください。
