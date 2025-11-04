@@ -24,12 +24,30 @@ export async function GET(request: NextRequest) {
     }
 
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
     const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || 
-      `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/admin/google-calendar/oauth/callback`
+      `${siteUrl ? `https://${siteUrl}` : 'http://localhost:3000'}/api/admin/google-calendar/oauth/callback`
 
+    // 環境変数の設定状況をチェック
     if (!clientId) {
       return NextResponse.json(
-        { error: 'GOOGLE_OAUTH_CLIENT_ID環境変数が設定されていません' },
+        { 
+          error: 'GOOGLE_OAUTH_CLIENT_ID環境変数が設定されていません',
+          details: 'Vercel Dashboard > Settings > Environment Variables で設定してください。',
+          missingEnvVars: ['GOOGLE_OAUTH_CLIENT_ID']
+        },
+        { status: 500 }
+      )
+    }
+
+    if (!clientSecret) {
+      return NextResponse.json(
+        { 
+          error: 'GOOGLE_OAUTH_CLIENT_SECRET環境変数が設定されていません',
+          details: 'Vercel Dashboard > Settings > Environment Variables で設定してください。',
+          missingEnvVars: ['GOOGLE_OAUTH_CLIENT_SECRET']
+        },
         { status: 500 }
       )
     }

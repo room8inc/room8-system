@@ -90,6 +90,21 @@ export function GoogleCalendarSettings() {
     try {
       const response = await fetch('/api/admin/google-calendar/oauth/auth')
       const data = await response.json()
+      
+      if (!response.ok) {
+        // エラーレスポンスの場合
+        let errorMessage = data.error || '認証URLの取得に失敗しました'
+        if (data.details) {
+          errorMessage += `\n\n${data.details}`
+        }
+        if (data.missingEnvVars && data.missingEnvVars.length > 0) {
+          errorMessage += `\n\n未設定の環境変数:\n${data.missingEnvVars.map((v: string) => `• ${v}`).join('\n')}`
+        }
+        alert(errorMessage)
+        setLoadingOAuth(false)
+        return
+      }
+
       if (data.authUrl) {
         // OAuth認証URLにリダイレクト
         window.location.href = data.authUrl

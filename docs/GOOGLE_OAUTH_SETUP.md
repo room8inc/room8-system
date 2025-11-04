@@ -1,0 +1,129 @@
+# Googleカレンダー連携 - OAuth認証設定ガイド
+
+## OAuth認証設定手順
+
+### 1. Google Cloud Consoleでプロジェクトを作成
+
+1. [Google Cloud Console](https://console.cloud.google.com/)にアクセス
+2. プロジェクトを作成（または既存のプロジェクトを選択）
+
+### 2. Google Calendar APIを有効化
+
+1. Google Cloud Console > **APIとサービス** > **ライブラリ**
+2. 「Google Calendar API」を検索
+3. 「有効にする」をクリック
+
+### 3. OAuth 2.0クライアントIDを作成
+
+1. Google Cloud Console > **APIとサービス** > **認証情報**
+2. **+ 認証情報を作成** > **OAuth クライアント ID**
+3. **アプリケーションの種類**: **ウェブアプリケーション** を選択
+4. **名前**: 任意の名前（例：「Room8 Calendar Integration」）
+
+#### 重要な設定項目
+
+##### 承認済みの JavaScript 生成元
+
+**用途**: ブラウザからのリクエストに使用します（今回はサーバーサイドなので設定不要）
+
+**設定**: 空欄のままでもOK（サーバーサイド認証の場合）
+
+**もし設定する場合**:
+- 開発環境: `http://localhost:3000`
+- 本番環境: `https://your-domain.com`
+
+##### 承認済みのリダイレクト URI
+
+**用途**: OAuth認証後のコールバックURL（必須）
+
+**設定方法**:
+1. **URI を追加** ボタンをクリック
+2. 以下のURIを追加:
+
+   **開発環境（ローカル）**:
+   ```
+   http://localhost:3000/api/admin/google-calendar/oauth/callback
+   ```
+
+   **本番環境（Vercel）**:
+   ```
+   https://your-domain.com/api/admin/google-calendar/oauth/callback
+   ```
+
+   **注意**: `your-domain.com` を実際のドメインに置き換えてください。
+
+   **例**:
+   - Vercelの場合: `https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback`
+   - カスタムドメインの場合: `https://room8.example.com/api/admin/google-calendar/oauth/callback`
+
+3. **作成** をクリック
+
+### 4. クライアントIDとシークレットを取得
+
+1. 作成したOAuth 2.0クライアントIDをクリック
+2. **クライアントID** をコピー → `GOOGLE_OAUTH_CLIENT_ID` に設定
+3. **クライアントシークレット** をコピー → `GOOGLE_OAUTH_CLIENT_SECRET` に設定
+
+**重要**: クライアントシークレットは一度しか表示されません。必ずコピーして保存してください。
+
+### 5. 環境変数を設定
+
+Vercel Dashboard > Settings > Environment Variables で以下を設定:
+
+```
+GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
+```
+
+### 6. 管理画面で接続
+
+1. `/admin/google-calendar` にアクセス
+2. **「Googleアカウントで接続」** ボタンをクリック
+3. Googleアカウントでログイン
+4. アクセス許可を承認
+
+## よくある質問
+
+### Q: 承認済みのJavaScript生成元は設定する必要がありますか？
+
+**A**: サーバーサイド認証の場合、**設定不要**です。空欄のままでもOKです。
+
+### Q: リダイレクトURIは複数設定できますか？
+
+**A**: はい、開発環境と本番環境の両方を設定できます:
+- `http://localhost:3000/api/admin/google-calendar/oauth/callback`（開発環境）
+- `https://your-domain.com/api/admin/google-calendar/oauth/callback`（本番環境）
+
+### Q: リダイレクトURIが一致しないエラーが出ます
+
+**A**: リダイレクトURIが完全に一致している必要があります。
+- 末尾のスラッシュ（`/`）も含めて完全一致
+- `http` と `https` も区別されます
+- パスも完全一致が必要です
+
+### Q: 本番環境のドメインがわかりません
+
+**A**: Vercelの場合:
+1. Vercel Dashboard > Settings > Domains で確認
+2. または、デプロイ後のURLを確認（例: `https://your-project.vercel.app`）
+
+## トラブルシューティング
+
+### エラー: redirect_uri_mismatch
+
+**原因**: リダイレクトURIがGoogle Cloud Consoleで設定したものと一致していない
+
+**解決方法**:
+1. Google Cloud Consoleで設定したリダイレクトURIを確認
+2. 環境変数 `GOOGLE_OAUTH_REDIRECT_URI` が設定されている場合は、それも確認
+3. 完全一致するように修正
+
+### エラー: GOOGLE_OAUTH_CLIENT_ID環境変数が設定されていません
+
+**原因**: 環境変数が設定されていない、またはVercelにデプロイされていない
+
+**解決方法**:
+1. Vercel Dashboard > Settings > Environment Variables で確認
+2. 環境変数が設定されている場合は、再デプロイが必要な場合があります
+3. Vercel Dashboard > Deployments > 最新のデプロイを選択 > Redeploy
+

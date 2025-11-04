@@ -39,9 +39,15 @@
 1. Google Cloud Consoleでプロジェクトを作成
 2. Google Calendar APIを有効化
 3. OAuth 2.0クライアントIDを作成（Webアプリケーション）
-   - 承認済みのリダイレクトURI: `https://your-domain.com/api/admin/google-calendar/oauth/callback`
-4. 環境変数を設定
+   - **承認済みのJavaScript生成元**: 空欄のまま（サーバーサイド認証のため不要）
+   - **承認済みのリダイレクトURI**: 
+     - 開発環境: `http://localhost:3000/api/admin/google-calendar/oauth/callback`
+     - 本番環境: `https://your-domain.com/api/admin/google-calendar/oauth/callback`
+     - （`your-domain.com`を実際のドメインに置き換える）
+4. クライアントIDとシークレットをコピーして環境変数に設定
 5. 管理画面（`/admin/google-calendar`）で「Googleアカウントで接続」ボタンをクリック
+
+**詳細な設定手順は** `docs/GOOGLE_OAUTH_SETUP.md` を参照してください。
 
 #### 方法2: Service Account（従来の方法）
 
