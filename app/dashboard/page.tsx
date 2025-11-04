@@ -5,6 +5,7 @@ import { LogoutButton } from './logout-button'
 import { QRScannerButton } from './qr-scanner-button'
 import { formatJapaneseName } from '@/lib/utils/name'
 import { RealtimeCheckinInfo } from './realtime-checkin-info'
+import { isAdmin } from '@/lib/utils/admin'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -68,6 +69,7 @@ export default async function DashboardPage() {
     .single()
 
   const isCheckedIn = !!currentCheckin
+  const admin = await isAdmin()
 
   return (
     <div className="min-h-screen bg-room-base">
@@ -82,6 +84,14 @@ export default async function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {admin && (
+              <Link
+                href="/admin"
+                className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
+              >
+                管理者画面
+              </Link>
+            )}
             <LogoutButton />
           </div>
         </div>
