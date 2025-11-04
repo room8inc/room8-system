@@ -145,6 +145,8 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
   }, [planId])
 
   const handleContractClick = () => {
+    console.log('handleContractClick called', { planId, contractTerm, paymentMethod, startDate, options, selectedCampaignId })
+    
     // 決済画面へ遷移（URLパラメータで契約情報を渡す）
     const params = new URLSearchParams({
       planId,
@@ -158,7 +160,10 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
       params.append('campaignId', selectedCampaignId)
     }
 
-    router.push(`/plans/checkout?${params.toString()}`)
+    const checkoutUrl = `/plans/checkout?${params.toString()}`
+    console.log('Navigating to:', checkoutUrl)
+    
+    router.push(checkoutUrl)
   }
 
 
@@ -612,6 +617,7 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
         )}
 
         <button
+          type="button"
           onClick={handleContractClick}
           disabled={loading}
           className="w-full rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50"
