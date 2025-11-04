@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { translateAuthError } from '@/lib/utils/auth-error'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,7 +27,7 @@ export default function LoginPage() {
       })
 
       if (authError) {
-        setError(authError.message)
+        setError(translateAuthError(authError))
         setLoading(false)
         return
       }
@@ -38,7 +39,7 @@ export default function LoginPage() {
         router.refresh()
       }
     } catch (err) {
-      setError('ログインに失敗しました')
+      setError(translateAuthError(err))
       setLoading(false)
     }
   }

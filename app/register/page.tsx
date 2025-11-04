@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { translateAuthError } from '@/lib/utils/auth-error'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -68,7 +69,7 @@ export default function RegisterPage() {
 
       if (authError) {
         console.error('Auth error:', authError)
-        setError(authError.message)
+        setError(translateAuthError(authError))
         setLoading(false)
         return
       }
@@ -158,7 +159,7 @@ export default function RegisterPage() {
       router.refresh()
     } catch (err) {
       console.error('Registration error:', err)
-      setError(`アカウント作成に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`)
+      setError(translateAuthError(err))
       setLoading(false)
     }
   }
