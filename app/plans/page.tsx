@@ -7,7 +7,7 @@ import { PlanList } from './plan-list'
 export default async function PlansPage({
   searchParams,
 }: {
-  searchParams: { type?: string }
+  searchParams: Promise<{ type?: string }>
 }) {
   const supabase = await createClient()
 
@@ -18,6 +18,9 @@ export default async function PlansPage({
   if (!user) {
     redirect('/login')
   }
+
+  // searchParamsを解決
+  const resolvedSearchParams = await searchParams
 
   // プラン一覧を取得
   const { data: plans, error: plansError } = await supabase
@@ -47,7 +50,7 @@ export default async function PlansPage({
   }) || []
 
   // プラン種類が指定されている場合は、プラン一覧を表示
-  const planType = searchParams.type as 'shared_office' | 'coworking' | undefined
+  const planType = resolvedSearchParams.type as 'shared_office' | 'coworking' | undefined
 
   if (planType) {
     const selectedPlans = planType === 'shared_office' ? sharedOfficePlans : coworkingPlans
