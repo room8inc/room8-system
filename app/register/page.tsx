@@ -123,7 +123,7 @@ export default function RegisterPage() {
       router.refresh()
     } catch (err) {
       console.error('Registration error:', err)
-      setError(`会員登録に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`)
+      setError(`アカウント作成に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`)
       setLoading(false)
     }
   }
