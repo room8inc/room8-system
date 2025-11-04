@@ -124,12 +124,25 @@ export default async function PlansPage() {
                   </div>
 
                   <div className="space-y-2 text-sm text-room-charcoal-light mb-4">
-                    <p>
-                      <strong>利用時間:</strong> {formatTime(plan.start_time)} - {formatTime(plan.end_time)}
-                    </p>
-                    <p>
-                      <strong>利用可能日:</strong> {formatDays(plan.available_days)}
-                    </p>
+                    {features?.note ? (
+                      <>
+                        <p>
+                          <strong>利用時間:</strong> {features.note}
+                        </p>
+                        <p>
+                          <strong>利用可能日:</strong> {formatDays(plan.available_days)}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          <strong>利用時間:</strong> {formatTime(plan.start_time)} - {formatTime(plan.end_time)}
+                        </p>
+                        <p>
+                          <strong>利用可能日:</strong> {formatDays(plan.available_days)}
+                        </p>
+                      </>
+                    )}
                     {features?.meeting_room && (
                       <p>
                         <strong>会議室:</strong> 月{features.meeting_room.free_hours}時間まで無料
