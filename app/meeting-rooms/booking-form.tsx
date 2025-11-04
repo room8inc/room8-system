@@ -97,8 +97,7 @@ export function BookingForm({
     const endTime = calculateEndTime(formData.startTime, formData.durationHours)
 
     try {
-      // 時間の重複チェック: (start_time < end_time) AND (end_time > start_time)
-      // 既存の予約と時間が重複していないかチェック
+      // 1. データベース内の既存予約をチェック
       const { data: existingBookings, error: checkError } = await supabase
         .from('meeting_room_bookings')
         .select('*')
@@ -126,6 +125,36 @@ export function BookingForm({
         if (hasOverlap) {
           return { available: false, reason: 'この時間帯は既に予約されています' }
         }
+      }
+
+      // 2. Googleカレンダーをチェック
+      try {
+        const calendarCheckResponse = await fetch('/api/calendar/check-availability', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            date: formData.bookingDate,
+            startTime: formData.startTime,
+            endTime: endTime,
+          }),
+        })
+
+        if (!calendarCheckResponse.ok) {
+          console.error('Google Calendar check failed:', await calendarCheckResponse.text())
+          // Googleカレンダーのチェックが失敗した場合は、予約を許可しない（安全側に倒す）
+          return { available: false, reason: 'Googleカレンダーの確認に失敗しました' }
+        }
+
+        const calendarResult = await calendarCheckResponse.json()
+        if (!calendarResult.available) {
+          return { available: false, reason: calendarResult.reason || 'この時間帯は予約できません' }
+        }
+      } catch (calendarErr) {
+        console.error('Google Calendar check error:', calendarErr)
+        // Googleカレンダーのチェックが失敗した場合は、予約を許可しない（安全側に倒す）
+        return { available: false, reason: 'Googleカレンダーの確認中にエラーが発生しました' }
       }
 
       return { available: true }
@@ -233,6 +262,52 @@ export function BookingForm({
         setError(`予約の作成に失敗しました: ${insertError.message}`)
         setLoading(false)
         return
+      }
+
+      // Googleカレンダーにイベントを追加
+      try {
+        const userData = await supabase
+          .from('users')
+          .select('name, email')
+          .eq('id', userId)
+          .single()
+
+        const userName = userData.data?.name || '会員'
+        const eventTitle = `会議室予約 - ${userName}`
+        const eventDescription = `会員: ${userName}\n予約日: ${formData.bookingDate}\n利用時間: ${formatDuration(duration)}\n備考: ${formData.notes || 'なし'}`
+
+        const calendarEventResponse = await fetch('/api/calendar/create-event', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            date: formData.bookingDate,
+            startTime: formData.startTime,
+            endTime: endTime,
+            title: eventTitle,
+            description: eventDescription,
+          }),
+        })
+
+        if (!calendarEventResponse.ok) {
+          console.error('Google Calendar event creation failed:', await calendarEventResponse.text())
+          // Googleカレンダーへの追加が失敗しても、予約自体は成功しているので続行
+          // ただし、警告を表示
+          setError('予約は作成されましたが、Googleカレンダーへの追加に失敗しました。管理者にお問い合わせください。')
+        } else {
+          const calendarResult = await calendarEventResponse.json()
+          // GoogleカレンダーのイベントIDをデータベースに保存（将来的に削除時に使用）
+          if (calendarResult.eventId && booking) {
+            await supabase
+              .from('meeting_room_bookings')
+              .update({ google_calendar_event_id: calendarResult.eventId })
+              .eq('id', booking.id)
+          }
+        }
+      } catch (calendarErr) {
+        console.error('Google Calendar event creation error:', calendarErr)
+        // Googleカレンダーへの追加が失敗しても、予約自体は成功しているので続行
       }
 
       // 成功したらページをリフレッシュ

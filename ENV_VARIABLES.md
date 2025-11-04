@@ -21,9 +21,26 @@
 | `STRIPE_SECRET_KEY_TEST` | Stripe秘密キー（テスト環境） | Stripe Dashboard > Developers > API keys > Secret key (test mode) |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe公開キー（クライアントサイド用） | Stripe Dashboard > Developers > API keys > Publishable key (test mode) |
 
+### Google Calendar関連
+
+| 環境変数名 | 用途 | 取得方法 |
+|-----------|------|---------|
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Google Service Accountのメールアドレス | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Accountのメールアドレス |
+| `GOOGLE_PRIVATE_KEY` | Google Service Accountの秘密鍵（JSON形式の`private_key`フィールド） | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Account > Keys > JSONキーをダウンロードして`private_key`フィールドの値を取得 |
+| `GOOGLE_CALENDAR_ID` | GoogleカレンダーのID（予約管理用） | Google Calendar > 設定 > 共有したいカレンダーの「カレンダーID」を確認（通常は`primary`またはメールアドレス形式） |
+
+**注意**: `GOOGLE_PRIVATE_KEY`は機密情報です。クライアントサイドでは使用しないでください。
+**設定方法**: 
+1. Google Cloud Consoleでプロジェクトを作成
+2. Google Calendar APIを有効化
+3. Service Accountを作成し、JSONキーをダウンロード
+4. ダウンロードしたJSONファイルの`private_key`フィールドの値を`GOOGLE_PRIVATE_KEY`に設定（改行文字`\n`はそのまま保持）
+5. Service Accountのメールアドレスをカレンダーに共有（編集権限を付与）
+6. カレンダーIDを`GOOGLE_CALENDAR_ID`に設定
+
 ## 🔒 セキュリティ注意事項
 
-- **機密情報を含む環境変数**（`SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY_TEST`）は：
+- **機密情報を含む環境変数**（`SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY_TEST`, `GOOGLE_PRIVATE_KEY`）は：
   - サーバーサイド（API Routes）でのみ使用
   - クライアントサイドで使用しない
   - Gitにコミットしない（`.env.local`は`.gitignore`で除外）
@@ -45,3 +62,5 @@
 - 2025-01-XX: 初期設定完了
   - Supabase関連: 3つの環境変数
   - Stripe関連: 2つの環境変数
+- 2025-01-XX: Google Calendar連携追加
+  - Google Calendar関連: 3つの環境変数
