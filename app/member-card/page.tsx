@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { LogoutButton } from '@/app/dashboard/logout-button'
+import { formatJapaneseName } from '@/lib/utils/name'
 
 export default async function MemberCardPage() {
   const supabase = await createClient()
@@ -53,10 +54,10 @@ export default async function MemberCardPage() {
         <div className="mb-8 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-8 shadow-xl">
           <div className="flex flex-col items-center text-center text-white">
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white bg-opacity-20 text-3xl font-bold">
-              {userData?.name?.charAt(0) || user.email?.charAt(0) || '?'}
+              {formatJapaneseName(userData?.name)?.charAt(0) || user.email?.charAt(0) || '?'}
             </div>
             <h2 className="mb-2 text-2xl font-bold">
-              {userData?.name || user.email}
+              {formatJapaneseName(userData?.name) || user.email}
             </h2>
             {currentPlan && (
               <p className="mb-1 text-lg font-medium text-blue-100">

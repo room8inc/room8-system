@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { LogoutButton } from './logout-button'
 import { QRScannerButton } from './qr-scanner-button'
+import { formatJapaneseName } from '@/lib/utils/name'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -75,7 +76,7 @@ export default async function DashboardPage() {
               ダッシュボード
             </h1>
             <p className="mt-2 text-sm text-gray-600">
-              ようこそ、{user.email} さん
+              ようこそ、{formatJapaneseName(userData?.name) || user.email} さん
             </p>
           </div>
           <div className="flex items-center gap-3">
