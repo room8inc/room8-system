@@ -19,6 +19,18 @@ export default async function PlansPage({
     redirect('/login')
   }
 
+  // ユーザー情報を取得（スタッフチェックのため）
+  const { data: userData } = await supabase
+    .from('users')
+    .select('is_staff')
+    .eq('id', user.id)
+    .single()
+
+  // スタッフユーザーはプラン変更不可
+  if (userData?.is_staff === true) {
+    redirect('/dashboard')
+  }
+
   // searchParamsを解決
   const resolvedSearchParams = await searchParams
 

@@ -147,7 +147,7 @@ export default function CheckInPage() {
       // ユーザー情報を取得
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('member_type')
+        .select('member_type, is_staff')
         .eq('id', user.id)
         .single()
 
@@ -157,6 +157,23 @@ export default function CheckInPage() {
       }
 
       console.log('User data:', userData)
+
+      // スタッフの場合、staff_member_idを取得
+      let staffMemberId = null
+      if (userData.is_staff === true) {
+        const { data: staffMember, error: staffError } = await supabase
+          .from('staff_members')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single()
+
+        if (staffError && staffError.code !== 'PGRST116') {
+          console.warn('Staff member fetch warning:', staffError)
+        } else if (staffMember) {
+          staffMemberId = staffMember.id
+          console.log('Staff member found:', staffMemberId)
+        }
+      }
 
       // 定期会員の場合、現在のプランIDを取得
       let planIdAtCheckin = null
@@ -178,6 +195,30 @@ export default function CheckInPage() {
         }
       }
 
+      // スタッフの場合は、法人ユーザーのプランIDを取得（スタッフは法人のプランを使用）
+      if (userData.is_staff === true && staffMemberId) {
+        const { data: staffMemberData, error: companyPlanError } = await supabase
+          .from('staff_members')
+          .select('company_user_id')
+          .eq('id', staffMemberId)
+          .single()
+
+        if (!companyPlanError && staffMemberData) {
+          const { data: companyPlan, error: planError } = await supabase
+            .from('user_plans')
+            .select('plan_id')
+            .eq('user_id', staffMemberData.company_user_id)
+            .eq('status', 'active')
+            .is('ended_at', null)
+            .single()
+
+          if (!planError && companyPlan) {
+            planIdAtCheckin = companyPlan.plan_id
+            console.log('Company plan found for staff:', planIdAtCheckin)
+          }
+        }
+      }
+
       // チェックイン記録を挿入
       const checkinData = {
         user_id: user.id,
@@ -185,6 +226,7 @@ export default function CheckInPage() {
         venue_id: venueId,
         member_type_at_checkin: userData.member_type || 'regular',
         ...(planIdAtCheckin && { plan_id_at_checkin: planIdAtCheckin }),
+        ...(staffMemberId && { staff_member_id: staffMemberId }),
       }
 
       console.log('Inserting checkin data:', checkinData)
