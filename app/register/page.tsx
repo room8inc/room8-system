@@ -18,10 +18,40 @@ export default function RegisterPage() {
     companyName: '',
     isIndividual: true,
   })
+  const [staffMembers, setStaffMembers] = useState<Array<{
+    lastName: string
+    firstName: string
+    nameKana: string
+    email: string
+    phone: string
+  }>>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const supabase = createClient()
+
+  // スタッフを追加
+  const addStaffMember = () => {
+    setStaffMembers([...staffMembers, {
+      lastName: '',
+      firstName: '',
+      nameKana: '',
+      email: '',
+      phone: '',
+    }])
+  }
+
+  // スタッフを削除
+  const removeStaffMember = (index: number) => {
+    setStaffMembers(staffMembers.filter((_, i) => i !== index))
+  }
+
+  // スタッフ情報を更新
+  const updateStaffMember = (index: number, field: string, value: string) => {
+    const updated = [...staffMembers]
+    updated[index] = { ...updated[index], [field]: value }
+    setStaffMembers(updated)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,8 +74,10 @@ export default function RegisterPage() {
     try {
       console.log('Starting registration...')
       
-      // 姓名を「姓 名」の順で結合
-      const fullName = `${formData.lastName} ${formData.firstName}`.trim()
+      // 姓名を「姓 名」の順で結合（個人の場合のみ）
+      const fullName = formData.isIndividual 
+        ? `${formData.lastName} ${formData.firstName}`.trim()
+        : formData.companyName // 法人の場合は会社名を使用
 
       // Supabase Authでユーザー作成（user_metadataに追加情報を含める）
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -54,7 +86,7 @@ export default function RegisterPage() {
           options: {
             data: {
               name: fullName,
-              name_kana: formData.nameKana,
+              name_kana: formData.isIndividual ? formData.nameKana : null,
               phone: formData.phone,
               address: formData.address,
               is_individual: formData.isIndividual,
@@ -90,8 +122,8 @@ export default function RegisterPage() {
       if (session) {
         console.log('Updating user data...')
         const updatePayload: any = {
-          name: fullName, // 「姓 名」の順で保存
-          name_kana: formData.nameKana,
+          name: fullName, // 個人の場合は「姓 名」、法人の場合は会社名
+          name_kana: formData.isIndividual ? formData.nameKana : null,
           phone: formData.phone,
           address: formData.address,
           member_type: 'dropin', // デフォルトは'dropin'（非会員）、プラン契約時に'regular'に更新
@@ -120,6 +152,38 @@ export default function RegisterPage() {
             code: updateError.code,
           })
           // エラーがあっても、ユーザーは作成されているので続行
+        }
+
+        // 法人の場合、スタッフ情報を保存
+        if (!formData.isIndividual && staffMembers.length > 0) {
+          try {
+            const staffData = staffMembers
+              .filter(staff => staff.lastName && staff.firstName) // 名前が入力されているスタッフのみ
+              .map(staff => ({
+                company_user_id: authData.user.id,
+                name: `${staff.lastName} ${staff.firstName}`.trim(),
+                name_kana: staff.nameKana || null,
+                email: staff.email || null,
+                phone: staff.phone || null,
+                status: 'active',
+              }))
+
+            if (staffData.length > 0) {
+              const { error: staffError } = await supabase
+                .from('staff_members')
+                .insert(staffData)
+
+              if (staffError) {
+                console.error('Staff members insert error:', staffError)
+                // スタッフ情報の保存に失敗しても登録は成功とする
+              } else {
+                console.log(`Created ${staffData.length} staff members`)
+              }
+            }
+          } catch (staffErr) {
+            console.error('Staff members creation error:', staffErr)
+            // スタッフ情報の保存に失敗しても登録は成功とする
+          }
         }
 
         // Stripe顧客を作成
@@ -265,52 +329,56 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* 氏名（姓） */}
-            <div>
-              <label htmlFor="lastName" className="block text-sm font-medium text-room-charcoal">
-                氏名（姓）
-              </label>
-              <input
-                id="lastName"
-                name="lastName"
-                type="text"
-                required
-                value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
-              />
-            </div>
+            {/* 氏名（姓） - 個人の場合のみ表示 */}
+            {formData.isIndividual && (
+              <>
+                <div>
+                  <label htmlFor="lastName" className="block text-sm font-medium text-room-charcoal">
+                    氏名（姓）
+                  </label>
+                  <input
+                    id="lastName"
+                    name="lastName"
+                    type="text"
+                    required={formData.isIndividual}
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
+                  />
+                </div>
 
-            {/* 氏名（名） */}
-            <div>
-              <label htmlFor="firstName" className="block text-sm font-medium text-room-charcoal">
-                氏名（名）
-              </label>
-              <input
-                id="firstName"
-                name="firstName"
-                type="text"
-                required
-                value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
-              />
-            </div>
+                {/* 氏名（名） */}
+                <div>
+                  <label htmlFor="firstName" className="block text-sm font-medium text-room-charcoal">
+                    氏名（名）
+                  </label>
+                  <input
+                    id="firstName"
+                    name="firstName"
+                    type="text"
+                    required={formData.isIndividual}
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
+                  />
+                </div>
 
-            {/* フリガナ */}
-            <div>
-              <label htmlFor="nameKana" className="block text-sm font-medium text-room-charcoal">
-                フリガナ
-              </label>
-              <input
-                id="nameKana"
-                name="nameKana"
-                type="text"
-                value={formData.nameKana}
-                onChange={(e) => setFormData({ ...formData, nameKana: e.target.value })}
-                className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
-              />
-            </div>
+                {/* フリガナ */}
+                <div>
+                  <label htmlFor="nameKana" className="block text-sm font-medium text-room-charcoal">
+                    フリガナ
+                  </label>
+                  <input
+                    id="nameKana"
+                    name="nameKana"
+                    type="text"
+                    value={formData.nameKana}
+                    onChange={(e) => setFormData({ ...formData, nameKana: e.target.value })}
+                    className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
+                  />
+                </div>
+              </>
+            )}
 
             {/* 会社名（法人の場合のみ表示） */}
             {!formData.isIndividual && (
@@ -327,6 +395,108 @@ export default function RegisterPage() {
                   onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                   className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
                 />
+              </div>
+            )}
+
+            {/* スタッフ一覧（法人の場合のみ表示） */}
+            {!formData.isIndividual && (
+              <div className="rounded-lg bg-room-base-light p-4 border border-room-base-dark">
+                <div className="flex items-center justify-between mb-4">
+                  <label className="block text-sm font-medium text-room-charcoal">
+                    スタッフ
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addStaffMember}
+                    className="text-sm text-room-main hover:text-room-main-light"
+                  >
+                    + スタッフを追加
+                  </button>
+                </div>
+
+                {staffMembers.length === 0 ? (
+                  <p className="text-xs text-room-charcoal-light">
+                    スタッフを追加してください
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {staffMembers.map((staff, index) => (
+                      <div key={index} className="border border-room-base-dark rounded-md p-4 space-y-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-room-charcoal">スタッフ {index + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeStaffMember(index)}
+                            className="text-xs text-room-main hover:text-room-main-light"
+                          >
+                            削除
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-room-charcoal-light mb-1">
+                              姓
+                            </label>
+                            <input
+                              type="text"
+                              value={staff.lastName}
+                              onChange={(e) => updateStaffMember(index, 'lastName', e.target.value)}
+                              className="block w-full rounded-md border border-room-base-dark bg-room-base px-2 py-1 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-room-charcoal-light mb-1">
+                              名
+                            </label>
+                            <input
+                              type="text"
+                              value={staff.firstName}
+                              onChange={(e) => updateStaffMember(index, 'firstName', e.target.value)}
+                              className="block w-full rounded-md border border-room-base-dark bg-room-base px-2 py-1 text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-room-charcoal-light mb-1">
+                            フリガナ
+                          </label>
+                          <input
+                            type="text"
+                            value={staff.nameKana}
+                            onChange={(e) => updateStaffMember(index, 'nameKana', e.target.value)}
+                            className="block w-full rounded-md border border-room-base-dark bg-room-base px-2 py-1 text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-room-charcoal-light mb-1">
+                            メールアドレス
+                          </label>
+                          <input
+                            type="email"
+                            value={staff.email}
+                            onChange={(e) => updateStaffMember(index, 'email', e.target.value)}
+                            className="block w-full rounded-md border border-room-base-dark bg-room-base px-2 py-1 text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-room-charcoal-light mb-1">
+                            電話番号
+                          </label>
+                          <input
+                            type="tel"
+                            value={staff.phone}
+                            onChange={(e) => updateStaffMember(index, 'phone', e.target.value)}
+                            className="block w-full rounded-md border border-room-base-dark bg-room-base px-2 py-1 text-sm"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
