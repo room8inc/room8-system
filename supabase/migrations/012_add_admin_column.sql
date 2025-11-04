@@ -7,6 +7,10 @@ ALTER TABLE users
 -- Index for admin users
 CREATE INDEX IF NOT EXISTS idx_users_is_admin ON users(is_admin) WHERE is_admin = true;
 
--- 注意: 既存のユーザーを管理者にする場合は、手動でUPDATEしてください
--- UPDATE users SET is_admin = true WHERE email = 'admin@example.com';
+-- 管理者ユーザーを設定
+-- 指定されたメールアドレス（k_tsuruta@room8.co.jp）を管理者に設定
+UPDATE users SET is_admin = true WHERE email = 'k_tsuruta@room8.co.jp';
+
+-- 注意: ユーザーがまだ存在しない場合は、後にユーザー登録後に実行してください
+-- UPDATE users SET is_admin = true WHERE email = 'k_tsuruta@room8.co.jp';
 
