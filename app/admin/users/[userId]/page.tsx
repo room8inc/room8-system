@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { isAdmin } from '@/lib/utils/admin'
 import { formatJapaneseName } from '@/lib/utils/name'
 import { UserPlanManagement } from './user-plan-management'
+import { DeleteUserButton } from './delete-user-button'
 
 export default async function UserDetailPage({
   params,
@@ -125,6 +126,19 @@ export default async function UserDetailPage({
           planHistory={planHistory || []}
           plans={plans || []}
         />
+
+        {/* ユーザー削除 */}
+        <div className="mt-8 rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
+          <h2 className="text-lg font-semibold text-room-charcoal mb-4">
+            ユーザー削除
+          </h2>
+          <p className="text-sm text-room-charcoal-light mb-4">
+            このユーザーを完全に削除します。この操作は取り消せません。
+            <br />
+            ユーザーのプラン契約、チェックイン履歴、会議室予約などの関連データもすべて削除されます。
+          </p>
+          <DeleteUserButton userId={userId} userName={formatJapaneseName(userData.name)} />
+        </div>
       </div>
     </div>
   )
