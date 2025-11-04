@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+
+// 動的レンダリングを強制（Edge Runtimeエラーを回避）
+export const dynamic = 'force-dynamic'
 
 // Stripe公開キーを読み込み（環境変数から）
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
@@ -196,6 +199,18 @@ function CheckoutForm({
 }
 
 export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-room-base flex items-center justify-center">
+        <p className="text-room-charcoal">読み込み中...</p>
+      </div>
+    }>
+      <CheckoutPageContent />
+    </Suspense>
+  )
+}
+
+function CheckoutPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
