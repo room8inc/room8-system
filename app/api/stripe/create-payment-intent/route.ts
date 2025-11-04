@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Stripe Customerを作成または取得
     const { data: userData } = await supabase
       .from('users')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, name, company_name, is_individual')
       .eq('id', user.id)
       .single()
 
@@ -75,14 +75,22 @@ export async function POST(request: NextRequest) {
     // 顧客IDが存在しない場合は新規作成
     if (!customerId) {
       console.log(`Creating new customer for user ${user.id}`)
+      
+      // 顧客名を決定（個人の場合はname、法人の場合はcompany_name）
+      const customerName = userData?.is_individual === false && userData?.company_name
+        ? userData.company_name
+        : userData?.name || user.email || undefined
+
       const customer = await stripe.customers.create({
         email: user.email || undefined,
+        name: customerName,
         metadata: {
           user_id: user.id,
+          is_individual: userData?.is_individual ? 'true' : 'false',
         },
       })
       customerId = customer.id
-      console.log(`Created new customer: ${customerId}`)
+      console.log(`Created new customer: ${customerId} (name: ${customerName})`)
 
       // データベースに保存
       await supabase

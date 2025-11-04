@@ -55,6 +55,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '顧客情報が見つかりません' }, { status: 400 })
     }
 
+    // ユーザー情報を取得（顧客名のため）
+    const { data: userDataForName } = await supabase
+      .from('users')
+      .select('name, company_name, is_individual')
+      .eq('id', user.id)
+      .single()
+
     // 顧客IDがStripeに存在するか確認し、存在しない場合は再作成
     let customerId = customerIdFromIntent
     try {
@@ -65,14 +72,21 @@ export async function POST(request: NextRequest) {
       console.error(`Customer ${customerIdFromIntent} not found in Stripe:`, error.message, error.code)
       console.log(`Creating new customer for user ${user.id}`)
       
+      // 顧客名を決定（個人の場合はname、法人の場合はcompany_name）
+      const customerName = userDataForName?.is_individual === false && userDataForName?.company_name
+        ? userDataForName.company_name
+        : userDataForName?.name || user.email || undefined
+      
       const newCustomer = await stripe.customers.create({
         email: user.email || undefined,
+        name: customerName,
         metadata: {
           user_id: user.id,
+          is_individual: userDataForName?.is_individual ? 'true' : 'false',
         },
       })
       customerId = newCustomer.id
-      console.log(`Created new customer: ${customerId}`)
+      console.log(`Created new customer: ${customerId} (name: ${customerName})`)
       
       // データベースに保存
       await supabase
