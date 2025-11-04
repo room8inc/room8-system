@@ -147,6 +147,15 @@ npm install
 - `.env.local`は作成する必要がありません
 - 環境変数はVercelダッシュボードで管理します
 
+**設定されている環境変数一覧**（Vercel Dashboardで確認）:
+- `NEXT_PUBLIC_SUPABASE_URL` - SupabaseプロジェクトURL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase公開キー（クライアントサイド用）
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabaseサービスロールキー（サーバーサイド用、管理者操作に必要）
+- `STRIPE_SECRET_KEY_TEST` - Stripe秘密キー（テスト環境）
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Stripe公開キー（クライアントサイド用）
+
+詳細は `ENV_VARIABLES.md` を参照してください。
+
 #### 4. コード編集後の流れ
 
 ```bash
