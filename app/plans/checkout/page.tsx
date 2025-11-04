@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
@@ -85,8 +85,11 @@ function CheckoutForm({
       }
 
       // カード情報を確認
-      const cardElement = elements.getElement(CardElement)
-      if (!cardElement) {
+      const cardNumberElement = elements.getElement(CardNumberElement)
+      const cardExpiryElement = elements.getElement(CardExpiryElement)
+      const cardCvcElement = elements.getElement(CardCvcElement)
+      
+      if (!cardNumberElement || !cardExpiryElement || !cardCvcElement) {
         setError('カード情報が見つかりません')
         setLoading(false)
         return
@@ -95,7 +98,7 @@ function CheckoutForm({
       // 決済を実行
       const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
-          card: cardElement,
+          card: cardNumberElement,
         },
       })
 
@@ -148,27 +151,87 @@ function CheckoutForm({
           お支払い情報
         </h2>
 
-        <div className="mb-4">
+        <div className="space-y-4">
           <label className="block text-sm font-medium text-room-charcoal mb-2">
             カード情報
           </label>
-          <div className="rounded-md border border-room-base-dark bg-room-base p-4">
-            <CardElement
-              options={{
-                style: {
-                  base: {
-                    fontSize: '16px',
-                    color: '#424770',
-                    '::placeholder': {
-                      color: '#aab7c4',
+          
+          {/* カード番号 */}
+          <div>
+            <label className="block text-xs font-medium text-room-charcoal-light mb-1">
+              カード番号
+            </label>
+            <div className="rounded-md border border-room-base-dark bg-room-base p-3">
+              <CardNumberElement
+                options={{
+                  style: {
+                    base: {
+                      fontSize: '16px',
+                      color: '#1a1a1a',
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      '::placeholder': {
+                        color: '#999',
+                      },
+                    },
+                    invalid: {
+                      color: '#9e2146',
                     },
                   },
-                  invalid: {
-                    color: '#9e2146',
-                  },
-                },
-              }}
-            />
+                }}
+              />
+            </div>
+          </div>
+
+          {/* 有効期限とCVC */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-room-charcoal-light mb-1">
+                有効期限
+              </label>
+              <div className="rounded-md border border-room-base-dark bg-room-base p-3">
+                <CardExpiryElement
+                  options={{
+                    style: {
+                      base: {
+                        fontSize: '16px',
+                        color: '#1a1a1a',
+                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        '::placeholder': {
+                          color: '#999',
+                        },
+                      },
+                      invalid: {
+                        color: '#9e2146',
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-room-charcoal-light mb-1">
+                CVC
+              </label>
+              <div className="rounded-md border border-room-base-dark bg-room-base p-3">
+                <CardCvcElement
+                  options={{
+                    style: {
+                      base: {
+                        fontSize: '16px',
+                        color: '#1a1a1a',
+                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        '::placeholder': {
+                          color: '#999',
+                        },
+                      },
+                      invalid: {
+                        color: '#9e2146',
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
