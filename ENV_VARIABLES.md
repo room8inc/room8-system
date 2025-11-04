@@ -25,8 +25,8 @@
 
 | 環境変数名 | 用途 | 取得方法 |
 |-----------|------|---------|
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Google Service Accountのメールアドレス | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Accountのメールアドレス |
-| `GOOGLE_PRIVATE_KEY` | Google Service Accountの秘密鍵（JSON形式の`private_key`フィールド） | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Account > Keys > JSONキーをダウンロードして`private_key`フィールドの値を取得 |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Google Service Accountのメールアドレス | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Accountのメールアドレス<br>**またはJSONファイルの`client_email`フィールド** |
+| `GOOGLE_PRIVATE_KEY` | Google Service Accountの秘密鍵（JSON形式の`private_key`フィールド） | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Account > Keys > JSONキーをダウンロードして`private_key`フィールドの値を取得<br>**JSONファイルの`private_key`フィールドをそのまま使用（改行文字`\n`を含む）** |
 | `GOOGLE_CALENDAR_ID` | GoogleカレンダーのID（予約管理用） | Google Calendar > 設定 > 共有したいカレンダーの「カレンダーID」を確認（通常は`primary`またはメールアドレス形式） |
 
 **注意**: `GOOGLE_PRIVATE_KEY`は機密情報です。クライアントサイドでは使用しないでください。
@@ -34,9 +34,12 @@
 1. Google Cloud Consoleでプロジェクトを作成
 2. Google Calendar APIを有効化
 3. Service Accountを作成し、JSONキーをダウンロード
-4. ダウンロードしたJSONファイルの`private_key`フィールドの値を`GOOGLE_PRIVATE_KEY`に設定（改行文字`\n`はそのまま保持）
-5. Service Accountのメールアドレスをカレンダーに共有（編集権限を付与）
-6. カレンダーIDを`GOOGLE_CALENDAR_ID`に設定
+4. JSONファイルの`client_email`フィールドの値を`GOOGLE_SERVICE_ACCOUNT_EMAIL`に設定
+5. JSONファイルの`private_key`フィールドの値を`GOOGLE_PRIVATE_KEY`に設定（改行文字`\n`はそのまま保持、ダブルクォートで囲む）
+6. Service Accountのメールアドレスをカレンダーに共有（編集権限を付与）
+7. カレンダーIDを`GOOGLE_CALENDAR_ID`に設定
+
+**詳細は** `docs/GOOGLE_CALENDAR_SETUP.md` を参照してください。
 
 ## 🔒 セキュリティ注意事項
 
