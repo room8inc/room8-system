@@ -21,7 +21,7 @@ export default async function AdminPage() {
     .from('users')
     .select('is_admin, email, id')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   console.log('Admin page: Current user data:', {
     userId: user.id,

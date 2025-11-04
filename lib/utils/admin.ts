@@ -26,11 +26,12 @@ export async function isAdmin(): Promise<boolean> {
   // RLSポリシーで自分の情報を読み取れるか確認
   // 注意: 自分の情報を読み取るには、005_add_users_policies.sql のポリシーが必要
   // 管理者ポリシー（013_add_admin_policies.sql）は、管理者が全ユーザー情報を読み取るためのもの
+  // .maybeSingle()を使用して、結果が0件でもエラーにならないようにする
   const { data: userData, error } = await supabase
     .from('users')
     .select('is_admin, email, id')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   if (error) {
     console.error('isAdmin: Error fetching user data:', error)
