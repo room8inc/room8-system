@@ -18,18 +18,50 @@ export default async function MeetingRoomsPage() {
   // ユーザー情報を取得
   const { data: userData } = await supabase
     .from('users')
-    .select('member_type')
+    .select('member_type, is_staff')
     .eq('id', user.id)
     .single()
 
-  // 現在のプラン情報を取得
-  const { data: currentPlan } = await supabase
-    .from('user_plans')
-    .select('*, plans(*)')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .is('ended_at', null)
-    .single()
+  // スタッフユーザーの場合、法人ユーザーのプラン情報を取得
+  let currentPlan = null
+  let billingUserId = user.id // 決済を行うユーザーID（デフォルトは自分）
+  let staffMemberId = null
+
+  if (userData?.is_staff === true) {
+    // スタッフの場合、staff_membersテーブルから法人ユーザーIDを取得
+    const { data: staffMember } = await supabase
+      .from('staff_members')
+      .select('id, company_user_id')
+      .eq('auth_user_id', user.id)
+      .single()
+
+    if (staffMember) {
+      staffMemberId = staffMember.id
+      billingUserId = staffMember.company_user_id // 決済は法人ユーザー
+      
+      // 法人ユーザーのプラン情報を取得
+      const { data: companyPlan } = await supabase
+        .from('user_plans')
+        .select('*, plans(*)')
+        .eq('user_id', billingUserId)
+        .eq('status', 'active')
+        .is('ended_at', null)
+        .single()
+      
+      currentPlan = companyPlan
+    }
+  } else {
+    // 通常ユーザーの場合、自分のプラン情報を取得
+    const { data: plan } = await supabase
+      .from('user_plans')
+      .select('*, plans(*)')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .is('ended_at', null)
+      .single()
+    
+    currentPlan = plan
+  }
 
   // 会議室情報を取得
   const { data: meetingRoom } = await supabase
@@ -155,6 +187,8 @@ export default async function MeetingRoomsPage() {
             hourlyRate={rateInfo.rate}
             freeHours={rateInfo.freeHours}
             meetingRoomId={meetingRoom.id}
+            billingUserId={billingUserId}
+            staffMemberId={staffMemberId}
           />
         </div>
 

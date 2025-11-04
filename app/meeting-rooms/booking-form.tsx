@@ -14,6 +14,8 @@ interface BookingFormProps {
   hourlyRate: number
   freeHours?: number
   meetingRoomId: string
+  billingUserId?: string // 決済を行うユーザーID（スタッフの場合は法人ユーザーID）
+  staffMemberId?: string | null // スタッフのID（スタッフが予約した場合）
 }
 
 export function BookingForm({
@@ -23,6 +25,8 @@ export function BookingForm({
   hourlyRate,
   freeHours,
   meetingRoomId,
+  billingUserId,
+  staffMemberId,
 }: BookingFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -137,6 +141,8 @@ export function BookingForm({
       const isSharedOffice = planInfo?.features?.type === 'shared_office'
 
       // 今月の無料枠使用状況を取得（シェアオフィスプランの場合）
+      // スタッフの場合は法人ユーザーの使用状況を確認
+      const checkUserId = billingUserId || userId
       let freeHoursUsed = 0
       if (isSharedOffice && freeHours) {
         const now = new Date()
@@ -146,7 +152,7 @@ export function BookingForm({
         const { data: monthlyBookings } = await supabase
           .from('meeting_room_bookings')
           .select('free_hours_used, duration_hours')
-          .eq('user_id', userId)
+          .eq('billing_user_id', checkUserId) // 決済ユーザーIDで確認
           .eq('is_shared_office_plan', true)
           .gte('booking_date', firstDayOfMonth.toISOString().split('T')[0])
           .lte('booking_date', lastDayOfMonth.toISOString().split('T')[0])
@@ -177,7 +183,9 @@ export function BookingForm({
         .from('meeting_room_bookings')
         .insert({
           meeting_room_id: meetingRoomId,
-          user_id: userId,
+          user_id: userId, // 予約したユーザー（スタッフの場合はスタッフのID）
+          billing_user_id: billingUserId || userId, // 決済を行うユーザー（スタッフの場合は法人ユーザーID）
+          staff_member_id: staffMemberId || null, // スタッフのID（スタッフが予約した場合）
           booking_date: formData.bookingDate,
           start_time: formData.startTime,
           end_time: formData.endTime,
