@@ -258,7 +258,7 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
         <div className="relative w-full max-w-md rounded-lg bg-room-base-light p-6 shadow-xl border-2 border-room-wood">
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+          className="absolute right-4 top-4 text-room-charcoal-light hover:text-room-charcoal"
         >
           ✕
         </button>
