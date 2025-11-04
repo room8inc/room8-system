@@ -239,8 +239,8 @@ export async function POST(request: NextRequest) {
             },
           ],
           billing_cycle_anchor: subscriptionStartDate,
+          trial_end: subscriptionStartDate, // トライアル終了日を設定して初回支払いをスキップ
           proration_behavior: 'none', // 初回支払い時の比例計算を無効化
-          backdate_start_date: subscriptionStartDate, // 開始日をバックデートして初回支払いをスキップ
           metadata: {
             user_id: user.id,
             user_plan_id: userPlan.id,
