@@ -163,7 +163,8 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
     const checkoutUrl = `/plans/checkout?${params.toString()}`
     console.log('Navigating to:', checkoutUrl)
     
-    router.push(checkoutUrl)
+    // window.location.hrefを使用して確実に遷移
+    window.location.href = checkoutUrl
   }
 
 
