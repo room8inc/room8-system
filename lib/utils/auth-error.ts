@@ -21,7 +21,7 @@ export function translateAuthError(error: any): string {
     code === 'signup_disabled' ||
     code === 'user_already_exists'
   ) {
-    return 'このメールアドレスは既に登録されています'
+    return 'このメールアドレスは既に登録されています。ログインページからログインしてください。'
   }
 
   // メールアドレス関連のエラー
@@ -104,4 +104,3 @@ export function translateAuthError(error: any): string {
   // 本番環境では、より分かりやすいメッセージに変換
   return `アカウント作成に失敗しました: ${errorMessage}`
 }
-

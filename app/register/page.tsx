@@ -185,6 +185,16 @@ export default function RegisterPage() {
           {error && (
             <div className="rounded-md bg-room-main bg-opacity-10 border border-room-main p-4">
               <p className="text-sm text-room-main-dark">{error}</p>
+              {error.includes('既に登録されています') && (
+                <div className="mt-2">
+                  <a
+                    href="/login"
+                    className="text-sm text-room-main hover:text-room-main-light underline"
+                  >
+                    ログインページへ →
+                  </a>
+                </div>
+              )}
             </div>
           )}
 
