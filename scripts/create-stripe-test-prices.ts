@@ -4,7 +4,7 @@ import * as fs from 'fs'
 // テスト環境のStripe APIキーを使用してください
 // 環境変数: STRIPE_SECRET_KEY_TEST=sk_test_xxxxx
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY_TEST || '', {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2025-10-29.clover',
 })
 
 // プランとPriceIDのマッピング（本番環境の情報）
