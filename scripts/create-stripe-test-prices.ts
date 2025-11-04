@@ -76,13 +76,13 @@ async function createTestPrices() {
     try {
       // まずProductを作成または取得（プランcodeを使用）
       const productName = `${plan.category}_${plan.planCode}`
-      let product = await stripe.products.search({
+      let productSearch = await stripe.products.search({
         query: `name:'${productName}' AND metadata['plan_code']:'${plan.planCode}'`,
       })
 
       let productId: string
-      if (product.data.length === 0) {
-        product = await stripe.products.create({
+      if (productSearch.data.length === 0) {
+        const newProduct = await stripe.products.create({
           name: productName,
           metadata: {
             plan_code: plan.planCode,
@@ -90,9 +90,9 @@ async function createTestPrices() {
             category: plan.category,
           },
         })
-        productId = product.id
+        productId = newProduct.id
       } else {
-        productId = product.data[0].id
+        productId = productSearch.data[0].id
       }
 
       // 既存のPriceIDをチェック（同じプランcode、契約形態、価格のもの）
@@ -146,21 +146,21 @@ async function createTestPrices() {
   
   for (const option of optionPriceMapping) {
     try {
-      let product = await stripe.products.search({
+      let productSearch = await stripe.products.search({
         query: `name:'${option.optionName}'`,
       })
 
       let productId: string
-      if (product.data.length === 0) {
-        product = await stripe.products.create({
+      if (productSearch.data.length === 0) {
+        const newProduct = await stripe.products.create({
           name: option.optionName,
           metadata: {
             type: 'option',
           },
         })
-        productId = product.id
+        productId = newProduct.id
       } else {
-        productId = product.data[0].id
+        productId = productSearch.data[0].id
       }
 
       const price = await stripe.prices.create({
