@@ -44,32 +44,6 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
     small: { available: number; total: number }
   } | null>(null)
   
-  // ロッカーの空き状況を取得
-  const fetchLockerInventory = async () => {
-    const { data: lockers } = await supabase
-      .from('lockers')
-      .select('size, status')
-    
-    if (lockers) {
-      const large = lockers.filter(l => l.size === 'large')
-      const small = lockers.filter(l => l.size === 'small')
-      const largeAvailable = large.filter(l => l.status === 'available').length
-      const smallAvailable = small.filter(l => l.status === 'available').length
-      
-      setLockerInventory({
-        large: { available: largeAvailable, total: large.length },
-        small: { available: smallAvailable, total: small.length },
-      })
-    }
-  }
-  
-  // コンポーネントマウント時に空き状況を取得
-  useEffect(() => {
-    if (availableOptions.locker) {
-      fetchLockerInventory()
-    }
-  }, [availableOptions.locker])
-  
   // プランの種類を判定
   const planType = planFeatures?.type // 'shared_office' or 'coworking'
   
@@ -107,6 +81,32 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
   if (planFeatures?.company_registration?.standard) {
     availableOptions.company_registration = false
   }
+
+  // ロッカーの空き状況を取得
+  const fetchLockerInventory = async () => {
+    const { data: lockers } = await supabase
+      .from('lockers')
+      .select('size, status')
+    
+    if (lockers) {
+      const large = lockers.filter(l => l.size === 'large')
+      const small = lockers.filter(l => l.size === 'small')
+      const largeAvailable = large.filter(l => l.status === 'available').length
+      const smallAvailable = small.filter(l => l.status === 'available').length
+      
+      setLockerInventory({
+        large: { available: largeAvailable, total: large.length },
+        small: { available: smallAvailable, total: small.length },
+      })
+    }
+  }
+  
+  // コンポーネントマウント時に空き状況を取得
+  useEffect(() => {
+    if (availableOptions.locker) {
+      fetchLockerInventory()
+    }
+  }, [availableOptions.locker])
 
   const handleContractClick = () => {
     setShowConfirm(true)
