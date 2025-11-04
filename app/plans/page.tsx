@@ -15,11 +15,15 @@ export default async function PlansPage() {
   }
 
   // プラン一覧を取得
-  const { data: plans } = await supabase
+  const { data: plans, error: plansError } = await supabase
     .from('plans')
     .select('*')
     .eq('is_active', true)
     .order('display_order', { ascending: true })
+
+  if (plansError) {
+    console.error('Plans fetch error:', plansError)
+  }
 
   // 現在のプラン契約を取得
   const { data: currentPlan } = await supabase
@@ -40,6 +44,11 @@ export default async function PlansPage() {
     const features = plan.features as any
     return features?.type === 'coworking'
   }) || []
+
+  // デバッグ用：プランが取得できているか確認
+  console.log('Plans fetched:', plans?.length || 0)
+  console.log('Shared office plans:', sharedOfficePlans.length)
+  console.log('Coworking plans:', coworkingPlans.length)
 
   const formatTime = (time: string) => {
     return time.substring(0, 5) // "HH:MM"
@@ -92,16 +101,41 @@ export default async function PlansPage() {
           </div>
         )}
 
+        {/* エラー表示 */}
+        {plansError && (
+          <div className="mb-8 rounded-lg bg-room-main bg-opacity-10 border border-room-main p-6">
+            <p className="text-sm text-room-main-dark">
+              プラン情報の取得に失敗しました: {plansError.message}
+            </p>
+            <p className="text-xs text-room-charcoal-light mt-2">
+              データベースのマイグレーション（002_seed_plans.sql）が実行されているか確認してください。
+            </p>
+          </div>
+        )}
+
+        {/* プランが取得できていない場合 */}
+        {!plansError && (!plans || plans.length === 0) && (
+          <div className="mb-8 rounded-lg bg-room-wood bg-opacity-10 border border-room-wood p-6">
+            <p className="text-sm text-room-wood-dark">
+              プラン情報がありません
+            </p>
+            <p className="text-xs text-room-charcoal-light mt-2">
+              データベースのマイグレーション（002_seed_plans.sql）を実行してください。
+            </p>
+          </div>
+        )}
+
         {/* シェアオフィスプラン */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-room-charcoal mb-4">
-            シェアオフィスプラン
-          </h2>
-          <p className="text-sm text-room-charcoal-light mb-4">
-            住所利用可能、会議室月4時間まで無料
-          </p>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {sharedOfficePlans.map((plan) => {
+        {sharedOfficePlans.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-room-charcoal mb-4">
+              シェアオフィスプラン
+            </h2>
+            <p className="text-sm text-room-charcoal-light mb-4">
+              住所利用可能、会議室月4時間まで無料
+            </p>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {sharedOfficePlans.map((plan) => {
               const features = plan.features as any
               const isCurrentPlan = currentPlan?.plan_id === plan.id
 
@@ -171,20 +205,22 @@ export default async function PlansPage() {
                   )}
                 </div>
               )
-            })}
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ワークスペースプラン（コワーキングスペースプラン） */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-room-charcoal mb-4">
-            ワークスペースプラン（コワーキングスペースプラン）
-          </h2>
-          <p className="text-sm text-room-charcoal-light mb-4">
-            場所貸しのみ、会議室利用可
-          </p>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {coworkingPlans.map((plan) => {
+        {coworkingPlans.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-room-charcoal mb-4">
+              ワークスペースプラン（コワーキングスペースプラン）
+            </h2>
+            <p className="text-sm text-room-charcoal-light mb-4">
+              場所貸しのみ、会議室利用可
+            </p>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {coworkingPlans.map((plan) => {
               const features = plan.features as any
               const isCurrentPlan = currentPlan?.plan_id === plan.id
 
@@ -243,10 +279,11 @@ export default async function PlansPage() {
                     <ContractForm planId={plan.id} planName={plan.name} />
                   )}
                 </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
