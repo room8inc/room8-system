@@ -59,26 +59,26 @@ export async function POST(request: NextRequest) {
     let customerId = customerIdFromIntent
     try {
       await stripe.customers.retrieve(customerIdFromIntent)
+      console.log(`Customer ${customerIdFromIntent} exists in Stripe`)
     } catch (error: any) {
       // 顧客が存在しない場合は再作成
-      if (error.code === 'resource_missing') {
-        console.log(`Customer ${customerIdFromIntent} not found, creating new customer`)
-        const newCustomer = await stripe.customers.create({
-          email: user.email || undefined,
-          metadata: {
-            user_id: user.id,
-          },
-        })
-        customerId = newCustomer.id
-        
-        // データベースに保存
-        await supabase
-          .from('users')
-          .update({ stripe_customer_id: customerId })
-          .eq('id', user.id)
-      } else {
-        throw error
-      }
+      console.error(`Customer ${customerIdFromIntent} not found in Stripe:`, error.message, error.code)
+      console.log(`Creating new customer for user ${user.id}`)
+      
+      const newCustomer = await stripe.customers.create({
+        email: user.email || undefined,
+        metadata: {
+          user_id: user.id,
+        },
+      })
+      customerId = newCustomer.id
+      console.log(`Created new customer: ${customerId}`)
+      
+      // データベースに保存
+      await supabase
+        .from('users')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', user.id)
     }
 
     // 重複チェック：同じPayment Intent IDで既に契約が作成されていないか確認
@@ -260,23 +260,33 @@ export async function POST(request: NextRequest) {
         const subscriptionStartDate = Math.floor(nextMonth.getTime() / 1000)
 
         // Subscriptionを作成（初回支払いは発生しないように設定）
-        const subscription = await stripe.subscriptions.create({
-          customer: customerId, // Payment Intentから取得した顧客IDを使用
-          default_payment_method: paymentMethodId, // Payment Methodを指定
-          items: [
-            {
-              price: priceId,
+        console.log(`Creating subscription for customer ${customerId} with price ${priceId}`)
+        let subscription
+        try {
+          subscription = await stripe.subscriptions.create({
+            customer: customerId, // Payment Intentから取得した顧客IDを使用
+            default_payment_method: paymentMethodId, // Payment Methodを指定
+            items: [
+              {
+                price: priceId,
+              },
+            ],
+            billing_cycle_anchor: subscriptionStartDate,
+            trial_end: subscriptionStartDate, // トライアル終了日を設定して初回支払いをスキップ
+            proration_behavior: 'none', // 初回支払い時の比例計算を無効化
+            metadata: {
+              user_id: user.id,
+              user_plan_id: userPlan.id,
+              plan_id: planId,
             },
-          ],
-          billing_cycle_anchor: subscriptionStartDate,
-          trial_end: subscriptionStartDate, // トライアル終了日を設定して初回支払いをスキップ
-          proration_behavior: 'none', // 初回支払い時の比例計算を無効化
-          metadata: {
-            user_id: user.id,
-            user_plan_id: userPlan.id,
-            plan_id: planId,
-          },
-        })
+          })
+          console.log(`Subscription created: ${subscription.id}`)
+        } catch (subscriptionError: any) {
+          console.error('Subscription creation error:', subscriptionError.message, subscriptionError.code)
+          console.error('Customer ID:', customerId)
+          console.error('Payment Method ID:', paymentMethodId)
+          throw subscriptionError
+        }
 
         // Subscription IDを保存
         await supabase
