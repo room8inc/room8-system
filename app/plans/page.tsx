@@ -14,15 +14,12 @@ export default async function PlansPage() {
     redirect('/login')
   }
 
-  // プラン一覧を取得（is_activeフィルタを一時的に外して、全プランを取得）
+  // プラン一覧を取得
   const { data: plans, error: plansError } = await supabase
     .from('plans')
     .select('*')
+    .eq('is_active', true)
     .order('display_order', { ascending: true })
-
-  if (plansError) {
-    console.error('Plans fetch error:', plansError)
-  }
 
   // 現在のプラン契約を取得
   const { data: currentPlan } = await supabase
@@ -43,11 +40,6 @@ export default async function PlansPage() {
     const features = plan.features as any
     return features?.type === 'coworking'
   }) || []
-
-  // デバッグ用：プランが取得できているか確認
-  console.log('Plans fetched:', plans?.length || 0)
-  console.log('Shared office plans:', sharedOfficePlans.length)
-  console.log('Coworking plans:', coworkingPlans.length)
 
   const formatTime = (time: string) => {
     return time.substring(0, 5) // "HH:MM"
