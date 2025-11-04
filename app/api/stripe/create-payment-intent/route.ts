@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
       amount: totalPrice,
       currency: 'jpy',
       customer: customerId,
+      setup_future_usage: 'off_session', // Payment Methodを将来の使用のために保存
       metadata: {
         user_id: user.id,
         plan_id: planId,

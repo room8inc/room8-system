@@ -38,10 +38,21 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Payment Intentを確認
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+      expand: ['payment_method'],
+    })
 
     if (paymentIntent.status !== 'succeeded') {
       return NextResponse.json({ error: '決済が完了していません' }, { status: 400 })
+    }
+
+    // Payment Method IDを取得
+    const paymentMethodId = typeof paymentIntent.payment_method === 'string' 
+      ? paymentIntent.payment_method 
+      : paymentIntent.payment_method?.id
+
+    if (!paymentMethodId) {
+      return NextResponse.json({ error: '支払い方法が見つかりません' }, { status: 400 })
     }
 
     // プラン情報を取得
@@ -210,6 +221,7 @@ export async function POST(request: NextRequest) {
         // Subscriptionを作成
         const subscription = await stripe.subscriptions.create({
           customer: userData.stripe_customer_id,
+          default_payment_method: paymentMethodId, // Payment Methodを指定
           items: [
             {
               price: priceId,
