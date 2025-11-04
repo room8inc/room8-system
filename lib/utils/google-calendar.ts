@@ -3,7 +3,7 @@ import { google } from 'googleapis'
 /**
  * Google Calendar APIクライアントを取得
  */
-function getGoogleCalendarClient() {
+export function getGoogleCalendarClient() {
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
   const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
   const calendarId = process.env.GOOGLE_CALENDAR_ID

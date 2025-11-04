@@ -97,6 +97,12 @@ export default async function AdminPage() {
             >
               キャンペーン管理
             </Link>
+            <Link
+              href="/admin/google-calendar"
+              className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
+            >
+              Googleカレンダー連携
+            </Link>
           </div>
         </div>
 
