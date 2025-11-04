@@ -113,6 +113,28 @@ export default function RegisterPage() {
           })
           // エラーがあっても、ユーザーは作成されているので続行
         }
+
+        // Stripe顧客を作成
+        try {
+          console.log('Creating Stripe customer...')
+          const stripeResponse = await fetch('/api/stripe/create-customer', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          })
+
+          if (stripeResponse.ok) {
+            const stripeData = await stripeResponse.json()
+            console.log('Stripe customer created:', stripeData.customerId)
+          } else {
+            console.warn('Stripe customer creation failed (non-critical):', await stripeResponse.text())
+            // Stripe顧客作成に失敗しても登録は成功とする
+          }
+        } catch (stripeError) {
+          console.error('Stripe customer creation error (non-critical):', stripeError)
+          // Stripe顧客作成に失敗しても登録は成功とする
+        }
       } else {
         // セッションが確立されていない場合（メール確認が必要な場合など）
         // 手動でusersテーブルにINSERTを試みる（Service Role Keyが必要）
