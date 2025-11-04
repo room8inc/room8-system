@@ -18,8 +18,11 @@ export default async function AdminPage() {
   // 管理者権限チェック
   const admin = await isAdmin()
   if (!admin) {
+    console.log('Admin page: Not admin, redirecting to dashboard')
     redirect('/dashboard')
   }
+  
+  console.log('Admin page: Admin access granted')
 
   // ユーザー一覧を取得
   const { data: users, error: usersError } = await supabase
