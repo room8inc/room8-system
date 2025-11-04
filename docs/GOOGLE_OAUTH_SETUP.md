@@ -37,8 +37,22 @@
 **用途**: OAuth認証後のコールバックURL（必須）
 
 **設定方法**:
-1. **URI を追加** ボタンをクリック
-2. 以下のURIを追加:
+
+1. **まず、実際のドメインを確認する方法**:
+
+   **方法1: Vercel Dashboardで確認**
+   - Vercel Dashboard > プロジェクトを選択 > Settings > Domains
+   - 表示されているドメインを確認（例: `your-project.vercel.app` またはカスタムドメイン）
+
+   **方法2: デプロイ後のURLを確認**
+   - Vercel Dashboard > Deployments > 最新のデプロイを開く
+   - 「Visit」ボタンのURLを確認（例: `https://your-project.vercel.app`）
+
+   **方法3: 環境変数で確認**
+   - Vercel Dashboard > Settings > Environment Variables
+   - `VERCEL_URL` または `NEXT_PUBLIC_SITE_URL` が設定されている場合は、その値を確認
+
+2. **URI を追加** ボタンをクリックして、以下のURIを追加:
 
    **開発環境（ローカル）**:
    ```
@@ -47,16 +61,30 @@
 
    **本番環境（Vercel）**:
    ```
-   https://your-domain.com/api/admin/google-calendar/oauth/callback
+   https://【確認したドメイン】/api/admin/google-calendar/oauth/callback
    ```
 
-   **注意**: `your-domain.com` を実際のドメインに置き換えてください。
-
    **例**:
-   - Vercelの場合: `https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback`
-   - カスタムドメインの場合: `https://room8.example.com/api/admin/google-calendar/oauth/callback`
+   - ドメインが `room8-system.vercel.app` の場合:
+     ```
+     https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback
+     ```
+   - カスタムドメインが `room8.example.com` の場合:
+     ```
+     https://room8.example.com/api/admin/google-calendar/oauth/callback
+     ```
 
-3. **作成** をクリック
+3. **複数の環境を追加する場合**:
+   - 開発環境と本番環境の両方を追加できます
+   - 例:
+     ```
+     http://localhost:3000/api/admin/google-calendar/oauth/callback
+     https://your-project.vercel.app/api/admin/google-calendar/oauth/callback
+     ```
+
+4. **作成** をクリック
+
+**注意**: ドメインが不明な場合は、開発環境のURIだけ設定して、デプロイ後に本番環境のURIを追加することもできます。
 
 ### 4. クライアントIDとシークレットを取得
 
