@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -30,7 +30,40 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
     twenty_four_hours: false,      // 24時間利用（+5,500円/月）- 特定のプランのみ
     fixed_seat: false,             // 固定席化（+23,100円/月）- 全プラン
     locker: false,                 // ロッカー（料金要確認）- 全プラン
+    locker_size: null as 'large' | 'small' | null, // ロッカーのサイズ
   })
+  
+  // ロッカーの在庫状況
+  const [lockerInventory, setLockerInventory] = useState<{
+    large: { available: number; total: number }
+    small: { available: number; total: number }
+  } | null>(null)
+  
+  // ロッカーの在庫状況を取得
+  const fetchLockerInventory = async () => {
+    const { data: lockers } = await supabase
+      .from('lockers')
+      .select('size, status')
+    
+    if (lockers) {
+      const large = lockers.filter(l => l.size === 'large')
+      const small = lockers.filter(l => l.size === 'small')
+      const largeAvailable = large.filter(l => l.status === 'available').length
+      const smallAvailable = small.filter(l => l.status === 'available').length
+      
+      setLockerInventory({
+        large: { available: largeAvailable, total: large.length },
+        small: { available: smallAvailable, total: small.length },
+      })
+    }
+  }
+  
+  // コンポーネントマウント時に在庫状況を取得
+  useEffect(() => {
+    if (availableOptions.locker) {
+      fetchLockerInventory()
+    }
+  }, [availableOptions.locker])
   
   // プランの種類を判定
   const planType = planFeatures?.type // 'shared_office' or 'coworking'
@@ -119,13 +152,37 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
         }
       }
 
+      // ロッカーが選択されている場合、利用可能なロッカーを割り当て
+      let assignedLockerId: string | null = null
+      if (options.locker && options.locker_size) {
+        const { data: availableLocker } = await supabase
+          .from('lockers')
+          .select('id')
+          .eq('size', options.locker_size)
+          .eq('status', 'available')
+          .limit(1)
+          .single()
+        
+        if (!availableLocker) {
+          setError(`${options.locker_size === 'large' ? '大' : '小'}ロッカーの在庫がありません`)
+          setLoading(false)
+          return
+        }
+        
+        assignedLockerId = availableLocker.id
+      }
+
       // オプション情報を整理（選択されたオプションのみ）
       const selectedOptions: any = {}
       if (options.company_registration) selectedOptions.company_registration = true
       if (options.printer) selectedOptions.printer = true
       if (options.twenty_four_hours) selectedOptions.twenty_four_hours = true
       if (options.fixed_seat) selectedOptions.fixed_seat = true
-      if (options.locker) selectedOptions.locker = true
+      if (options.locker && options.locker_size) {
+        selectedOptions.locker = true
+        selectedOptions.locker_size = options.locker_size
+        selectedOptions.locker_id = assignedLockerId
+      }
       
       // 起業家プランの場合は法人登記を自動的に含める
       if (planFeatures?.company_registration?.standard) {
@@ -147,6 +204,23 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
           status: 'active',
           options: selectedOptions,
         })
+
+      // ロッカーを割り当て
+      if (assignedLockerId) {
+        const { error: lockerError } = await supabase
+          .from('lockers')
+          .update({
+            user_id: user.id,
+            status: 'occupied',
+          })
+          .eq('id', assignedLockerId)
+        
+        if (lockerError) {
+          console.error('Locker assignment error:', lockerError)
+          // ロッカーの割り当てに失敗しても、プラン契約は成功しているので警告だけ
+          console.warn('ロッカーの割り当てに失敗しましたが、プラン契約は完了しました')
+        }
+      }
 
       if (insertError) {
         console.error('Contract insert error:', insertError)
@@ -269,17 +343,67 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
                 </label>
               )}
               {availableOptions.locker && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={options.locker}
-                    onChange={(e) => setOptions({ ...options, locker: e.target.checked })}
-                    className="rounded border-room-base-dark text-room-main focus:ring-room-main"
-                  />
-                  <span className="text-xs text-room-charcoal">
-                    ロッカー {LOCKER_PRICE > 0 ? <span className="text-room-main">+¥{LOCKER_PRICE.toLocaleString()}/月</span> : '(料金要確認)'}
-                  </span>
-                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={options.locker}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        setOptions({ 
+                          ...options, 
+                          locker: checked,
+                          locker_size: checked ? options.locker_size : null
+                        })
+                        if (checked) {
+                          fetchLockerInventory()
+                        }
+                      }}
+                      className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                    />
+                    <span className="text-xs text-room-charcoal">
+                      ロッカー {LOCKER_PRICE > 0 ? <span className="text-room-main">+¥{LOCKER_PRICE.toLocaleString()}/月</span> : '(料金要確認)'}
+                    </span>
+                  </label>
+                  {options.locker && lockerInventory && (
+                    <div className="ml-6 space-y-1">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name={`locker-size-${planId}`}
+                          checked={options.locker_size === 'large'}
+                          onChange={() => setOptions({ ...options, locker_size: 'large' })}
+                          disabled={lockerInventory.large.available === 0}
+                          className="rounded border-room-base-dark text-room-main focus:ring-room-main disabled:opacity-50"
+                        />
+                        <span className={`text-xs ${lockerInventory.large.available === 0 ? 'text-room-charcoal-light' : 'text-room-charcoal'}`}>
+                          大ロッカー {lockerInventory.large.available > 0 ? (
+                            <span className="text-room-main">(残り{lockerInventory.large.available}個)</span>
+                          ) : (
+                            <span className="text-red-600">(在庫なし)</span>
+                          )}
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name={`locker-size-${planId}`}
+                          checked={options.locker_size === 'small'}
+                          onChange={() => setOptions({ ...options, locker_size: 'small' })}
+                          disabled={lockerInventory.small.available === 0}
+                          className="rounded border-room-base-dark text-room-main focus:ring-room-main disabled:opacity-50"
+                        />
+                        <span className={`text-xs ${lockerInventory.small.available === 0 ? 'text-room-charcoal-light' : 'text-room-charcoal'}`}>
+                          小ロッカー {lockerInventory.small.available > 0 ? (
+                            <span className="text-room-main">(残り{lockerInventory.small.available}個)</span>
+                          ) : (
+                            <span className="text-red-600">(在庫なし)</span>
+                          )}
+                        </span>
+                      </label>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             {calculateOptionPrice() > 0 && (
