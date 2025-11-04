@@ -28,10 +28,6 @@
 
 **設定**: 空欄のままでもOK（サーバーサイド認証の場合）
 
-**もし設定する場合**:
-- 開発環境: `http://localhost:3000`
-- 本番環境: `https://your-domain.com`
-
 ##### 承認済みのリダイレクト URI
 
 **用途**: OAuth認証後のコールバックURL（必須）
@@ -54,12 +50,6 @@
 
 2. **URI を追加** ボタンをクリックして、以下のURIを追加:
 
-   **開発環境（ローカル）**:
-   ```
-   http://localhost:3000/api/admin/google-calendar/oauth/callback
-   ```
-
-   **本番環境（Vercel）**:
    ```
    https://【確認したドメイン】/api/admin/google-calendar/oauth/callback
    ```
@@ -74,31 +64,7 @@
      https://room8.example.com/api/admin/google-calendar/oauth/callback
      ```
 
-3. **複数の環境を追加する場合**:
-   - 開発環境と本番環境の両方を追加できます
-   - 例:
-     ```
-     http://localhost:3000/api/admin/google-calendar/oauth/callback
-     https://your-project.vercel.app/api/admin/google-calendar/oauth/callback
-     ```
-
-4. **作成** をクリック
-
-2. **URI を追加** ボタンをクリックして、以下のURIを追加:
-
-   ```
-   https://【確認したドメイン】/api/admin/google-calendar/oauth/callback
-   ```
-
-   **例**:
-   - ドメインが `room8-system.vercel.app` の場合:
-     ```
-     https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback
-     ```
-   - カスタムドメインが `room8.example.com` の場合:
-     ```
-     https://room8.example.com/api/admin/google-calendar/oauth/callback
-     ```
+3. **作成** をクリック
 
 ### 4. クライアントIDとシークレットを取得
 
@@ -132,9 +98,9 @@ GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
 
 ### Q: リダイレクトURIは複数設定できますか？
 
-**A**: はい、開発環境と本番環境の両方を設定できます:
-- `http://localhost:3000/api/admin/google-calendar/oauth/callback`（開発環境）
-- `https://your-domain.com/api/admin/google-calendar/oauth/callback`（本番環境）
+**A**: はい、複数のドメインを設定できます。例:
+- `https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback`
+- `https://room8.example.com/api/admin/google-calendar/oauth/callback`（カスタムドメインの場合）
 
 ### Q: リダイレクトURIが一致しないエラーが出ます
 

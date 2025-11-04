@@ -40,10 +40,8 @@
 2. Google Calendar APIを有効化
 3. OAuth 2.0クライアントIDを作成（Webアプリケーション）
    - **承認済みのJavaScript生成元**: 空欄のまま（サーバーサイド認証のため不要）
-   - **承認済みのリダイレクトURI**: 
-     - 開発環境: `http://localhost:3000/api/admin/google-calendar/oauth/callback`
-     - 本番環境: `https://your-domain.com/api/admin/google-calendar/oauth/callback`
-     - （`your-domain.com`を実際のドメインに置き換える）
+   - **承認済みのリダイレクトURI**: `https://your-domain.com/api/admin/google-calendar/oauth/callback`
+     - （`your-domain.com`を実際のVercelドメインに置き換える。例: `https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback`）
 4. クライアントIDとシークレットをコピーして環境変数に設定
 5. 管理画面（`/admin/google-calendar`）で「Googleアカウントで接続」ボタンをクリック
 
