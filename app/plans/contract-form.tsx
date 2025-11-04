@@ -43,6 +43,10 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
     large: { available: number; total: number }
     small: { available: number; total: number }
   } | null>(null)
+
+  // キャンペーン関連
+  const [campaigns, setCampaigns] = useState<any[]>([])
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
   
   // プランの種類を判定
   const planType = planFeatures?.type // 'shared_office' or 'coworking'
@@ -107,6 +111,34 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
       fetchLockerInventory()
     }
   }, [availableOptions.locker])
+
+  // キャンペーン一覧を取得
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      const today = new Date().toISOString().split('T')[0]
+      const { data } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('is_active', true)
+        .lte('started_at', today)
+        .or(`ended_at.is.null,ended_at.gte.${today}`)
+        .order('created_at', { ascending: false })
+      
+      if (data) {
+        // プランに適用可能なキャンペーンのみをフィルタリング
+        const applicableCampaigns = data.filter((campaign) => {
+          // 全プラン適用の場合
+          if (!campaign.applicable_plan_ids || campaign.applicable_plan_ids.length === 0) {
+            return true
+          }
+          // 特定プラン適用の場合
+          return campaign.applicable_plan_ids.includes(planId)
+        })
+        setCampaigns(applicableCampaigns)
+      }
+    }
+    fetchCampaigns()
+  }, [planId])
 
   const handleContractClick = () => {
     setShowConfirm(true)
@@ -199,6 +231,11 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
         selectedOptions.printer = true
       }
 
+      // 入会金と割引を計算
+      const entryFee = calculateEntryFee()
+      const entryFeeDiscount = ENTRY_FEE - entryFee
+      const firstMonthFree = selectedCampaign?.campaign_type === 'first_month_free' || false
+
       // 新しいプラン契約を作成
       const { error: insertError } = await supabase
         .from('user_plans')
@@ -210,6 +247,10 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
           contract_term: contractTerm,
           payment_method: paymentMethod,
           options: selectedOptions,
+          campaign_id: selectedCampaignId,
+          entry_fee: ENTRY_FEE,
+          entry_fee_discount: entryFeeDiscount,
+          first_month_free: firstMonthFree,
         })
 
       // ロッカーを割り当て
@@ -265,6 +306,53 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
   const LOCKER_PRICE_LARGE = 4950 // 大ロッカー: 月4,950円
   const LOCKER_PRICE_SMALL = 2200 // 小ロッカー: 月2,200円
   
+  // 入会金（通常11,000円）
+  const ENTRY_FEE = 11000
+
+  // キャンペーンを取得
+  const selectedCampaign = campaigns.find(c => c.id === selectedCampaignId)
+
+  // 入会金を計算（キャンペーン適用）
+  const calculateEntryFee = () => {
+    if (!selectedCampaign) {
+      return ENTRY_FEE
+    }
+
+    switch (selectedCampaign.campaign_type) {
+      case 'entry_fee_free':
+        return 0
+      case 'entry_fee_50off':
+        return Math.floor(ENTRY_FEE * 0.5)
+      case 'entry_fee_custom':
+        const discountRate = selectedCampaign.discount_rate || 0
+        return Math.floor(ENTRY_FEE * (1 - discountRate / 100))
+      default:
+        return ENTRY_FEE
+    }
+  }
+
+  // 初月の日割り計算
+  const calculateFirstMonthProratedFee = () => {
+    if (!startDate) return 0
+    
+    const start = new Date(startDate)
+    const year = start.getFullYear()
+    const month = start.getMonth()
+    
+    // その月の最終日を取得
+    const lastDay = new Date(year, month + 1, 0).getDate()
+    
+    // 開始日から月末までの日数
+    const daysInMonth = lastDay
+    const daysFromStart = lastDay - start.getDate() + 1
+    
+    // 日割り計算（端数切り上げ）
+    const monthlyPrice = calculatePlanPrice()
+    const proratedFee = Math.ceil((monthlyPrice * daysFromStart) / daysInMonth)
+    
+    return proratedFee
+  }
+  
   // オプション料金を計算（割引対象外）
   const calculateOptionPrice = () => {
     let total = 0
@@ -300,14 +388,27 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
   const calculateTotalPrice = () => {
     const planPriceAfterDiscount = calculatePlanPrice()
     const optionPrice = calculateOptionPrice()
+    const entryFee = calculateEntryFee()
     
-    // 年一括前払いの場合は12ヶ月分
+    // 初月会費無料キャンペーンの場合
+    const firstMonthFee = selectedCampaign?.campaign_type === 'first_month_free' 
+      ? 0 
+      : calculateFirstMonthProratedFee()
+    
+    // オプション料金は初月も日割り計算する必要があるが、簡略化のため月額で計算
+    // （実際の実装ではオプションも日割り計算が必要）
+    const firstMonthOptionPrice = selectedCampaign?.campaign_type === 'first_month_free'
+      ? 0
+      : optionPrice
+
     if (paymentMethod === 'annual_prepaid') {
-      return (planPriceAfterDiscount + optionPrice) * 12
+      // 年一括前払いの場合：初月は日割り、残り11ヶ月は通常料金
+      const remainingMonthsPrice = (planPriceAfterDiscount + optionPrice) * 11
+      return entryFee + firstMonthFee + firstMonthOptionPrice + remainingMonthsPrice
     }
-    
-    // 月払いの場合は1ヶ月分
-    return planPriceAfterDiscount + optionPrice
+
+    // 月払いの場合：初月のみ日割り計算
+    return entryFee + firstMonthFee + firstMonthOptionPrice
   }
 
   return (
@@ -394,6 +495,51 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
             </div>
           </div>
         </div>
+
+        {/* キャンペーン選択 */}
+        {campaigns.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-room-charcoal mb-2">
+              キャンペーン（任意）
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name={`campaign-${planId}`}
+                  checked={selectedCampaignId === null}
+                  onChange={() => setSelectedCampaignId(null)}
+                  className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                />
+                <span className="text-xs text-room-charcoal">
+                  キャンペーンを適用しない
+                </span>
+              </label>
+              {campaigns.map((campaign) => {
+                const campaignTypeLabels: { [key: string]: string } = {
+                  entry_fee_50off: '入会金50%OFF',
+                  entry_fee_free: '入会金無料',
+                  first_month_free: '初月会費無料',
+                  entry_fee_custom: `入会金${campaign.discount_rate || 0}%OFF`,
+                }
+                return (
+                  <label key={campaign.id} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`campaign-${planId}`}
+                      checked={selectedCampaignId === campaign.id}
+                      onChange={() => setSelectedCampaignId(campaign.id)}
+                      className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                    />
+                    <span className="text-xs text-room-charcoal">
+                      {campaign.name} - {campaignTypeLabels[campaign.campaign_type]}
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* オプション選択 */}
         {(availableOptions.company_registration || availableOptions.printer || availableOptions.twenty_four_hours || availableOptions.fixed_seat || availableOptions.locker) && (
@@ -544,13 +690,47 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
               <span className="text-room-charcoal">+¥{calculateOptionPrice().toLocaleString()}/月</span>
             </div>
           )}
+          {/* 入会金 */}
+          <div className="flex justify-between text-xs">
+            <span className="text-room-charcoal">入会金:</span>
+            <span className="text-room-charcoal">
+              {calculateEntryFee() < ENTRY_FEE ? (
+                <>
+                  <span className="line-through text-room-charcoal-light">¥{ENTRY_FEE.toLocaleString()}</span>{' '}
+                  ¥{calculateEntryFee().toLocaleString()}
+                  {selectedCampaign && (
+                    <span className="text-room-main">（キャンペーン適用）</span>
+                  )}
+                </>
+              ) : (
+                <>¥{ENTRY_FEE.toLocaleString()}</>
+              )}
+            </span>
+          </div>
+          {/* 初月会費 */}
+          {paymentMethod === 'monthly' && (
+            <div className="flex justify-between text-xs">
+              <span className="text-room-charcoal">初月会費（日割り計算）:</span>
+              <span className="text-room-charcoal">
+                {selectedCampaign?.campaign_type === 'first_month_free' ? (
+                  <>
+                    <span className="line-through text-room-charcoal-light">¥{calculateFirstMonthProratedFee().toLocaleString()}</span>{' '}
+                    <span className="text-room-main">¥0（キャンペーン適用）</span>
+                  </>
+                ) : (
+                  <>¥{calculateFirstMonthProratedFee().toLocaleString()}</>
+                )}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between text-sm font-bold pt-2 border-t border-room-base">
             <span className="text-room-charcoal">
-              {paymentMethod === 'annual_prepaid' ? '年一括前払い' : '月額'}合計:
+              {paymentMethod === 'annual_prepaid' ? '年一括前払い' : '初回'}合計:
             </span>
             <span className="text-room-main">
               ¥{calculateTotalPrice().toLocaleString()}
-              {paymentMethod === 'annual_prepaid' && <span className="text-xs font-normal">（12ヶ月分）</span>}
+              {paymentMethod === 'annual_prepaid' && <span className="text-xs font-normal">（入会金+初月日割り+11ヶ月分）</span>}
+              {paymentMethod === 'monthly' && <span className="text-xs font-normal">（入会金+初月日割り）</span>}
             </span>
           </div>
         </div>

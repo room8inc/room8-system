@@ -82,12 +82,22 @@ export default async function AdminPage() {
           >
             ← ダッシュボードに戻る
           </Link>
-          <h1 className="mt-2 text-3xl font-bold text-room-charcoal">
-            管理者画面 - ユーザー管理
-          </h1>
-          <p className="mt-2 text-sm text-room-charcoal-light">
-            ユーザーのプラン変更・削除ができます
-          </p>
+          <div className="mt-2 flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-room-charcoal">
+                管理者画面 - ユーザー管理
+              </h1>
+              <p className="mt-2 text-sm text-room-charcoal-light">
+                ユーザーのプラン変更・削除ができます
+              </p>
+            </div>
+            <Link
+              href="/admin/campaigns"
+              className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
+            >
+              キャンペーン管理
+            </Link>
+          </div>
         </div>
 
         {/* エラー表示 */}
