@@ -60,7 +60,21 @@ export async function POST(request: NextRequest) {
 
     let customerId = userData?.stripe_customer_id
 
+    // 顧客IDが存在する場合、Stripeで確認
+    if (customerId) {
+      try {
+        await stripe.customers.retrieve(customerId)
+        console.log(`Customer ${customerId} exists in Stripe`)
+      } catch (error: any) {
+        console.error(`Customer ${customerId} not found in Stripe:`, error.message, error.code)
+        // 顧客が存在しない場合は新規作成
+        customerId = null
+      }
+    }
+
+    // 顧客IDが存在しない場合は新規作成
     if (!customerId) {
+      console.log(`Creating new customer for user ${user.id}`)
       const customer = await stripe.customers.create({
         email: user.email || undefined,
         metadata: {
@@ -68,6 +82,7 @@ export async function POST(request: NextRequest) {
         },
       })
       customerId = customer.id
+      console.log(`Created new customer: ${customerId}`)
 
       // データベースに保存
       await supabase
