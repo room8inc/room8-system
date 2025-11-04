@@ -155,12 +155,12 @@ export default function RegisterPage() {
         }
 
         // 法人の場合、スタッフ情報を保存
-        if (!formData.isIndividual && staffMembers.length > 0) {
+        if (!formData.isIndividual && staffMembers.length > 0 && authData.user) {
           try {
             const staffData = staffMembers
               .filter(staff => staff.lastName && staff.firstName) // 名前が入力されているスタッフのみ
               .map(staff => ({
-                company_user_id: authData.user.id,
+                company_user_id: authData.user!.id,
                 name: `${staff.lastName} ${staff.firstName}`.trim(),
                 name_kana: staff.nameKana || null,
                 email: staff.email || null,
