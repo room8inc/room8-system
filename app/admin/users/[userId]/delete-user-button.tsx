@@ -44,17 +44,17 @@ export function DeleteUserButton({ userId, userName }: DeleteUserButtonProps) {
       {!showConfirm ? (
         <button
           onClick={() => setShowConfirm(true)}
-          className="rounded-md bg-room-error px-4 py-2 text-sm text-white hover:bg-room-error-light focus:outline-none focus:ring-2 focus:ring-room-error focus:ring-offset-2"
+          className="rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
         >
           ユーザーを削除
         </button>
       ) : (
         <div className="space-y-4">
-          <div className="rounded-md bg-room-error bg-opacity-10 border border-room-error p-4">
-            <p className="text-sm text-room-error-dark font-medium mb-2">
+          <div className="rounded-md bg-red-50 border border-red-300 p-4">
+            <p className="text-sm text-red-800 font-medium mb-2">
               本当に削除しますか？
             </p>
-            <p className="text-sm text-room-error-dark">
+            <p className="text-sm text-red-700">
               <strong>{userName}</strong> さんを削除します。
               <br />
               この操作は取り消せません。
@@ -69,7 +69,7 @@ export function DeleteUserButton({ userId, userName }: DeleteUserButtonProps) {
             <button
               onClick={handleDelete}
               disabled={loading}
-              className="rounded-md bg-room-error px-4 py-2 text-sm text-white hover:bg-room-error-light focus:outline-none focus:ring-2 focus:ring-room-error focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? '削除中...' : '削除する'}
             </button>

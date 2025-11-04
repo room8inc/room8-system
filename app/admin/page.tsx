@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { isAdmin } from '@/lib/utils/admin'
 import { formatJapaneseName } from '@/lib/utils/name'
-import { DeleteUserByEmailForm } from './users/delete-by-email-form'
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -109,11 +108,6 @@ export default async function AdminPage() {
             </p>
           </div>
         )}
-
-        {/* メールアドレスからユーザー削除 */}
-        <div className="mb-8">
-          <DeleteUserByEmailForm />
-        </div>
 
         {/* ユーザー一覧テーブル */}
         <div className="rounded-lg bg-room-base-light shadow border border-room-base-dark overflow-hidden">
