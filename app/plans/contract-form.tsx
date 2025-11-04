@@ -135,6 +135,11 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
           return campaign.applicable_plan_ids.includes(planId)
         })
         setCampaigns(applicableCampaigns)
+        
+        // デフォルトで最初のキャンペーンを選択
+        if (applicableCampaigns.length > 0) {
+          setSelectedCampaignId(applicableCampaigns[0].id)
+        }
       }
     }
     fetchCampaigns()
