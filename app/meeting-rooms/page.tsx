@@ -53,15 +53,16 @@ export default async function MeetingRoomsPage() {
     )
   }
 
-  // 料金を計算
-  const calculateRate = () => {
-    if (userData?.member_type !== 'regular') {
-      // 定額会員以外：1時間2,200円
-      return {
-        rate: meetingRoom.hourly_rate_non_regular || 2200,
-        freeHours: 0,
-      }
-    }
+      // 料金を計算
+      const calculateRate = () => {
+        // プラン契約がない場合は定額会員以外として扱う
+        if (!currentPlan) {
+          // 定額会員以外：1時間2,200円
+          return {
+            rate: meetingRoom.hourly_rate_non_regular || 2200,
+            freeHours: 0,
+          }
+        }
 
     if (currentPlan?.plans) {
       // シェアオフィスプランのチェック（features.type === 'shared_office'）
@@ -144,9 +145,9 @@ export default async function MeetingRoomsPage() {
           <h3 className="text-lg font-semibold text-room-charcoal mb-4">
             新規予約
           </h3>
-          <BookingForm
-            userId={user.id}
-            memberType={userData?.member_type || 'regular'}
+            <BookingForm
+              userId={user.id}
+              memberType={currentPlan ? 'regular' : (userData?.member_type || 'dropin')}
             planInfo={currentPlan?.plans ? {
               id: currentPlan.plans.id,
               features: currentPlan.plans.features,

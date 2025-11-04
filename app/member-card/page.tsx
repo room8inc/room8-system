@@ -35,12 +35,13 @@ export default async function MemberCardPage() {
   const memberNumber = user.id.substring(0, 8).toUpperCase()
 
   // 利用形態の表示名
+  // member_typeはプラン契約時に設定される
+  // - プラン契約あり = member_type='regular' = Room8会員
+  // - プラン契約なし = member_type='dropin'（デフォルト） = ドロップイン（非会員）
   const memberTypeDisplay =
-    userData?.member_type === 'regular'
+    currentPlan || userData?.member_type === 'regular'
       ? 'Room8会員'
-      : userData?.member_type === 'dropin'
-      ? 'ドロップイン（非会員）'
-      : 'ゲスト'
+      : 'ドロップイン（非会員）'
 
   return (
     <div className="min-h-screen bg-room-base">

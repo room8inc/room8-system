@@ -28,7 +28,7 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'name_kana', NULL),
     COALESCE(NEW.raw_user_meta_data->>'phone', NULL),
     COALESCE(NEW.raw_user_meta_data->>'address', NULL),
-    COALESCE(NEW.raw_user_meta_data->>'member_type', 'regular'),
+    COALESCE(NEW.raw_user_meta_data->>'member_type', 'dropin'), -- デフォルトは'dropin'（非会員）
     COALESCE((NEW.raw_user_meta_data->>'is_individual')::boolean, true),
     'active'
   )

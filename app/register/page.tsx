@@ -14,7 +14,6 @@ export default function RegisterPage() {
     nameKana: '',
     phone: '',
     address: '',
-    memberType: 'regular' as 'regular' | 'dropin',
     isIndividual: true,
   })
   const [error, setError] = useState<string | null>(null)
@@ -47,16 +46,15 @@ export default function RegisterPage() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            name: formData.name,
-            name_kana: formData.nameKana,
-            phone: formData.phone,
-            address: formData.address,
-            member_type: formData.memberType,
-            is_individual: formData.isIndividual,
+          options: {
+            data: {
+              name: formData.name,
+              name_kana: formData.nameKana,
+              phone: formData.phone,
+              address: formData.address,
+              is_individual: formData.isIndividual,
+            }
           }
-        }
       })
 
       console.log('SignUp result:', { authData, authError })
@@ -93,7 +91,7 @@ export default function RegisterPage() {
             name_kana: formData.nameKana,
             phone: formData.phone,
             address: formData.address,
-            member_type: formData.memberType,
+            member_type: 'dropin', // デフォルトは'dropin'（非会員）、プラン契約時に'regular'に更新
             is_individual: formData.isIndividual,
             status: 'active',
           })
@@ -140,6 +138,8 @@ export default function RegisterPage() {
           </p>
           <p className="mt-2 text-center text-xs text-room-charcoal-light">
             アカウント作成後、Room8会員契約を結ぶか、ドロップイン（非会員）として利用できます
+            <br />
+            （会員契約は別途必要です）
           </p>
         </div>
 
@@ -151,50 +151,6 @@ export default function RegisterPage() {
           )}
 
           <div className="space-y-4">
-            {/* 利用形態 */}
-            <div>
-              <label className="block text-sm font-medium text-room-charcoal">
-                利用形態の希望
-              </label>
-              <p className="mt-1 mb-3 text-xs text-room-charcoal-light">
-                アカウント作成時点ではまだRoom8会員ではありません。後で会員契約を結ぶか、ドロップイン（非会員）として利用するかを選択してください
-              </p>
-              <div className="mt-2 space-y-3">
-                <label className="flex items-start p-3 rounded-md border border-room-base-dark bg-room-base hover:bg-room-base-dark cursor-pointer">
-                  <input
-                    type="radio"
-                    name="memberType"
-                    value="regular"
-                    checked={formData.memberType === 'regular'}
-                    onChange={(e) => setFormData({ ...formData, memberType: e.target.value as 'regular' | 'dropin' })}
-                    className="mt-1 mr-3"
-                  />
-                  <div>
-                    <span className="font-medium text-room-charcoal">Room8会員契約を希望</span>
-                    <p className="text-xs text-room-charcoal-light mt-1">
-                      後で定額プランに加入し、月額料金で利用します（会員契約は別途必要です）
-                    </p>
-                  </div>
-                </label>
-                <label className="flex items-start p-3 rounded-md border border-room-base-dark bg-room-base hover:bg-room-base-dark cursor-pointer">
-                  <input
-                    type="radio"
-                    name="memberType"
-                    value="dropin"
-                    checked={formData.memberType === 'dropin'}
-                    onChange={(e) => setFormData({ ...formData, memberType: e.target.value as 'regular' | 'dropin' })}
-                    className="mt-1 mr-3"
-                  />
-                  <div>
-                    <span className="font-medium text-room-charcoal">ドロップイン（非会員）として利用</span>
-                    <p className="text-xs text-room-charcoal-light mt-1">
-                      会員契約は不要。利用時に1時間400円でご利用いただけます
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
             {/* 個人/法人 */}
             <div>
               <label className="block text-sm font-medium text-room-charcoal">

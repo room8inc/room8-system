@@ -156,20 +156,18 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
         throw new Error(`ユーザー情報の取得に失敗しました: ${userError.message}`)
       }
 
-      let planIdAtCheckin = null
-      if (userData.member_type === 'regular') {
-        const { data: activePlan } = await supabase
-          .from('user_plans')
-          .select('plan_id')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .is('ended_at', null)
-          .single()
+      // プラン契約があるかチェック
+      const { data: activePlan } = await supabase
+        .from('user_plans')
+        .select('plan_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .is('ended_at', null)
+        .single()
 
-        if (activePlan) {
-          planIdAtCheckin = activePlan.plan_id
-        }
-      }
+      const planIdAtCheckin = activePlan?.plan_id || null
+      // member_typeはチェックイン時に変更しない（プラン契約の有無で判定）
+      const memberTypeAtCheckin = activePlan ? 'regular' : (userData.member_type || 'dropin')
 
       const { error: insertError } = await supabase
         .from('checkins')
@@ -177,7 +175,7 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
           user_id: user.id,
           checkin_at: new Date().toISOString(),
           venue_id: venueId,
-          member_type_at_checkin: userData.member_type || 'regular',
+          member_type_at_checkin: memberTypeAtCheckin,
           ...(planIdAtCheckin && { plan_id_at_checkin: planIdAtCheckin }),
         })
 

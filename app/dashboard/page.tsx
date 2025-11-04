@@ -103,7 +103,7 @@ export default async function DashboardPage() {
                 {currentCheckin.checkin_at && (
                   <RealtimeCheckinInfo
                     checkinAt={currentCheckin.checkin_at}
-                    memberType={userData?.member_type || 'regular'}
+                    memberType={currentPlan ? 'regular' : (userData?.member_type || 'dropin')}
                     planInfo={currentPlan?.plans ? {
                       name: currentPlan.plans.name || '',
                       startTime: currentPlan.plans.start_time || undefined,
@@ -160,7 +160,11 @@ export default async function DashboardPage() {
                   {currentPlan.plans?.name || 'プラン名不明'}
                 </p>
                 <p className="mt-1 text-xs text-room-charcoal-light">
-                  利用形態: {userData?.member_type === 'regular' ? 'Room8会員' : userData?.member_type === 'dropin' ? 'ドロップイン（非会員）' : 'ゲスト'}
+                  利用形態: {
+                    currentPlan || userData?.member_type === 'regular'
+                      ? 'Room8会員'
+                      : 'ドロップイン（非会員）'
+                  }
                 </p>
               </>
             ) : (
