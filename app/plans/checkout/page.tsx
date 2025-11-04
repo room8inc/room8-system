@@ -44,14 +44,17 @@ function CheckoutForm({
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!stripe || !elements) {
+    if (!stripe || !elements || isProcessing) {
       return
     }
 
+    // 重複送信を防ぐ
+    setIsProcessing(true)
     setLoading(true)
     setError(null)
 
@@ -81,6 +84,7 @@ function CheckoutForm({
       if (apiError || !clientSecret) {
         setError(apiError || '決済の準備に失敗しました')
         setLoading(false)
+        setIsProcessing(false)
         return
       }
 
@@ -105,6 +109,7 @@ function CheckoutForm({
       if (confirmError) {
         setError(confirmError.message || '決済に失敗しました')
         setLoading(false)
+        setIsProcessing(false)
         return
       }
 
@@ -131,16 +136,20 @@ function CheckoutForm({
         if (contractError) {
           setError(`契約の確定に失敗しました: ${contractError}`)
           setLoading(false)
+          setIsProcessing(false)
           return
         }
 
-        // 成功画面にリダイレクト
-        router.push('/plans/success')
+        // 成功画面にリダイレクト（処理完了後）
+        setTimeout(() => {
+          router.push('/plans/success')
+        }, 500)
       }
     } catch (err) {
       console.error('Payment error:', err)
       setError('決済中にエラーが発生しました')
       setLoading(false)
+      setIsProcessing(false)
     }
   }
 
@@ -250,10 +259,10 @@ function CheckoutForm({
           </Link>
           <button
             type="submit"
-            disabled={!stripe || loading}
-            className="flex-1 rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50"
+            disabled={!stripe || loading || isProcessing}
+            className="flex-1 rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? '決済中...' : `¥${totalPrice.toLocaleString()}を支払う`}
+            {loading || isProcessing ? '決済中...' : `¥${totalPrice.toLocaleString()}を支払う`}
           </button>
         </div>
       </div>

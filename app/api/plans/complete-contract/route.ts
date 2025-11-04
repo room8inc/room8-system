@@ -46,6 +46,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '決済が完了していません' }, { status: 400 })
     }
 
+    // 重複チェック：同じPayment Intent IDで既に契約が作成されていないか確認
+    const { data: existingContract } = await supabase
+      .from('user_plans')
+      .select('id')
+      .eq('stripe_payment_intent_id', paymentIntentId)
+      .maybeSingle()
+
+    if (existingContract) {
+      return NextResponse.json({ error: 'この決済は既に処理済みです' }, { status: 400 })
+    }
+
     // Payment Method IDを取得
     const paymentMethodId = typeof paymentIntent.payment_method === 'string' 
       ? paymentIntent.payment_method 
@@ -218,7 +229,7 @@ export async function POST(request: NextRequest) {
         const nextMonth = new Date(startDateObj.getFullYear(), startDateObj.getMonth() + 1, 1)
         const subscriptionStartDate = Math.floor(nextMonth.getTime() / 1000)
 
-        // Subscriptionを作成
+        // Subscriptionを作成（初回支払いは発生しないように設定）
         const subscription = await stripe.subscriptions.create({
           customer: userData.stripe_customer_id,
           default_payment_method: paymentMethodId, // Payment Methodを指定
@@ -228,6 +239,8 @@ export async function POST(request: NextRequest) {
             },
           ],
           billing_cycle_anchor: subscriptionStartDate,
+          proration_behavior: 'none', // 初回支払い時の比例計算を無効化
+          backdate_start_date: subscriptionStartDate, // 開始日をバックデートして初回支払いをスキップ
           metadata: {
             user_id: user.id,
             user_plan_id: userPlan.id,
