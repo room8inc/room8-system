@@ -10,7 +10,8 @@ export default function RegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    name: '',
+    lastName: '',
+    firstName: '',
     nameKana: '',
     phone: '',
     address: '',
@@ -42,13 +43,16 @@ export default function RegisterPage() {
     try {
       console.log('Starting registration...')
       
+      // 姓名を「姓 名」の順で結合
+      const fullName = `${formData.lastName} ${formData.firstName}`.trim()
+
       // Supabase Authでユーザー作成（user_metadataに追加情報を含める）
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
           options: {
             data: {
-              name: formData.name,
+              name: fullName,
               name_kana: formData.nameKana,
               phone: formData.phone,
               address: formData.address,
@@ -87,7 +91,7 @@ export default function RegisterPage() {
         const { data: updateData, error: updateError } = await supabase
           .from('users')
           .update({
-            name: formData.name,
+            name: fullName, // 「姓 名」の順で保存
             name_kana: formData.nameKana,
             phone: formData.phone,
             address: formData.address,
@@ -231,18 +235,34 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* 氏名 */}
+            {/* 氏名（姓） */}
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-room-charcoal">
-                氏名
+              <label htmlFor="lastName" className="block text-sm font-medium text-room-charcoal">
+                氏名（姓）
               </label>
               <input
-                id="name"
-                name="name"
+                id="lastName"
+                name="lastName"
                 type="text"
                 required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
+              />
+            </div>
+
+            {/* 氏名（名） */}
+            <div>
+              <label htmlFor="firstName" className="block text-sm font-medium text-room-charcoal">
+                氏名（名）
+              </label>
+              <input
+                id="firstName"
+                name="firstName"
+                type="text"
+                required
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
               />
             </div>

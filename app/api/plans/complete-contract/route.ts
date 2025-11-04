@@ -73,9 +73,11 @@ export async function POST(request: NextRequest) {
       console.log(`Creating new customer for user ${user.id}`)
       
       // 顧客名を決定（個人の場合はname、法人の場合はcompany_name）
+      // nameは「姓 名」の順で保存されているが、念のためformatJapaneseNameを使用
+      const { formatJapaneseName } = await import('@/lib/utils/name')
       const customerName = userDataForName?.is_individual === false && userDataForName?.company_name
         ? userDataForName.company_name
-        : userDataForName?.name || user.email || undefined
+        : formatJapaneseName(userDataForName?.name) || user.email || undefined
       
       const newCustomer = await stripe.customers.create({
         email: user.email || undefined,

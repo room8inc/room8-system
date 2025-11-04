@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { formatJapaneseName } from '@/lib/utils/name'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -13,7 +14,8 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [formData, setFormData] = useState({
-    name: '',
+    lastName: '',
+    firstName: '',
     nameKana: '',
     phone: '',
     address: '',
@@ -45,8 +47,15 @@ export default function ProfilePage() {
       }
 
       if (userData) {
+        // 既存のnameを「姓 名」の順にフォーマットしてから分割
+        const formattedName = formatJapaneseName(userData.name || '')
+        const nameParts = formattedName.trim().split(/\s+/)
+        const lastName = nameParts.length >= 2 ? nameParts[0] : nameParts[0] || ''
+        const firstName = nameParts.length >= 2 ? nameParts.slice(1).join(' ') : ''
+
         setFormData({
-          name: userData.name || '',
+          lastName,
+          firstName,
           nameKana: userData.name_kana || '',
           phone: userData.phone || '',
           address: userData.address || '',
@@ -76,8 +85,11 @@ export default function ProfilePage() {
         return
       }
 
+      // 姓名を「姓 名」の順で結合
+      const fullName = `${formData.lastName} ${formData.firstName}`.trim()
+
       const updateData: any = {
-        name: formData.name,
+        name: fullName,
         name_kana: formData.nameKana || null,
         phone: formData.phone || null,
         address: formData.address || null,
@@ -197,17 +209,32 @@ export default function ProfilePage() {
                   基本情報
                 </h2>
                 <div className="space-y-4">
-                  {/* 氏名 */}
+                  {/* 氏名（姓） */}
                   <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-room-charcoal">
-                      氏名 <span className="text-room-main-dark">*</span>
+                    <label htmlFor="lastName" className="block text-sm font-medium text-room-charcoal">
+                      氏名（姓） <span className="text-room-main-dark">*</span>
                     </label>
                     <input
-                      id="name"
+                      id="lastName"
                       type="text"
                       required
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      value={formData.lastName}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
+                    />
+                  </div>
+
+                  {/* 氏名（名） */}
+                  <div>
+                    <label htmlFor="firstName" className="block text-sm font-medium text-room-charcoal">
+                      氏名（名） <span className="text-room-main-dark">*</span>
+                    </label>
+                    <input
+                      id="firstName"
+                      type="text"
+                      required
+                      value={formData.firstName}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                       className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
                     />
                   </div>
