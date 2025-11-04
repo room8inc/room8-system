@@ -148,33 +148,46 @@ export default function RegisterPage() {
           )}
 
           <div className="space-y-4">
-            {/* 会員種別 */}
+            {/* 利用形態 */}
             <div>
               <label className="block text-sm font-medium text-room-charcoal">
-                会員種別
+                利用形態
               </label>
-              <div className="mt-2 flex gap-4">
-                <label className="flex items-center">
+              <p className="mt-1 mb-3 text-xs text-room-charcoal-light">
+                アカウント登録後、Room8会員として登録するか、ドロップイン（非会員）として利用するかを選択できます
+              </p>
+              <div className="mt-2 space-y-3">
+                <label className="flex items-start p-3 rounded-md border border-room-base-dark bg-room-base hover:bg-room-base-dark cursor-pointer">
                   <input
                     type="radio"
                     name="memberType"
                     value="regular"
                     checked={formData.memberType === 'regular'}
                     onChange={(e) => setFormData({ ...formData, memberType: e.target.value as 'regular' | 'dropin' })}
-                    className="mr-2"
+                    className="mt-1 mr-3"
                   />
-                  定期会員
+                  <div>
+                    <span className="font-medium text-room-charcoal">Room8会員（定期会員）</span>
+                    <p className="text-xs text-room-charcoal-light mt-1">
+                      定額プランに加入し、月額料金で利用します
+                    </p>
+                  </div>
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-start p-3 rounded-md border border-room-base-dark bg-room-base hover:bg-room-base-dark cursor-pointer">
                   <input
                     type="radio"
                     name="memberType"
                     value="dropin"
                     checked={formData.memberType === 'dropin'}
                     onChange={(e) => setFormData({ ...formData, memberType: e.target.value as 'regular' | 'dropin' })}
-                    className="mr-2"
+                    className="mt-1 mr-3"
                   />
-                  ドロップイン会員
+                  <div>
+                    <span className="font-medium text-room-charcoal">ドロップイン（非会員）</span>
+                    <p className="text-xs text-room-charcoal-light mt-1">
+                      会員登録は不要。利用時に1時間400円でご利用いただけます
+                    </p>
+                  </div>
                 </label>
               </div>
             </div>

@@ -34,12 +34,12 @@ export default async function MemberCardPage() {
   // 会員番号を生成（ユーザーIDの最初の8文字を使用）
   const memberNumber = user.id.substring(0, 8).toUpperCase()
 
-  // 会員種別の表示名
+  // 利用形態の表示名
   const memberTypeDisplay =
     userData?.member_type === 'regular'
-      ? '定期会員'
+      ? 'Room8会員'
       : userData?.member_type === 'dropin'
-      ? 'ドロップイン会員'
+      ? 'ドロップイン（非会員）'
       : 'ゲスト'
 
   return (

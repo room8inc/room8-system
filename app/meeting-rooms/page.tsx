@@ -192,7 +192,7 @@ export default async function MeetingRoomsPage() {
             </div>
             <div className="border-l-4 border-room-brass pl-4">
               <p className="font-medium text-room-charcoal">
-                定額会員以外（ドロップイン会員など）
+                ドロップイン（非会員）
               </p>
               <p className="text-sm text-room-charcoal-light mt-1">
                 ¥2,200/時間
@@ -203,9 +203,9 @@ export default async function MeetingRoomsPage() {
             <p className="text-xs text-room-charcoal-light">
               <strong>決済タイミング：</strong>
               <br />
-              定額会員：時間外利用と合算して月末（翌月1日）にまとめて請求
+              Room8会員：時間外利用と合算して月末（翌月1日）にまとめて請求
               <br />
-              ドロップイン会員：予約時に決済
+              ドロップイン（非会員）：予約時に決済
             </p>
           </div>
         </div>

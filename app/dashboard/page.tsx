@@ -160,7 +160,7 @@ export default async function DashboardPage() {
                   {currentPlan.plans?.name || 'プラン名不明'}
                 </p>
                 <p className="mt-1 text-xs text-room-charcoal-light">
-                  会員種別: {userData?.member_type === 'regular' ? '定期会員' : userData?.member_type === 'dropin' ? 'ドロップイン' : 'ゲスト'}
+                  利用形態: {userData?.member_type === 'regular' ? 'Room8会員' : userData?.member_type === 'dropin' ? 'ドロップイン（非会員）' : 'ゲスト'}
                 </p>
               </>
             ) : (
