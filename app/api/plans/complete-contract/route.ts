@@ -290,6 +290,7 @@ export async function POST(request: NextRequest) {
 
         // Subscriptionを作成（初回支払いは発生しないように設定）
         console.log(`Creating subscription for customer ${customerId} with price ${priceId}`)
+        console.log(`Subscription start date: ${new Date(subscriptionStartDate * 1000).toISOString()}`)
         let subscription
         try {
           subscription = await stripe.subscriptions.create({
@@ -301,7 +302,8 @@ export async function POST(request: NextRequest) {
               },
             ],
             billing_cycle_anchor: subscriptionStartDate,
-            trial_end: subscriptionStartDate, // トライアル終了日を設定して初回支払いをスキップ
+            // trial_endは削除（初回支払いは既に完了しているため、トライアルは不要）
+            // billing_cycle_anchorのみで次回請求日を設定
             proration_behavior: 'none', // 初回支払い時の比例計算を無効化
             metadata: {
               user_id: user.id,
