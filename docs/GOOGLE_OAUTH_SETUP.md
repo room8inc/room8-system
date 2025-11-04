@@ -84,7 +84,21 @@
 
 4. **作成** をクリック
 
-**注意**: ドメインが不明な場合は、開発環境のURIだけ設定して、デプロイ後に本番環境のURIを追加することもできます。
+2. **URI を追加** ボタンをクリックして、以下のURIを追加:
+
+   ```
+   https://【確認したドメイン】/api/admin/google-calendar/oauth/callback
+   ```
+
+   **例**:
+   - ドメインが `room8-system.vercel.app` の場合:
+     ```
+     https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback
+     ```
+   - カスタムドメインが `room8.example.com` の場合:
+     ```
+     https://room8.example.com/api/admin/google-calendar/oauth/callback
+     ```
 
 ### 4. クライアントIDとシークレットを取得
 
