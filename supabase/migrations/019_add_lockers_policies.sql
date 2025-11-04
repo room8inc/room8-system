@@ -10,8 +10,8 @@ DROP POLICY IF EXISTS "Allow authenticated users to read locker inventory" ON lo
 DROP POLICY IF EXISTS "Allow users to read their own locker" ON lockers;
 DROP POLICY IF EXISTS "Allow admins to manage all lockers" ON lockers;
 
--- ポリシー1: 認証済みユーザーは在庫数（size, status）を読み取れる
--- 在庫数確認のため、sizeとstatusのみ読み取り可能
+-- ポリシー1: 認証済みユーザーは空き数（size, status）を読み取れる
+-- 空き数確認のため、sizeとstatusのみ読み取り可能
 CREATE POLICY "Allow authenticated users to read locker inventory"
   ON lockers FOR SELECT
   TO authenticated

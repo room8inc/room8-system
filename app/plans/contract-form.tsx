@@ -33,13 +33,13 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
     locker_size: null as 'large' | 'small' | null, // ロッカーのサイズ
   })
   
-  // ロッカーの在庫状況
+  // ロッカーの空き状況
   const [lockerInventory, setLockerInventory] = useState<{
     large: { available: number; total: number }
     small: { available: number; total: number }
   } | null>(null)
   
-  // ロッカーの在庫状況を取得
+  // ロッカーの空き状況を取得
   const fetchLockerInventory = async () => {
     const { data: lockers } = await supabase
       .from('lockers')
@@ -58,7 +58,7 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
     }
   }
   
-  // コンポーネントマウント時に在庫状況を取得
+  // コンポーネントマウント時に空き状況を取得
   useEffect(() => {
     if (availableOptions.locker) {
       fetchLockerInventory()
@@ -164,7 +164,7 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
           .single()
         
         if (!availableLocker) {
-          setError(`${options.locker_size === 'large' ? '大' : '小'}ロッカーの在庫がありません`)
+          setError(`${options.locker_size === 'large' ? '大' : '小'}ロッカーに空きがありません`)
           setLoading(false)
           return
         }
@@ -378,9 +378,9 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
                         />
                         <span className={`text-xs ${lockerInventory.large.available === 0 ? 'text-room-charcoal-light' : 'text-room-charcoal'}`}>
                           大ロッカー {lockerInventory.large.available > 0 ? (
-                            <span className="text-room-main">(残り{lockerInventory.large.available}個)</span>
+                            <span className="text-room-main">(空き{lockerInventory.large.available}個)</span>
                           ) : (
-                            <span className="text-red-600">(在庫なし)</span>
+                            <span className="text-red-600">(満室)</span>
                           )}
                         </span>
                       </label>
@@ -395,9 +395,9 @@ export function ContractForm({ planId, planName, planFeatures, planData }: Contr
                         />
                         <span className={`text-xs ${lockerInventory.small.available === 0 ? 'text-room-charcoal-light' : 'text-room-charcoal'}`}>
                           小ロッカー {lockerInventory.small.available > 0 ? (
-                            <span className="text-room-main">(残り{lockerInventory.small.available}個)</span>
+                            <span className="text-room-main">(空き{lockerInventory.small.available}個)</span>
                           ) : (
-                            <span className="text-red-600">(在庫なし)</span>
+                            <span className="text-red-600">(満室)</span>
                           )}
                         </span>
                       </label>
