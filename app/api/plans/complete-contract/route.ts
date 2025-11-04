@@ -101,6 +101,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '支払い方法が見つかりません' }, { status: 400 })
     }
 
+    // Payment Methodが顧客にアタッチされているか確認し、必要に応じてアタッチ
+    try {
+      const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId)
+      if (paymentMethod.customer !== customerId) {
+        console.log(`Attaching payment method ${paymentMethodId} to customer ${customerId}`)
+        await stripe.paymentMethods.attach(paymentMethodId, {
+          customer: customerId,
+        })
+        console.log(`Payment method attached successfully`)
+      }
+    } catch (error: any) {
+      console.error('Payment method attachment error:', error.message, error.code)
+      // エラーが発生しても続行（既にアタッチされている場合もある）
+    }
+
     // プラン情報を取得
     const { data: plan, error: planError } = await supabase
       .from('plans')
