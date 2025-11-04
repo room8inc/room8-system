@@ -15,6 +15,7 @@ export default function RegisterPage() {
     nameKana: '',
     phone: '',
     address: '',
+    companyName: '',
     isIndividual: true,
   })
   const [error, setError] = useState<string | null>(null)
@@ -88,17 +89,24 @@ export default function RegisterPage() {
       // 空の値でINSERTされる可能性があるため、UPDATEで詳細情報を反映
       if (session) {
         console.log('Updating user data...')
+        const updatePayload: any = {
+          name: fullName, // 「姓 名」の順で保存
+          name_kana: formData.nameKana,
+          phone: formData.phone,
+          address: formData.address,
+          member_type: 'dropin', // デフォルトは'dropin'（非会員）、プラン契約時に'regular'に更新
+          is_individual: formData.isIndividual,
+          status: 'active',
+        }
+
+        // 法人の場合は会社名も追加
+        if (!formData.isIndividual) {
+          updatePayload.company_name = formData.companyName || null
+        }
+
         const { data: updateData, error: updateError } = await supabase
           .from('users')
-          .update({
-            name: fullName, // 「姓 名」の順で保存
-            name_kana: formData.nameKana,
-            phone: formData.phone,
-            address: formData.address,
-            member_type: 'dropin', // デフォルトは'dropin'（非会員）、プラン契約時に'regular'に更新
-            is_individual: formData.isIndividual,
-            status: 'active',
-          })
+          .update(updatePayload)
           .eq('id', authData.user.id)
           .select()
 
@@ -303,6 +311,24 @@ export default function RegisterPage() {
                 className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
               />
             </div>
+
+            {/* 会社名（法人の場合のみ表示） */}
+            {!formData.isIndividual && (
+              <div>
+                <label htmlFor="companyName" className="block text-sm font-medium text-room-charcoal">
+                  会社名 <span className="text-room-main-dark">*</span>
+                </label>
+                <input
+                  id="companyName"
+                  name="companyName"
+                  type="text"
+                  required={!formData.isIndividual}
+                  value={formData.companyName}
+                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
+                />
+              </div>
+            )}
 
             {/* 電話番号 */}
             <div>
