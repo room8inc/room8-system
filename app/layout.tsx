@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import FooterNav from "@/components/footer-nav";
 
 export const metadata: Metadata = {
   title: "Room8 - コワーキングスペース管理システム",
@@ -13,7 +14,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <body>
+        <div className="pb-20">
+          {children}
+        </div>
+        <FooterNav />
+      </body>
     </html>
   );
 }
