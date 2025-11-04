@@ -82,11 +82,15 @@ export function PlanTypeSelector({
             <div className="space-y-2 text-sm text-room-charcoal-light">
               <p className="flex items-start gap-2">
                 <span className="text-room-main">✓</span>
-                <span>住所利用可能（法人登記可）</span>
+                <span>住所利用可能（法人登記はオプション）</span>
               </p>
               <p className="flex items-start gap-2">
                 <span className="text-room-main">✓</span>
-                <span>会議室利用可（月4時間まで無料）</span>
+                <span>会議室利用可（月4時間まで無料、超過分1時間1,100円）</span>
+              </p>
+              <p className="flex items-start gap-2">
+                <span className="text-room-main">✓</span>
+                <span>同伴利用可（1日2時間まで）</span>
               </p>
               <p className="flex items-start gap-2">
                 <span className="text-room-main">✓</span>
@@ -132,7 +136,7 @@ export function PlanTypeSelector({
               </p>
               <p className="flex items-start gap-2">
                 <span className="text-room-main">✓</span>
-                <span>会議室利用可（有料）</span>
+                <span>会議室利用可（1時間1,100円）</span>
               </p>
               <p className="flex items-start gap-2">
                 <span className="text-room-main">✓</span>

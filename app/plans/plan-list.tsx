@@ -15,8 +15,8 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
     planType === 'shared_office' ? 'シェアオフィスプラン' : 'ワークスペースプラン（コワーキングスペースプラン）'
   const planTypeDescription =
     planType === 'shared_office'
-      ? '住所利用可能、会議室月4時間まで無料'
-      : '場所貸しのみ、会議室利用可'
+      ? '住所利用可能、会議室月4時間まで無料（超過分1時間1,100円）、法人登記オプション、同伴利用可（1日2時間まで）'
+      : '場所貸しのみ、会議室利用可（1時間1,100円）'
 
   const formatTime = (time: string) => {
     return time.substring(0, 5) // "HH:MM"
@@ -129,13 +129,26 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
                       <p>
                         <strong>会議室:</strong>{' '}
                         {features.meeting_room.free_hours
-                          ? `月${features.meeting_room.free_hours}時間まで無料`
+                          ? `月${features.meeting_room.free_hours}時間まで無料、超過分¥${features.meeting_room.rate}/時間`
                           : `¥${features.meeting_room.rate}/時間`}
                       </p>
                     )}
                     {features?.address_usage && (
                       <p>
                         <strong>住所利用:</strong> 可能
+                      </p>
+                    )}
+                    {features?.company_registration && (
+                      <p>
+                        <strong>法人登記:</strong>{' '}
+                        {features.company_registration.standard
+                          ? '標準装備'
+                          : `オプション（¥${features.company_registration.optional_price}/月）`}
+                      </p>
+                    )}
+                    {features?.guest_usage && features.guest_usage.free_hours_per_guest && (
+                      <p>
+                        <strong>同伴利用:</strong> 可能（1日{features.guest_usage.free_hours_per_guest}時間まで無料）
                       </p>
                     )}
                     {features?.printer && (
