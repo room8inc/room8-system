@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { LogoutButton } from './logout-button'
 import { QRScannerButton } from './qr-scanner-button'
 import { formatJapaneseName } from '@/lib/utils/name'
@@ -166,11 +167,22 @@ export default async function DashboardPage() {
                       : 'ドロップイン（非会員）'
                   }
                 </p>
+                <p className="mt-1 text-xs text-room-charcoal-light">
+                  契約開始日: {new Date(currentPlan.started_at).toLocaleDateString('ja-JP')}
+                </p>
               </>
             ) : (
-              <p className="mt-2 text-sm text-room-charcoal-light">
-                プラン未登録
-              </p>
+              <>
+                <p className="mt-2 text-sm text-room-charcoal-light">
+                  プラン未登録
+                </p>
+                <Link
+                  href="/plans"
+                  className="mt-3 inline-block rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
+                >
+                  プランを選択して契約する
+                </Link>
+              </>
             )}
           </div>
         </div>
