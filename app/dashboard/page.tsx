@@ -19,12 +19,17 @@ export default async function DashboardPage() {
   }
 
   // 現在のチェックイン状態を取得
-  const { data: currentCheckin } = await supabase
+  // .maybeSingle()を使用して、結果が0件でもエラーにならないようにする
+  const { data: currentCheckin, error: checkinError } = await supabase
     .from('checkins')
     .select('*')
     .eq('user_id', user.id)
     .is('checkout_at', null)
-    .single()
+    .maybeSingle()
+  
+  if (checkinError) {
+    console.error('Dashboard: Error fetching current checkin:', checkinError)
+  }
 
   // 今日のチェックイン履歴を取得
   const today = new Date()

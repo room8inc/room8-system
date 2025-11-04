@@ -1,5 +1,11 @@
 -- Add RLS policies for admin users
 -- Phase 1 MVP: 管理者が全ユーザーの情報を閲覧・編集できるようにする
+--
+-- 重要: このポリシーは「管理者が全ユーザー情報を読み取る」ためのものです。
+-- ユーザー自身が自分の情報（is_adminを含む）を読み取るには、
+-- 005_add_users_policies.sql の「Allow users to read their own data」ポリシーが必要です。
+-- PostgreSQLのRLSでは、複数のポリシーが存在する場合、それらはOR条件で結合されるため、
+-- 両方のポリシーが共存できます。
 
 -- ============================================
 -- users テーブルの管理者用ポリシー
@@ -10,6 +16,8 @@ DROP POLICY IF EXISTS "Allow admins to read all users" ON users;
 DROP POLICY IF EXISTS "Allow admins to update all users" ON users;
 
 -- ポリシー1: 管理者は全ユーザー情報をSELECTできる
+-- 注意: このポリシーは、管理者が他のユーザーの情報を読み取るためのものです。
+-- ユーザー自身が自分の情報を読み取るには、005_add_users_policies.sql のポリシーが適用されます。
 CREATE POLICY "Allow admins to read all users"
   ON users FOR SELECT
   TO authenticated

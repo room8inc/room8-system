@@ -16,9 +16,31 @@ export default async function AdminPage() {
   }
 
   // 管理者権限チェック
+  // デバッグ: ユーザー情報を直接取得して確認
+  const { data: currentUserData, error: currentUserError } = await supabase
+    .from('users')
+    .select('is_admin, email, id')
+    .eq('id', user.id)
+    .single()
+
+  console.log('Admin page: Current user data:', {
+    userId: user.id,
+    email: user.email,
+    userData: currentUserData,
+    error: currentUserError,
+  })
+
   const admin = await isAdmin()
+  console.log('Admin page: isAdmin() result:', admin)
+  
   if (!admin) {
     console.log('Admin page: Not admin, redirecting to dashboard')
+    console.log('Admin page: User is_admin value:', currentUserData?.is_admin)
+    console.log('Admin page: User email:', currentUserData?.email)
+    // デバッグ用: エラーを表示してからリダイレクト
+    if (currentUserError) {
+      console.error('Admin page: Error fetching user data:', currentUserError)
+    }
     redirect('/dashboard')
   }
   
