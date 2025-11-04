@@ -44,6 +44,74 @@ export function BookingForm({
   // 今日以降の日付のみ選択可能
   const today = new Date().toISOString().split('T')[0]
 
+  // 開始時刻が変更されたら、終了時刻を自動で1時間後に設定
+  const handleStartTimeChange = (startTime: string) => {
+    if (!startTime) {
+      setFormData({ ...formData, startTime: '', endTime: '' })
+      return
+    }
+
+    // 開始時刻 + 1時間を計算
+    const [hours, minutes] = startTime.split(':').map(Number)
+    let endHours = hours + 1
+    let endMinutes = minutes
+
+    // 24時間を超える場合は調整
+    if (endHours >= 24) {
+      endHours = endHours - 24
+    }
+
+    const endTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`
+    setFormData({ ...formData, startTime, endTime })
+  }
+
+  // 終了時刻を30分刻みでバリデーション
+  const handleEndTimeChange = (endTime: string) => {
+    if (!endTime || !formData.startTime) {
+      setFormData({ ...formData, endTime })
+      return
+    }
+
+    // 開始時刻と終了時刻の差分を計算（分単位）
+    const [startHours, startMinutes] = formData.startTime.split(':').map(Number)
+    const [endHours, endMinutes] = endTime.split(':').map(Number)
+
+    const startTotalMinutes = startHours * 60 + startMinutes
+    const endTotalMinutes = endHours * 60 + endMinutes
+
+    let diffMinutes = endTotalMinutes - startTotalMinutes
+    
+    // 日をまたぐ場合の処理
+    if (diffMinutes < 0) {
+      diffMinutes = 24 * 60 + diffMinutes
+    }
+
+    // 1時間未満の場合は1時間に設定
+    if (diffMinutes < 60) {
+      const newEndTotalMinutes = startTotalMinutes + 60
+      const newEndHours = Math.floor(newEndTotalMinutes / 60) % 24
+      const newEndMins = newEndTotalMinutes % 60
+      const newEndTime = `${String(newEndHours).padStart(2, '0')}:${String(newEndMins).padStart(2, '0')}`
+      setFormData({ ...formData, endTime: newEndTime })
+      return
+    }
+
+    // 30分刻みかチェック
+    const remainder = diffMinutes % 30
+    if (remainder !== 0) {
+      // 30分刻みに調整（切り上げ）
+      const adjustedDiffMinutes = diffMinutes + (30 - remainder)
+      const newEndTotalMinutes = startTotalMinutes + adjustedDiffMinutes
+      const newEndHours = Math.floor(newEndTotalMinutes / 60) % 24
+      const newEndMins = newEndTotalMinutes % 60
+      const newEndTime = `${String(newEndHours).padStart(2, '0')}:${String(newEndMins).padStart(2, '0')}`
+      setFormData({ ...formData, endTime: newEndTime })
+      return
+    }
+
+    setFormData({ ...formData, endTime })
+  }
+
   const calculateDuration = () => {
     if (!formData.startTime || !formData.endTime) return 0
     const start = new Date(`2000-01-01T${formData.startTime}`)
@@ -281,8 +349,9 @@ export function BookingForm({
             id="startTime"
             type="time"
             required
+            step="1800"
             value={formData.startTime}
-            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+            onChange={(e) => handleStartTimeChange(e.target.value)}
             className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
           />
         </div>
@@ -291,13 +360,16 @@ export function BookingForm({
         <div>
           <label htmlFor="endTime" className="block text-sm font-medium text-room-charcoal mb-1">
             終了時刻 <span className="text-room-main-dark">*</span>
+            <span className="text-xs text-room-charcoal-light ml-2">（最初は1時間、その後30分刻み）</span>
           </label>
           <input
             id="endTime"
             type="time"
             required
+            step="1800"
             value={formData.endTime}
-            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+            onChange={(e) => handleEndTimeChange(e.target.value)}
+            min={formData.startTime}
             className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
           />
         </div>
