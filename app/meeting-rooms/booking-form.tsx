@@ -36,92 +36,51 @@ export function BookingForm({
   const [formData, setFormData] = useState({
     bookingDate: '',
     startTime: '',
-    endTime: '',
-    numberOfParticipants: 1,
+    durationHours: 1, // デフォルトは1時間
     notes: '',
   })
 
   // 今日以降の日付のみ選択可能
   const today = new Date().toISOString().split('T')[0]
 
-  // 開始時刻が変更されたら、終了時刻を自動で1時間後に設定
-  const handleStartTimeChange = (startTime: string) => {
-    if (!startTime) {
-      setFormData({ ...formData, startTime: '', endTime: '' })
-      return
+  // 利用時間の選択肢を生成（1時間から6時間まで、30分刻み）
+  const durationOptions = []
+  for (let hours = 1; hours <= 6; hours++) {
+    durationOptions.push(hours) // 1時間、2時間、3時間...
+    if (hours < 6) {
+      durationOptions.push(hours + 0.5) // 1時間30分、2時間30分...
     }
-
-    // 開始時刻 + 1時間を計算
-    const [hours, minutes] = startTime.split(':').map(Number)
-    let endHours = hours + 1
-    let endMinutes = minutes
-
-    // 24時間を超える場合は調整
-    if (endHours >= 24) {
-      endHours = endHours - 24
-    }
-
-    const endTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`
-    setFormData({ ...formData, startTime, endTime })
   }
 
-  // 終了時刻を30分刻みでバリデーション
-  const handleEndTimeChange = (endTime: string) => {
-    if (!endTime || !formData.startTime) {
-      setFormData({ ...formData, endTime })
-      return
-    }
-
-    // 開始時刻と終了時刻の差分を計算（分単位）
-    const [startHours, startMinutes] = formData.startTime.split(':').map(Number)
-    const [endHours, endMinutes] = endTime.split(':').map(Number)
-
-    const startTotalMinutes = startHours * 60 + startMinutes
-    const endTotalMinutes = endHours * 60 + endMinutes
-
-    let diffMinutes = endTotalMinutes - startTotalMinutes
+  // 利用時間から終了時刻を計算
+  const calculateEndTime = (startTime: string, durationHours: number): string => {
+    if (!startTime) return ''
     
-    // 日をまたぐ場合の処理
-    if (diffMinutes < 0) {
-      diffMinutes = 24 * 60 + diffMinutes
-    }
-
-    // 1時間未満の場合は1時間に設定
-    if (diffMinutes < 60) {
-      const newEndTotalMinutes = startTotalMinutes + 60
-      const newEndHours = Math.floor(newEndTotalMinutes / 60) % 24
-      const newEndMins = newEndTotalMinutes % 60
-      const newEndTime = `${String(newEndHours).padStart(2, '0')}:${String(newEndMins).padStart(2, '0')}`
-      setFormData({ ...formData, endTime: newEndTime })
-      return
-    }
-
-    // 30分刻みかチェック
-    const remainder = diffMinutes % 30
-    if (remainder !== 0) {
-      // 30分刻みに調整（切り上げ）
-      const adjustedDiffMinutes = diffMinutes + (30 - remainder)
-      const newEndTotalMinutes = startTotalMinutes + adjustedDiffMinutes
-      const newEndHours = Math.floor(newEndTotalMinutes / 60) % 24
-      const newEndMins = newEndTotalMinutes % 60
-      const newEndTime = `${String(newEndHours).padStart(2, '0')}:${String(newEndMins).padStart(2, '0')}`
-      setFormData({ ...formData, endTime: newEndTime })
-      return
-    }
-
-    setFormData({ ...formData, endTime })
+    const [hours, minutes] = startTime.split(':').map(Number)
+    const totalMinutes = hours * 60 + minutes + durationHours * 60
+    const endHours = Math.floor(totalMinutes / 60) % 24
+    const endMins = totalMinutes % 60
+    
+    return `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`
   }
 
-  const calculateDuration = () => {
-    if (!formData.startTime || !formData.endTime) return 0
-    const start = new Date(`2000-01-01T${formData.startTime}`)
-    const end = new Date(`2000-01-01T${formData.endTime}`)
-    const diffMs = end.getTime() - start.getTime()
-    return Math.max(0, diffMs / (1000 * 60 * 60)) // 時間単位
+  // 利用時間を表示用の文字列に変換
+  const formatDuration = (hours: number): string => {
+    const wholeHours = Math.floor(hours)
+    const minutes = Math.round((hours % 1) * 60)
+    
+    if (minutes === 0) {
+      return `${wholeHours}時間`
+    } else {
+      return `${wholeHours}時間${minutes}分`
+    }
   }
+
+  const duration = formData.durationHours || 0
+  const endTime = formData.startTime ? calculateEndTime(formData.startTime, duration) : ''
 
   const calculateAmount = () => {
-    const duration = calculateDuration()
+    const duration = formData.durationHours || 0
     if (duration <= 0) return 0
 
     // シェアオフィスプランの場合、無料枠を考慮（後で実装）
@@ -131,9 +90,11 @@ export function BookingForm({
   }
 
   const checkAvailability = async () => {
-    if (!formData.bookingDate || !formData.startTime || !formData.endTime) {
+    if (!formData.bookingDate || !formData.startTime || !formData.durationHours) {
       return { available: false, reason: '日時が選択されていません' }
     }
+
+    const endTime = calculateEndTime(formData.startTime, formData.durationHours)
 
     try {
       // 時間の重複チェック: (start_time < end_time) AND (end_time > start_time)
@@ -153,7 +114,7 @@ export function BookingForm({
       // クライアント側で時間の重複をチェック
       if (existingBookings) {
         const requestStart = formData.startTime
-        const requestEnd = formData.endTime
+        const requestEnd = endTime
 
         const hasOverlap = existingBookings.some((booking) => {
           const bookingStart = booking.start_time
@@ -181,18 +142,14 @@ export function BookingForm({
 
     try {
       // バリデーション
-      if (!formData.bookingDate || !formData.startTime || !formData.endTime) {
-        setError('日時を選択してください')
+      if (!formData.bookingDate || !formData.startTime || !formData.durationHours) {
+        setError('日時と利用時間を選択してください')
         setLoading(false)
         return
       }
 
-      const duration = calculateDuration()
-      if (duration <= 0) {
-        setError('終了時刻は開始時刻より後である必要があります')
-        setLoading(false)
-        return
-      }
+      const duration = formData.durationHours
+      const endTime = calculateEndTime(formData.startTime, duration)
 
       // 空き状況確認
       const availability = await checkAvailability()
@@ -256,9 +213,9 @@ export function BookingForm({
           staff_member_id: staffMemberId || null, // 利用者のID（利用者が予約した場合）
           booking_date: formData.bookingDate,
           start_time: formData.startTime,
-          end_time: formData.endTime,
+          end_time: endTime,
           duration_hours: duration,
-          number_of_participants: formData.numberOfParticipants,
+          number_of_participants: null, // 一室貸し切りのため人数は不要
           status: 'reserved',
           member_type_at_booking: memberType,
           plan_id_at_booking: planInfo?.id || null,
@@ -283,8 +240,7 @@ export function BookingForm({
       setFormData({
         bookingDate: '',
         startTime: '',
-        endTime: '',
-        numberOfParticipants: 1,
+        durationHours: 1,
         notes: '',
       })
     } catch (err) {
@@ -295,7 +251,6 @@ export function BookingForm({
     }
   }
 
-  const duration = calculateDuration()
   const amount = calculateAmount()
 
   return (
@@ -323,23 +278,6 @@ export function BookingForm({
           />
         </div>
 
-        {/* 人数 */}
-        <div>
-          <label htmlFor="numberOfParticipants" className="block text-sm font-medium text-room-charcoal mb-1">
-            利用人数 <span className="text-room-main-dark">*</span>
-          </label>
-          <input
-            id="numberOfParticipants"
-            type="number"
-            required
-            min={1}
-            max={10}
-            value={formData.numberOfParticipants}
-            onChange={(e) => setFormData({ ...formData, numberOfParticipants: parseInt(e.target.value) || 1 })}
-            className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
-          />
-        </div>
-
         {/* 開始時刻 */}
         <div>
           <label htmlFor="startTime" className="block text-sm font-medium text-room-charcoal mb-1">
@@ -351,27 +289,29 @@ export function BookingForm({
             required
             step="1800"
             value={formData.startTime}
-            onChange={(e) => handleStartTimeChange(e.target.value)}
+            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
             className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
           />
         </div>
 
-        {/* 終了時刻 */}
-        <div>
-          <label htmlFor="endTime" className="block text-sm font-medium text-room-charcoal mb-1">
-            終了時刻 <span className="text-room-main-dark">*</span>
-            <span className="text-xs text-room-charcoal-light ml-2">（最初は1時間、その後30分刻み）</span>
+        {/* 利用時間 */}
+        <div className="md:col-span-2">
+          <label htmlFor="durationHours" className="block text-sm font-medium text-room-charcoal mb-1">
+            利用時間 <span className="text-room-main-dark">*</span>
           </label>
-          <input
-            id="endTime"
-            type="time"
+          <select
+            id="durationHours"
             required
-            step="1800"
-            value={formData.endTime}
-            onChange={(e) => handleEndTimeChange(e.target.value)}
-            min={formData.startTime}
+            value={formData.durationHours}
+            onChange={(e) => setFormData({ ...formData, durationHours: parseFloat(e.target.value) })}
             className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
-          />
+          >
+            {durationOptions.map((hours) => (
+              <option key={hours} value={hours}>
+                {formatDuration(hours)}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -391,14 +331,20 @@ export function BookingForm({
       </div>
 
       {/* 料金表示 */}
-      {duration > 0 && (
+      {duration > 0 && formData.startTime && (
         <div className="rounded-md bg-room-wood bg-opacity-10 p-4 border border-room-wood">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-room-charcoal">利用時間</span>
             <span className="text-sm font-medium text-room-charcoal">
-              {Math.floor(duration)}時間{Math.round((duration % 1) * 60)}分
+              {formatDuration(duration)}
             </span>
           </div>
+          {endTime && (
+            <div className="flex justify-between items-center mb-2 text-xs text-room-charcoal-light">
+              <span>終了時刻</span>
+              <span>{endTime}</span>
+            </div>
+          )}
           {freeHours && freeHours > 0 && (
             <div className="flex justify-between items-center mb-2 text-xs text-room-charcoal-light">
               <span>無料枠（月{freeHours}時間まで）</span>
@@ -417,7 +363,7 @@ export function BookingForm({
       {/* 送信ボタン */}
       <button
         type="submit"
-        disabled={loading || duration <= 0}
+        disabled={loading || duration <= 0 || !formData.startTime}
         className="w-full rounded-md bg-room-main px-4 py-2 text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? '予約中...' : '予約する'}
