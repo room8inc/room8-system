@@ -25,7 +25,7 @@ export default async function Home() {
             コワーキングスペース管理システム
           </p>
           <p className="text-sm text-room-charcoal-light">
-            会員の方はログイン、初めての方は新規登録してください
+            アカウントをお持ちの方はログイン、初めての方はアカウント作成してください
           </p>
         </div>
 
@@ -41,7 +41,7 @@ export default async function Home() {
             href="/register"
             className="block w-full rounded-md bg-room-charcoal px-6 py-3 text-center text-white hover:bg-room-charcoal-light focus:outline-none focus:ring-2 focus:ring-room-charcoal focus:ring-offset-2 transition-colors"
           >
-            新規会員登録
+            アカウント作成
           </Link>
         </div>
 

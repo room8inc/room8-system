@@ -124,7 +124,7 @@ export default function LoginPage() {
 
           <div className="text-center">
             <a href="/register" className="text-sm text-room-main hover:text-room-main-light">
-              新規会員登録はこちら
+              アカウント作成はこちら
             </a>
           </div>
         </form>

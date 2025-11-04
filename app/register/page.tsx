@@ -133,10 +133,13 @@ export default function RegisterPage() {
       <div className="w-full max-w-2xl space-y-8 rounded-lg bg-room-base-light p-8 shadow-md border border-room-base-dark">
         <div>
           <h2 className="text-center text-3xl font-bold text-room-charcoal">
-            新規会員登録
+            アカウント作成
           </h2>
           <p className="mt-2 text-center text-sm text-room-charcoal-light">
             コワーキングスペース管理システム
+          </p>
+          <p className="mt-2 text-center text-xs text-room-charcoal-light">
+            アカウント作成後、Room8会員契約を結ぶか、ドロップイン（非会員）として利用できます
           </p>
         </div>
 
@@ -151,10 +154,10 @@ export default function RegisterPage() {
             {/* 利用形態 */}
             <div>
               <label className="block text-sm font-medium text-room-charcoal">
-                利用形態
+                利用形態の希望
               </label>
               <p className="mt-1 mb-3 text-xs text-room-charcoal-light">
-                アカウント登録後、Room8会員として登録するか、ドロップイン（非会員）として利用するかを選択できます
+                アカウント作成時点ではまだRoom8会員ではありません。後で会員契約を結ぶか、ドロップイン（非会員）として利用するかを選択してください
               </p>
               <div className="mt-2 space-y-3">
                 <label className="flex items-start p-3 rounded-md border border-room-base-dark bg-room-base hover:bg-room-base-dark cursor-pointer">
@@ -167,9 +170,9 @@ export default function RegisterPage() {
                     className="mt-1 mr-3"
                   />
                   <div>
-                    <span className="font-medium text-room-charcoal">Room8会員（定期会員）</span>
+                    <span className="font-medium text-room-charcoal">Room8会員契約を希望</span>
                     <p className="text-xs text-room-charcoal-light mt-1">
-                      定額プランに加入し、月額料金で利用します
+                      後で定額プランに加入し、月額料金で利用します（会員契約は別途必要です）
                     </p>
                   </div>
                 </label>
@@ -183,9 +186,9 @@ export default function RegisterPage() {
                     className="mt-1 mr-3"
                   />
                   <div>
-                    <span className="font-medium text-room-charcoal">ドロップイン（非会員）</span>
+                    <span className="font-medium text-room-charcoal">ドロップイン（非会員）として利用</span>
                     <p className="text-xs text-room-charcoal-light mt-1">
-                      会員登録は不要。利用時に1時間400円でご利用いただけます
+                      会員契約は不要。利用時に1時間400円でご利用いただけます
                     </p>
                   </div>
                 </label>
@@ -340,7 +343,7 @@ export default function RegisterPage() {
               disabled={loading}
               className="w-full rounded-md bg-room-main px-4 py-2 text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50"
             >
-              {loading ? '登録中...' : '会員登録'}
+              {loading ? '作成中...' : 'アカウント作成'}
             </button>
           </div>
 
