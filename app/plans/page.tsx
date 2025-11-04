@@ -14,11 +14,10 @@ export default async function PlansPage() {
     redirect('/login')
   }
 
-  // プラン一覧を取得
+  // プラン一覧を取得（is_activeフィルタを一時的に外して、全プランを取得）
   const { data: plans, error: plansError } = await supabase
     .from('plans')
     .select('*')
-    .eq('is_active', true)
     .order('display_order', { ascending: true })
 
   if (plansError) {
