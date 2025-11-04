@@ -501,25 +501,13 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
           </div>
         </div>
 
-        {/* キャンペーン選択 */}
+        {/* キャンペーン表示 */}
         {campaigns.length > 0 && (
           <div>
             <label className="block text-xs font-medium text-room-charcoal mb-2">
-              キャンペーン（任意）
+              適用中のキャンペーン
             </label>
             <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name={`campaign-${planId}`}
-                  checked={selectedCampaignId === null}
-                  onChange={() => setSelectedCampaignId(null)}
-                  className="rounded border-room-base-dark text-room-main focus:ring-room-main"
-                />
-                <span className="text-xs text-room-charcoal">
-                  キャンペーンを適用しない
-                </span>
-              </label>
               {campaigns.map((campaign) => {
                 const campaignTypeLabels: { [key: string]: string } = {
                   entry_fee_50off: '入会金50%OFF',
@@ -527,18 +515,29 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
                   first_month_free: '初月会費無料',
                   entry_fee_custom: `入会金${campaign.discount_rate || 0}%OFF`,
                 }
+                const isSelected = selectedCampaignId === campaign.id
                 return (
                   <label key={campaign.id} className="flex items-center gap-2 cursor-pointer">
                     <input
-                      type="radio"
-                      name={`campaign-${planId}`}
-                      checked={selectedCampaignId === campaign.id}
-                      onChange={() => setSelectedCampaignId(campaign.id)}
-                      className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        // キャンペーンが1つの場合は常に選択状態を維持
+                        if (campaigns.length === 1) {
+                          setSelectedCampaignId(campaign.id)
+                        } else {
+                          setSelectedCampaignId(isSelected ? null : campaign.id)
+                        }
+                      }}
+                      disabled={campaigns.length === 1}
+                      className="rounded border-room-base-dark text-room-main focus:ring-room-main disabled:opacity-50"
                     />
-                    <span className="text-xs text-room-charcoal">
+                    <span className={`text-xs ${isSelected ? 'text-room-charcoal font-medium' : 'text-room-charcoal-light'}`}>
                       {campaign.name} - {campaignTypeLabels[campaign.campaign_type]}
                     </span>
+                    {isSelected && (
+                      <span className="text-xs text-room-main">✓ 適用中</span>
+                    )}
                   </label>
                 )
               })}
