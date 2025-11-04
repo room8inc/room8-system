@@ -68,14 +68,14 @@ export default async function DashboardPage() {
   const isCheckedIn = !!currentCheckin
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-room-base">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-room-charcoal">
               ダッシュボード
             </h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-room-charcoal-light">
               ようこそ、{formatJapaneseName(userData?.name) || user.email} さん
             </p>
           </div>
@@ -86,71 +86,71 @@ export default async function DashboardPage() {
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {/* カード1: 現在の状態 */}
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h2 className="text-lg font-semibold text-gray-900">現在の状態</h2>
+          <div className="rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
+            <h2 className="text-lg font-semibold text-room-charcoal">現在の状態</h2>
             {isCheckedIn ? (
               <>
-                <p className="mt-2 text-sm font-medium text-green-600">
+                <p className="mt-2 text-sm font-medium text-room-main">
                   チェックイン中
                 </p>
                 {currentCheckin.checkin_at && (
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-room-charcoal-light">
                     チェックイン時刻: {new Date(currentCheckin.checkin_at).toLocaleString('ja-JP')}
                   </p>
                 )}
                 <QRScannerButton
                   mode="checkout"
                   buttonText="チェックアウト"
-                  buttonClassName="mt-4 inline-block rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+                  buttonClassName="mt-4 inline-block rounded-md bg-room-charcoal px-4 py-2 text-sm text-white hover:bg-room-charcoal-light"
                 />
               </>
             ) : (
               <>
-                <p className="mt-2 text-sm text-gray-600">
+                <p className="mt-2 text-sm text-room-charcoal-light">
                   現在チェックイン中ではありません
                 </p>
                 <QRScannerButton
                   mode="checkin"
                   buttonText="チェックイン"
-                  buttonClassName="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                  buttonClassName="mt-4 inline-block rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
                 />
               </>
             )}
           </div>
 
           {/* カード2: 今日の利用状況 */}
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h2 className="text-lg font-semibold text-gray-900">今日の利用状況</h2>
+          <div className="rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
+            <h2 className="text-lg font-semibold text-room-charcoal">今日の利用状況</h2>
             {todayDuration > 0 ? (
               <>
-                <p className="mt-2 text-sm text-gray-600">
+                <p className="mt-2 text-sm text-room-charcoal-light">
                   利用時間: {Math.floor(todayDuration / 60)}時間{todayDuration % 60}分
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-room-charcoal-light">
                   チェックイン回数: {todayCheckins?.length || 0}回
                 </p>
               </>
             ) : (
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-room-charcoal-light">
                 まだ利用していません
               </p>
             )}
           </div>
 
           {/* カード3: プラン情報 */}
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h2 className="text-lg font-semibold text-gray-900">プラン情報</h2>
+          <div className="rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
+            <h2 className="text-lg font-semibold text-room-charcoal">プラン情報</h2>
             {currentPlan ? (
               <>
-                <p className="mt-2 text-sm text-gray-900">
+                <p className="mt-2 text-sm text-room-charcoal">
                   {currentPlan.plans?.name || 'プラン名不明'}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-room-charcoal-light">
                   会員種別: {userData?.member_type === 'regular' ? '定期会員' : userData?.member_type === 'dropin' ? 'ドロップイン' : 'ゲスト'}
                 </p>
               </>
             ) : (
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-room-charcoal-light">
                 プラン未登録
               </p>
             )}
@@ -159,8 +159,8 @@ export default async function DashboardPage() {
 
         {/* 利用履歴セクション */}
         <div className="mt-8">
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">利用履歴</h2>
+          <div className="rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
+            <h2 className="mb-4 text-lg font-semibold text-room-charcoal">利用履歴</h2>
             {checkinHistory && checkinHistory.length > 0 ? (
               <div className="space-y-3">
                 {checkinHistory.map((checkin) => {
@@ -171,12 +171,12 @@ export default async function DashboardPage() {
                   return (
                     <div
                       key={checkin.id}
-                      className="rounded-md border border-gray-200 p-4"
+                      className="rounded-md border border-room-base-dark bg-room-base p-4"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-900">
+                            <span className="text-sm font-medium text-room-charcoal">
                               {checkinAt.toLocaleDateString('ja-JP', {
                                 year: 'numeric',
                                 month: 'long',
@@ -184,12 +184,12 @@ export default async function DashboardPage() {
                               })}
                             </span>
                             {!checkoutAt && (
-                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                              <span className="rounded-full bg-room-main bg-opacity-20 px-2 py-0.5 text-xs font-medium text-room-main">
                                 チェックイン中
                               </span>
                             )}
                           </div>
-                          <div className="mt-1 text-sm text-gray-600">
+                          <div className="mt-1 text-sm text-room-charcoal-light">
                             <span className="mr-4">
                               入室: {checkinAt.toLocaleTimeString('ja-JP', {
                                 hour: '2-digit',
@@ -206,27 +206,27 @@ export default async function DashboardPage() {
                             )}
                           </div>
                         </div>
-                        <div className="mt-2 text-right sm:mt-0">
-                          {duration !== null ? (
-                            <div className="text-sm text-gray-900">
-                              <span className="font-medium">
-                                {Math.floor(duration / 60)}時間{duration % 60}分
-                              </span>
-                            </div>
-                          ) : checkoutAt ? (
-                            <div className="text-xs text-gray-500">時間未計算</div>
-                          ) : (
-                            <div className="text-xs text-gray-500">利用中</div>
-                          )}
-                        </div>
+                             <div className="mt-2 text-right sm:mt-0">
+                               {duration !== null ? (
+                                 <div className="text-sm text-room-charcoal">
+                                   <span className="font-medium">
+                                     {Math.floor(duration / 60)}時間{duration % 60}分
+                                   </span>
+                                 </div>
+                               ) : checkoutAt ? (
+                                 <div className="text-xs text-room-charcoal-light">時間未計算</div>
+                               ) : (
+                                 <div className="text-xs text-room-charcoal-light">利用中</div>
+                               )}
+                             </div>
                       </div>
                     </div>
                   )
                 })}
               </div>
-            ) : (
-              <p className="text-sm text-gray-600">利用履歴がありません</p>
-            )}
+                 ) : (
+                   <p className="text-sm text-room-charcoal-light">利用履歴がありません</p>
+                 )}
           </div>
         </div>
       </div>

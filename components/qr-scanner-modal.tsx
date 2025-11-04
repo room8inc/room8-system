@@ -254,8 +254,8 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-room-charcoal bg-opacity-50">
+        <div className="relative w-full max-w-md rounded-lg bg-room-base-light p-6 shadow-xl border-2 border-room-wood">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
@@ -263,36 +263,36 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
           ✕
         </button>
 
-        <h2 className="mb-4 text-xl font-bold text-gray-900">
+        <h2 className="mb-4 text-xl font-bold text-room-charcoal">
           {mode === 'checkin' ? 'チェックイン' : mode === 'checkout' ? 'チェックアウト' : 'チェックイン / チェックアウト'}
         </h2>
 
         {error && (
-          <div className="mb-4 rounded-md bg-red-50 p-3">
-            <p className="text-sm text-red-800">{error}</p>
+          <div className="mb-4 rounded-md bg-room-main bg-opacity-10 border border-room-main p-3">
+            <p className="text-sm text-room-main-dark">{error}</p>
           </div>
         )}
 
         {message && (
           <div className={`mb-4 rounded-md p-3 ${
-            status === 'success' ? 'bg-green-50' : 'bg-blue-50'
+            status === 'success' ? 'bg-room-main bg-opacity-20 border border-room-main' : 'bg-room-main bg-opacity-10 border border-room-main'
           }`}>
             <p className={`text-sm ${
-              status === 'success' ? 'text-green-800' : 'text-blue-800'
+              status === 'success' ? 'text-room-main-dark' : 'text-room-main-dark'
             }`}>
               {message}
             </p>
           </div>
         )}
 
-        <div className="rounded-lg bg-gray-100 p-4">
+        <div className="rounded-lg bg-room-base-dark p-4">
           <div id={qrCodeRegionId} className="aspect-square w-full rounded-lg"></div>
         </div>
 
         <div className="mt-4 flex justify-center gap-3">
           <button
             onClick={stopScanning}
-            className="rounded-md bg-gray-600 px-4 py-2 text-sm text-white hover:bg-gray-700"
+            className="rounded-md bg-room-charcoal px-4 py-2 text-sm text-white hover:bg-room-charcoal-light"
           >
             キャンセル
           </button>

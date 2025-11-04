@@ -43,31 +43,31 @@ export default async function MemberCardPage() {
       : 'ゲスト'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-room-base">
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         {/* ヘッダー */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">会員証</h1>
+          <h1 className="text-3xl font-bold text-room-charcoal">会員証</h1>
         </div>
 
         {/* 会員証カード */}
-        <div className="mb-8 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-8 shadow-xl">
+        <div className="mb-8 rounded-xl bg-gradient-to-br from-room-main to-room-main-dark p-8 shadow-xl border-2 border-room-wood">
           <div className="flex flex-col items-center text-center text-white">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white bg-opacity-20 text-3xl font-bold">
+            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white bg-opacity-20 text-3xl font-bold border-2 border-room-brass">
               {formatJapaneseName(userData?.name)?.charAt(0) || user.email?.charAt(0) || '?'}
             </div>
             <h2 className="mb-2 text-2xl font-bold">
               {formatJapaneseName(userData?.name) || user.email}
             </h2>
             {currentPlan && (
-              <p className="mb-1 text-lg font-medium text-blue-100">
+              <p className="mb-1 text-lg font-medium text-room-base-light">
                 {currentPlan.plans?.name || 'プラン名不明'}
               </p>
             )}
-            <p className="mb-4 text-sm text-blue-100">{memberTypeDisplay}</p>
-            <div className="rounded-lg bg-white bg-opacity-20 px-4 py-2">
-              <p className="text-xs text-blue-100">会員番号</p>
-              <p className="text-lg font-mono font-bold">{memberNumber}</p>
+            <p className="mb-4 text-sm text-room-base-light">{memberTypeDisplay}</p>
+            <div className="rounded-lg bg-room-wood bg-opacity-30 px-4 py-2 border border-room-brass">
+              <p className="text-xs text-room-base-light">会員番号</p>
+              <p className="text-lg font-mono font-bold text-room-brass">{memberNumber}</p>
             </div>
           </div>
         </div>
@@ -77,13 +77,13 @@ export default async function MemberCardPage() {
           {/* 会員情報 */}
           <Link
             href="/profile"
-            className="block rounded-lg bg-white p-6 shadow transition-shadow hover:shadow-md"
+            className="block rounded-lg bg-room-base-light p-6 shadow transition-shadow hover:shadow-md border border-room-base-dark"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-room-main bg-opacity-10">
                   <svg
-                    className="h-6 w-6 text-blue-600"
+                    className="h-6 w-6 text-room-main"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -98,12 +98,12 @@ export default async function MemberCardPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">会員情報</h3>
-                  <p className="text-sm text-gray-500">プロフィール編集</p>
+                  <h3 className="font-semibold text-room-charcoal">会員情報</h3>
+                  <p className="text-sm text-room-charcoal-light">プロフィール編集</p>
                 </div>
               </div>
               <svg
-                className="h-5 w-5 text-gray-400"
+                className="h-5 w-5 text-room-wood"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -120,12 +120,12 @@ export default async function MemberCardPage() {
           </Link>
 
           {/* パスワード変更 */}
-          <div className="block rounded-lg bg-white p-6 shadow opacity-60">
+          <div className="block rounded-lg bg-room-base-light p-6 shadow opacity-60 border border-room-base-dark">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-room-base-dark">
                   <svg
-                    className="h-6 w-6 text-gray-400"
+                    className="h-6 w-6 text-room-charcoal-light"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -140,20 +140,20 @@ export default async function MemberCardPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">パスワード変更</h3>
-                  <p className="text-sm text-gray-500">Phase 2で実装予定</p>
+                  <h3 className="font-semibold text-room-charcoal">パスワード変更</h3>
+                  <p className="text-sm text-room-charcoal-light">Phase 2で実装予定</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* 決済履歴・領収書 */}
-          <div className="block rounded-lg bg-white p-6 shadow opacity-60">
+          <div className="block rounded-lg bg-room-base-light p-6 shadow opacity-60 border border-room-base-dark">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-room-base-dark">
                   <svg
-                    className="h-6 w-6 text-gray-400"
+                    className="h-6 w-6 text-room-charcoal-light"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -168,20 +168,20 @@ export default async function MemberCardPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">決済履歴・領収書</h3>
-                  <p className="text-sm text-gray-500">Phase 2で実装予定</p>
+                  <h3 className="font-semibold text-room-charcoal">決済履歴・領収書</h3>
+                  <p className="text-sm text-room-charcoal-light">Phase 2で実装予定</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* 定額契約 */}
-          <div className="block rounded-lg bg-white p-6 shadow opacity-60">
+          <div className="block rounded-lg bg-room-base-light p-6 shadow opacity-60 border border-room-base-dark">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-room-base-dark">
                   <svg
-                    className="h-6 w-6 text-gray-400"
+                    className="h-6 w-6 text-room-charcoal-light"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -196,20 +196,20 @@ export default async function MemberCardPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">定額契約</h3>
-                  <p className="text-sm text-gray-500">プラン情報、契約期間、変更履歴（Phase 4で実装予定）</p>
+                  <h3 className="font-semibold text-room-charcoal">定額契約</h3>
+                  <p className="text-sm text-room-charcoal-light">プラン情報、契約期間、変更履歴（Phase 4で実装予定）</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* 支払方法 */}
-          <div className="block rounded-lg bg-white p-6 shadow opacity-60">
+          <div className="block rounded-lg bg-room-base-light p-6 shadow opacity-60 border border-room-base-dark">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-room-base-dark">
                   <svg
-                    className="h-6 w-6 text-gray-400"
+                    className="h-6 w-6 text-room-charcoal-light"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -224,8 +224,8 @@ export default async function MemberCardPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">支払方法</h3>
-                  <p className="text-sm text-gray-500">クレジットカード変更（Phase 2で実装予定）</p>
+                  <h3 className="font-semibold text-room-charcoal">支払方法</h3>
+                  <p className="text-sm text-room-charcoal-light">クレジットカード変更（Phase 2で実装予定）</p>
                 </div>
               </div>
             </div>

@@ -2,3 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Room8 ベーススタイル */
+body {
+  background-color: #f5f5f0; /* room-base */
+}
+

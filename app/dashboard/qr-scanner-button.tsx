@@ -22,7 +22,7 @@ export function QRScannerButton({ mode, buttonText, buttonClassName }: QRScanner
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className={buttonClassName || 'rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700'}
+        className={buttonClassName || 'rounded-md bg-room-main px-4 py-2 text-white hover:bg-room-main-light'}
       >
         {buttonText}
       </button>

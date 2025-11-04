@@ -67,15 +67,15 @@ export default function FooterNav() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-room-wood bg-room-base-light shadow-lg">
         <div className="mx-auto grid max-w-7xl grid-cols-4">
           {/* ホーム */}
           <Link
             href="/dashboard"
             className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${
               pathname === '/dashboard'
-                ? 'text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'text-room-main'
+                : 'text-room-charcoal-light hover:text-room-charcoal'
             }`}
           >
             <svg
@@ -100,8 +100,8 @@ export default function FooterNav() {
             onClick={handleScanClick}
             className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${
               pathname === '/checkin' || isScanModalOpen
-                ? 'text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'text-room-main'
+                : 'text-room-charcoal-light hover:text-room-charcoal'
             }`}
           >
             <svg
@@ -126,8 +126,8 @@ export default function FooterNav() {
             href="/meeting-rooms"
             className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${
               pathname === '/meeting-rooms'
-                ? 'text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'text-room-main'
+                : 'text-room-charcoal-light hover:text-room-charcoal'
             }`}
           >
             <svg
@@ -152,8 +152,8 @@ export default function FooterNav() {
             href="/member-card"
             className={`flex flex-col items-center justify-center gap-1 py-3 transition-colors ${
               pathname === '/member-card'
-                ? 'text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'text-room-main'
+                : 'text-room-charcoal-light hover:text-room-charcoal'
             }`}
           >
             <svg
