@@ -19,14 +19,14 @@ export default async function PlansPage({
     redirect('/login')
   }
 
-  // ユーザー情報を取得（スタッフチェックのため）
+  // ユーザー情報を取得（利用者チェックのため）
   const { data: userData } = await supabase
     .from('users')
     .select('is_staff')
     .eq('id', user.id)
     .single()
 
-  // スタッフユーザーはプラン変更不可
+  // 利用者ユーザーはプラン変更不可
   if (userData?.is_staff === true) {
     redirect('/dashboard')
   }

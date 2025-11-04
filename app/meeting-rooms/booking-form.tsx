@@ -14,8 +14,8 @@ interface BookingFormProps {
   hourlyRate: number
   freeHours?: number
   meetingRoomId: string
-  billingUserId?: string // 決済を行うユーザーID（スタッフの場合は法人ユーザーID）
-  staffMemberId?: string | null // スタッフのID（スタッフが予約した場合）
+  billingUserId?: string // 決済を行うユーザーID（利用者の場合は法人ユーザーID）
+  staffMemberId?: string | null // 利用者のID（利用者が予約した場合）
 }
 
 export function BookingForm({
@@ -141,7 +141,7 @@ export function BookingForm({
       const isSharedOffice = planInfo?.features?.type === 'shared_office'
 
       // 今月の無料枠使用状況を取得（シェアオフィスプランの場合）
-      // スタッフの場合は法人ユーザーの使用状況を確認
+      // 利用者の場合は法人ユーザーの使用状況を確認
       const checkUserId = billingUserId || userId
       let freeHoursUsed = 0
       if (isSharedOffice && freeHours) {
@@ -183,9 +183,9 @@ export function BookingForm({
         .from('meeting_room_bookings')
         .insert({
           meeting_room_id: meetingRoomId,
-          user_id: userId, // 予約したユーザー（スタッフの場合はスタッフのID）
-          billing_user_id: billingUserId || userId, // 決済を行うユーザー（スタッフの場合は法人ユーザーID）
-          staff_member_id: staffMemberId || null, // スタッフのID（スタッフが予約した場合）
+          user_id: userId, // 予約したユーザー（利用者の場合は利用者のID）
+          billing_user_id: billingUserId || userId, // 決済を行うユーザー（利用者の場合は法人ユーザーID）
+          staff_member_id: staffMemberId || null, // 利用者のID（利用者が予約した場合）
           booking_date: formData.bookingDate,
           start_time: formData.startTime,
           end_time: formData.endTime,

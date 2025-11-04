@@ -158,7 +158,7 @@ export default function CheckInPage() {
 
       console.log('User data:', userData)
 
-      // スタッフの場合、staff_member_idを取得
+      // 利用者の場合、staff_member_idを取得
       let staffMemberId = null
       if (userData.is_staff === true) {
         const { data: staffMember, error: staffError } = await supabase
@@ -195,7 +195,7 @@ export default function CheckInPage() {
         }
       }
 
-      // スタッフの場合は、法人ユーザーのプランIDを取得（スタッフは法人のプランを使用）
+      // 利用者の場合は、法人ユーザーのプランIDを取得（利用者は法人のプランを使用）
       if (userData.is_staff === true && staffMemberId) {
         const { data: staffMemberData, error: companyPlanError } = await supabase
           .from('staff_members')

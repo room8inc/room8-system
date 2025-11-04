@@ -225,7 +225,7 @@ export default async function MemberCardPage() {
             </div>
           </Link>
 
-          {/* スタッフ管理（法人の場合のみ表示） */}
+          {/* 利用者管理（法人の場合のみ表示） */}
           {userData?.is_individual === false && (
             <Link
               href="/staff"
@@ -250,8 +250,8 @@ export default async function MemberCardPage() {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-room-charcoal">スタッフ管理</h3>
-                    <p className="text-sm text-room-charcoal-light">スタッフの追加・管理</p>
+                    <h3 className="font-semibold text-room-charcoal">利用者管理</h3>
+                    <p className="text-sm text-room-charcoal-light">利用者の追加・管理</p>
                   </div>
                 </div>
                 <svg

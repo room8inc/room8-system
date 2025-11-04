@@ -68,7 +68,7 @@ export default function StaffPage() {
       setStaffMembers(data || [])
     } catch (err: any) {
       console.error('Error loading staff members:', err)
-      setError(err.message || 'スタッフ一覧の取得に失敗しました')
+      setError(err.message || '利用者一覧の取得に失敗しました')
     } finally {
       setLoading(false)
     }
@@ -101,7 +101,7 @@ export default function StaffPage() {
         return
       }
 
-      // スタッフ用のアカウントを作成
+      // 利用者用のアカウントを作成
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -110,8 +110,8 @@ export default function StaffPage() {
             name: fullName,
             name_kana: formData.nameKana || null,
             phone: formData.phone || null,
-            is_individual: true, // スタッフは個人として扱う
-            is_staff: true, // スタッフフラグ
+            is_individual: true, // 利用者は個人として扱う
+            is_staff: true, // 利用者フラグ
           },
         },
       })
@@ -161,12 +161,12 @@ export default function StaffPage() {
       await loadStaffMembers()
     } catch (err: any) {
       console.error('Error adding staff:', err)
-      setError(err.message || 'スタッフの追加に失敗しました')
+      setError(err.message || '利用者の追加に失敗しました')
     }
   }
 
   const handleDeleteStaff = async (staffId: string, authUserId: string | null) => {
-    if (!confirm('このスタッフを削除しますか？')) return
+    if (!confirm('この利用者を削除しますか？')) return
 
     try {
       // staff_membersテーブルから削除
@@ -184,7 +184,7 @@ export default function StaffPage() {
       await loadStaffMembers()
     } catch (err: any) {
       console.error('Error deleting staff:', err)
-      setError(err.message || 'スタッフの削除に失敗しました')
+      setError(err.message || '利用者の削除に失敗しました')
     }
   }
 
@@ -220,7 +220,7 @@ export default function StaffPage() {
             </svg>
             会員証に戻る
           </Link>
-          <h1 className="text-3xl font-bold text-room-charcoal">スタッフ管理</h1>
+          <h1 className="text-3xl font-bold text-room-charcoal">利用者管理</h1>
         </div>
 
         {error && (
@@ -229,22 +229,22 @@ export default function StaffPage() {
           </div>
         )}
 
-        {/* スタッフ追加ボタン */}
+        {/* 利用者追加ボタン */}
         {!showAddForm && (
           <div className="mb-6">
             <button
               onClick={() => setShowAddForm(true)}
               className="rounded-md bg-room-main px-4 py-2 text-white hover:bg-room-main-light"
             >
-              + スタッフを追加
+              + 利用者を追加
             </button>
           </div>
         )}
 
-        {/* スタッフ追加フォーム */}
+        {/* 利用者追加フォーム */}
         {showAddForm && (
           <div className="mb-8 rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
-            <h2 className="mb-4 text-lg font-semibold text-room-charcoal">スタッフを追加</h2>
+            <h2 className="mb-4 text-lg font-semibold text-room-charcoal">利用者を追加</h2>
             <form onSubmit={handleAddStaff} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -353,14 +353,14 @@ export default function StaffPage() {
           </div>
         )}
 
-        {/* スタッフ一覧 */}
+        {/* 利用者一覧 */}
         <div className="rounded-lg bg-room-base-light shadow border border-room-base-dark">
           <div className="px-6 py-4 border-b border-room-base-dark">
-            <h2 className="text-lg font-semibold text-room-charcoal">スタッフ一覧</h2>
+            <h2 className="text-lg font-semibold text-room-charcoal">利用者一覧</h2>
           </div>
           {staffMembers.length === 0 ? (
             <div className="p-6 text-center text-room-charcoal-light">
-              スタッフが登録されていません
+              利用者が登録されていません
             </div>
           ) : (
             <div className="divide-y divide-room-base-dark">

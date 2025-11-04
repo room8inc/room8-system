@@ -22,13 +22,13 @@ export default async function MeetingRoomsPage() {
     .eq('id', user.id)
     .single()
 
-  // スタッフユーザーの場合、法人ユーザーのプラン情報を取得
+  // 利用者ユーザーの場合、法人ユーザーのプラン情報を取得
   let currentPlan = null
   let billingUserId = user.id // 決済を行うユーザーID（デフォルトは自分）
   let staffMemberId = null
 
   if (userData?.is_staff === true) {
-    // スタッフの場合、staff_membersテーブルから法人ユーザーIDを取得
+    // 利用者の場合、staff_membersテーブルから法人ユーザーIDを取得
     const { data: staffMember } = await supabase
       .from('staff_members')
       .select('id, company_user_id')
