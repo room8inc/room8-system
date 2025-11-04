@@ -17,7 +17,6 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(false)
   const [startDate, setStartDate] = useState(() => {
     // デフォルトは今日の日付
     const today = new Date()
@@ -146,166 +145,22 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
   }, [planId])
 
   const handleContractClick = () => {
-    setShowConfirm(true)
-  }
-
-  const handleConfirmCancel = () => {
-    setShowConfirm(false)
-  }
-
-  const handleContract = async () => {
-    setShowConfirm(false)
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setError('ログインが必要です')
-        setLoading(false)
-        return
-      }
-
-      // 既存のアクティブな契約をチェック
-      const { data: existingPlan } = await supabase
-        .from('user_plans')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .is('ended_at', null)
-        .single()
-
-      // 既存の契約がある場合は終了日を設定（プラン変更）
-      if (existingPlan) {
-        const { error: updateError } = await supabase
-          .from('user_plans')
-          .update({
-            ended_at: startDate,
-            status: 'changed',
-          })
-          .eq('id', existingPlan.id)
-
-        if (updateError) {
-          console.error('Update existing plan error:', updateError)
-          setError(`既存の契約の更新に失敗しました: ${updateError.message}`)
-          setLoading(false)
-          return
-        }
-      }
-
-      // ロッカーが選択されている場合、利用可能なロッカーを割り当て
-      let assignedLockerId: string | null = null
-      if (options.locker && options.locker_size) {
-        const { data: availableLocker } = await supabase
-          .from('lockers')
-          .select('id')
-          .eq('size', options.locker_size)
-          .eq('status', 'available')
-          .limit(1)
-          .single()
-        
-        if (!availableLocker) {
-          setError(`${options.locker_size === 'large' ? '大' : '小'}ロッカーに空きがありません`)
-          setLoading(false)
-          return
-        }
-        
-        assignedLockerId = availableLocker.id
-      }
-
-      // オプション情報を整理（選択されたオプションのみ）
-      const selectedOptions: any = {}
-      if (options.company_registration) selectedOptions.company_registration = true
-      if (options.printer) selectedOptions.printer = true
-      if (options.twenty_four_hours) selectedOptions.twenty_four_hours = true
-      if (options.fixed_seat) selectedOptions.fixed_seat = true
-      if (options.locker && options.locker_size) {
-        selectedOptions.locker = true
-        selectedOptions.locker_size = options.locker_size
-        selectedOptions.locker_id = assignedLockerId
-      }
-      
-      // 起業家プランの場合は法人登記を自動的に含める
-      if (planFeatures?.company_registration?.standard) {
-        selectedOptions.company_registration = true
-      }
-      
-      // シェアオフィスプランの場合はプリンターを自動的に含める
-      if (planFeatures?.printer === true) {
-        selectedOptions.printer = true
-      }
-
-      // 入会金と割引を計算
-      const entryFee = calculateEntryFee()
-      const entryFeeDiscount = ENTRY_FEE - entryFee
-      const firstMonthFree = selectedCampaign?.campaign_type === 'first_month_free' || false
-
-      // 新しいプラン契約を作成
-      const { error: insertError } = await supabase
-        .from('user_plans')
-        .insert({
-          user_id: user.id,
-          plan_id: planId,
-          started_at: startDate,
-          status: 'active',
-          contract_term: contractTerm,
-          payment_method: paymentMethod,
-          options: selectedOptions,
-          campaign_id: selectedCampaignId,
-          entry_fee: ENTRY_FEE,
-          entry_fee_discount: entryFeeDiscount,
-          first_month_free: firstMonthFree,
-        })
-
-      // ロッカーを割り当て
-      if (assignedLockerId) {
-        const { error: lockerError } = await supabase
-          .from('lockers')
-          .update({
-            user_id: user.id,
-            status: 'occupied',
-          })
-          .eq('id', assignedLockerId)
-        
-        if (lockerError) {
-          console.error('Locker assignment error:', lockerError)
-          // ロッカーの割り当てに失敗しても、プラン契約は成功しているので警告だけ
-          console.warn('ロッカーの割り当てに失敗しましたが、プラン契約は完了しました')
-        }
-      }
-
-      if (insertError) {
-        console.error('Contract insert error:', insertError)
-        setError(`プラン契約に失敗しました: ${insertError.message}`)
-        setLoading(false)
-        return
-      }
-
-      // member_typeを'regular'に更新
-      const { error: updateMemberTypeError } = await supabase
-        .from('users')
-        .update({
-          member_type: 'regular',
-        })
-        .eq('id', user.id)
-
-      if (updateMemberTypeError) {
-        console.error('Update member_type error:', updateMemberTypeError)
-        // member_typeの更新に失敗しても、プラン契約は成功しているので警告だけ
-        console.warn('member_typeの更新に失敗しましたが、プラン契約は完了しました')
-      }
-
-      // 成功メッセージを表示してからリダイレクト
-      setLoading(false)
-      router.push('/dashboard')
-      router.refresh()
-    } catch (err) {
-      console.error('Contract error:', err)
-      setError('プラン契約中にエラーが発生しました')
-      setLoading(false)
+    // 決済画面へ遷移（URLパラメータで契約情報を渡す）
+    const params = new URLSearchParams({
+      planId,
+      contractTerm,
+      paymentMethod,
+      startDate,
+      options: encodeURIComponent(JSON.stringify(options)),
+    })
+    
+    if (selectedCampaignId) {
+      params.append('campaignId', selectedCampaignId)
     }
+
+    router.push(`/plans/checkout?${params.toString()}`)
   }
+
 
   // ロッカーの料金（税込み、割引対象外）
   const LOCKER_PRICE_LARGE = 4950 // 大ロッカー: 月4,950円
@@ -758,69 +613,12 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
 
         <button
           onClick={handleContractClick}
-          disabled={loading || showConfirm}
+          disabled={loading}
           className="w-full rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50"
         >
-          {loading ? '契約中...' : 'このプランで契約する'}
+          {loading ? '読み込み中...' : '決済に進む'}
         </button>
       </div>
-
-      {/* 確認モーダル */}
-      {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-room-charcoal bg-opacity-50 p-4">
-          <div className="w-full max-w-md rounded-lg bg-room-base-light p-6 shadow-xl border-2 border-room-wood">
-            <h3 className="text-lg font-bold text-room-charcoal mb-4">
-              会員契約の確認
-            </h3>
-            <div className="text-sm text-room-charcoal mb-6 space-y-2">
-              <p>
-                「<span className="font-semibold">{planName}</span>」で会員契約を結びますか？
-              </p>
-              <div className="text-xs space-y-1 pt-2 border-t border-room-base-dark">
-                <div className="flex justify-between">
-                  <span>プラン料金:</span>
-                  <span className="font-medium">
-                    {contractTerm === 'yearly' || paymentMethod === 'annual_prepaid' ? (
-                      <>
-                        <span className="line-through text-room-charcoal-light">¥{planPrice.toLocaleString()}</span>{' '}
-                        ¥{calculatePlanPrice().toLocaleString()}/月
-                      </>
-                    ) : (
-                      <>¥{planPrice.toLocaleString()}/月</>
-                    )}
-                  </span>
-                </div>
-                {calculateOptionPrice() > 0 && (
-                  <div className="flex justify-between">
-                    <span>オプション料金（割引対象外）:</span>
-                    <span className="font-medium">+¥{calculateOptionPrice().toLocaleString()}/月</span>
-                  </div>
-                )}
-                <div className="flex justify-between pt-1 font-bold text-room-main">
-                  <span>{paymentMethod === 'annual_prepaid' ? '年一括前払い' : '月額'}合計:</span>
-                  <span>¥{calculateTotalPrice().toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={handleConfirmCancel}
-                disabled={loading}
-                className="flex-1 rounded-md bg-room-charcoal-light px-4 py-2 text-sm text-white hover:bg-room-charcoal focus:outline-none focus:ring-2 focus:ring-room-charcoal focus:ring-offset-2 disabled:opacity-50"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleContract}
-                disabled={loading}
-                className="flex-1 rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50"
-              >
-                {loading ? '契約中...' : 'OK'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   )
 }

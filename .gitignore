@@ -5,6 +5,9 @@
 .env.test.local
 .env.production.local
 
+# Stripeテスト用PriceIDファイル
+stripe-test-prices.json
+
 # 依存関係
 node_modules/
 .pnp

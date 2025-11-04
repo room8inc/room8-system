@@ -6,18 +6,22 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "create-stripe-test-prices": "tsx scripts/create-stripe-test-prices.ts"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^5.3.0",
+    "@stripe/stripe-js": "^8.3.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.78.0",
     "html5-qrcode": "^2.3.8",
     "next": "^15.0.3",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "stripe": "^19.2.0"
   },
   "devDependencies": {
-    "@types/node": "^22.9.0",
+    "@types/node": "^22.19.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
@@ -25,6 +29,7 @@
     "eslint-config-next": "^15.0.3",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
+    "tsx": "^4.20.6",
     "typescript": "^5.6.3"
   }
 }
