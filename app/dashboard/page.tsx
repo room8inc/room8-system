@@ -52,7 +52,7 @@ export default async function DashboardPage() {
   // ユーザー情報を取得
   const { data: userData } = await supabase
     .from('users')
-    .select('member_type')
+    .select('member_type, name')
     .eq('id', user.id)
     .single()
 
