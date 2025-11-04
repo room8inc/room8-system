@@ -8,7 +8,7 @@ import { UserPlanManagement } from './user-plan-management'
 export default async function UserDetailPage({
   params,
 }: {
-  params: { userId: string }
+  params: Promise<{ userId: string }>
 }) {
   const supabase = await createClient()
 
@@ -26,11 +26,14 @@ export default async function UserDetailPage({
     redirect('/dashboard')
   }
 
+  // paramsを解決
+  const { userId } = await params
+
   // ユーザー情報を取得
   const { data: userData, error: userError } = await supabase
     .from('users')
     .select('*')
-    .eq('id', params.userId)
+    .eq('id', userId)
     .single()
 
   if (userError || !userData) {
@@ -41,7 +44,7 @@ export default async function UserDetailPage({
   const { data: currentPlan } = await supabase
     .from('user_plans')
     .select('*, plans(*)')
-    .eq('user_id', params.userId)
+    .eq('user_id', userId)
     .eq('status', 'active')
     .is('ended_at', null)
     .single()
@@ -50,7 +53,7 @@ export default async function UserDetailPage({
   const { data: planHistory } = await supabase
     .from('user_plans')
     .select('*, plans(*)')
-    .eq('user_id', params.userId)
+    .eq('user_id', userId)
     .order('started_at', { ascending: false })
     .limit(10)
 
@@ -117,7 +120,7 @@ export default async function UserDetailPage({
 
         {/* プラン管理 */}
         <UserPlanManagement
-          userId={params.userId}
+          userId={userId}
           currentPlan={currentPlan}
           planHistory={planHistory || []}
           plans={plans || []}
