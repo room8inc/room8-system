@@ -46,6 +46,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '決済が完了していません' }, { status: 400 })
     }
 
+    // Payment Intentから顧客IDを取得（確実に存在する）
+    const customerIdFromIntent = typeof paymentIntent.customer === 'string' 
+      ? paymentIntent.customer 
+      : paymentIntent.customer?.id
+
+    if (!customerIdFromIntent) {
+      return NextResponse.json({ error: '顧客情報が見つかりません' }, { status: 400 })
+    }
+
+    // 顧客IDがStripeに存在するか確認し、存在しない場合は再作成
+    let customerId = customerIdFromIntent
+    try {
+      await stripe.customers.retrieve(customerIdFromIntent)
+    } catch (error: any) {
+      // 顧客が存在しない場合は再作成
+      if (error.code === 'resource_missing') {
+        console.log(`Customer ${customerIdFromIntent} not found, creating new customer`)
+        const newCustomer = await stripe.customers.create({
+          email: user.email || undefined,
+          metadata: {
+            user_id: user.id,
+          },
+        })
+        customerId = newCustomer.id
+        
+        // データベースに保存
+        await supabase
+          .from('users')
+          .update({ stripe_customer_id: customerId })
+          .eq('id', user.id)
+      } else {
+        throw error
+      }
+    }
+
     // 重複チェック：同じPayment Intent IDで既に契約が作成されていないか確認
     const { data: existingContract } = await supabase
       .from('user_plans')
@@ -206,13 +241,8 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
 
     // Subscriptionを作成（2ヶ月目以降の自動決済用）
-    const { data: userData } = await supabase
-      .from('users')
-      .select('stripe_customer_id')
-      .eq('id', user.id)
-      .single()
-
-    if (userData?.stripe_customer_id) {
+    // Payment Intentから取得した顧客IDを使用（確実に存在する）
+    if (customerId) {
       // PriceIDを取得
       let priceId: string | null = null
       if (contractTerm === 'yearly') {
@@ -231,7 +261,7 @@ export async function POST(request: NextRequest) {
 
         // Subscriptionを作成（初回支払いは発生しないように設定）
         const subscription = await stripe.subscriptions.create({
-          customer: userData.stripe_customer_id,
+          customer: customerId, // Payment Intentから取得した顧客IDを使用
           default_payment_method: paymentMethodId, // Payment Methodを指定
           items: [
             {
