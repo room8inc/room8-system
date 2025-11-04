@@ -175,7 +175,7 @@ export default async function MemberCardPage() {
             </div>
           </div>
 
-          {/* 定額契約 */}
+          {/* 会員契約 */}
           <div className="block rounded-lg bg-room-base-light p-6 shadow opacity-60 border border-room-base-dark">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -196,7 +196,7 @@ export default async function MemberCardPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-room-charcoal">定額契約</h3>
+                  <h3 className="font-semibold text-room-charcoal">会員契約</h3>
                   <p className="text-sm text-room-charcoal-light">プラン情報、契約期間、変更履歴（Phase 4で実装予定）</p>
                 </div>
               </div>
