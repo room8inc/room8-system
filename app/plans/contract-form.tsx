@@ -509,13 +509,24 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
             </label>
             <div className="space-y-2">
               {campaigns.map((campaign) => {
-                const campaignTypeLabels: { [key: string]: string } = {
-                  entry_fee_50off: '入会金50%OFF',
-                  entry_fee_free: '入会金無料',
-                  first_month_free: '初月会費無料',
-                  entry_fee_custom: `入会金${campaign.discount_rate || 0}%OFF`,
-                }
                 const isSelected = selectedCampaignId === campaign.id
+                
+                // キャンペーンごとのお得情報を計算
+                let benefitText = ''
+                if (campaign.campaign_type === 'entry_fee_free') {
+                  benefitText = `入会金: 通常¥${ENTRY_FEE.toLocaleString()} → 無料`
+                } else if (campaign.campaign_type === 'entry_fee_50off') {
+                  const discountedFee = Math.floor(ENTRY_FEE * 0.5)
+                  benefitText = `入会金: 通常¥${ENTRY_FEE.toLocaleString()} → ¥${discountedFee.toLocaleString()}`
+                } else if (campaign.campaign_type === 'entry_fee_custom') {
+                  const discountRate = campaign.discount_rate || 0
+                  const discountedFee = Math.floor(ENTRY_FEE * (1 - discountRate / 100))
+                  benefitText = `入会金: 通常¥${ENTRY_FEE.toLocaleString()} → ¥${discountedFee.toLocaleString()}`
+                } else if (campaign.campaign_type === 'first_month_free') {
+                  const firstMonthFee = calculateFirstMonthProratedFee()
+                  benefitText = `初月会費: 通常¥${firstMonthFee.toLocaleString()} → 無料`
+                }
+                
                 return (
                   <label key={campaign.id} className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -533,7 +544,7 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
                       className="rounded border-room-base-dark text-room-main focus:ring-room-main disabled:opacity-50"
                     />
                     <span className={`text-xs ${isSelected ? 'text-room-charcoal font-medium' : 'text-room-charcoal-light'}`}>
-                      {campaign.name} - {campaignTypeLabels[campaign.campaign_type]}
+                      {benefitText}
                     </span>
                     {isSelected && (
                       <span className="text-xs text-room-main">✓ 適用中</span>
