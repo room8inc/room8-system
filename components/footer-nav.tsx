@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import QRScannerModal from '@/components/qr-scanner-modal'
+import { QRScannerModal } from '@/components/qr-scanner-modal'
 
 export default function FooterNav() {
   const pathname = usePathname()
