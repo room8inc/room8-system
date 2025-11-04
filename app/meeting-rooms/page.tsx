@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { BookingForm } from './booking-form'
+import { BookingList } from './booking-list'
 
 export default async function MeetingRoomsPage() {
   const supabase = await createClient()
@@ -29,11 +31,36 @@ export default async function MeetingRoomsPage() {
     .is('ended_at', null)
     .single()
 
+  // 会議室情報を取得
+  const { data: meetingRoom } = await supabase
+    .from('meeting_rooms')
+    .select('*')
+    .eq('code', 'room8-meeting-room-001')
+    .single()
+
+  if (!meetingRoom) {
+    // 会議室が存在しない場合はエラー（マイグレーションが実行されていない可能性）
+    return (
+      <div className="min-h-screen bg-room-base">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="rounded-lg bg-room-main bg-opacity-10 border border-room-main p-6">
+            <p className="text-room-main-dark">
+              会議室情報が取得できませんでした。データベースのマイグレーションを確認してください。
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // 料金を計算
   const calculateRate = () => {
     if (userData?.member_type !== 'regular') {
       // 定額会員以外：1時間2,200円
-      return 2200
+      return {
+        rate: meetingRoom.hourly_rate_non_regular || 2200,
+        freeHours: 0,
+      }
     }
 
     if (currentPlan?.plans) {
@@ -41,9 +68,8 @@ export default async function MeetingRoomsPage() {
       const features = currentPlan.plans.features as any
       if (features?.type === 'shared_office') {
         // シェアオフィスプラン：月4時間まで無料、超過分1,100円/時間
-        // 実際の無料枠の使用状況は後で実装（Phase 2）
         return {
-          rate: 1100,
+          rate: meetingRoom.hourly_rate_regular || 1100,
           freeHours: 4,
           note: '月4時間まで無料',
         }
@@ -51,10 +77,23 @@ export default async function MeetingRoomsPage() {
     }
 
     // 定額会員（一般）：1時間1,100円
-    return 1100
+    return {
+      rate: meetingRoom.hourly_rate_regular || 1100,
+      freeHours: 0,
+    }
   }
 
   const rateInfo = calculateRate()
+
+  // ユーザーの予約一覧を取得（最新順）
+  const { data: userBookings } = await supabase
+    .from('meeting_room_bookings')
+    .select('*')
+    .eq('user_id', user.id)
+    .neq('status', 'cancelled')
+    .order('booking_date', { ascending: false })
+    .order('start_time', { ascending: false })
+    .limit(20)
 
   return (
     <div className="min-h-screen bg-room-base">
@@ -85,64 +124,48 @@ export default async function MeetingRoomsPage() {
             </div>
             <div className="text-right">
               <p className="text-xs text-room-charcoal-light mb-1">料金</p>
-              {typeof rateInfo === 'number' ? (
-                <p className="text-lg font-bold text-room-main">
-                  ¥{rateInfo.toLocaleString()}/時間
+              <p className="text-lg font-bold text-room-main">
+                ¥{rateInfo.rate.toLocaleString()}/時間
+              </p>
+              {rateInfo.freeHours > 0 && (
+                <p className="text-xs text-room-charcoal-light mt-1">
+                  {rateInfo.note}
                 </p>
-              ) : (
-                <div>
-                  <p className="text-lg font-bold text-room-main">
-                    ¥{rateInfo.rate.toLocaleString()}/時間
-                  </p>
-                  <p className="text-xs text-room-charcoal-light mt-1">
-                    {rateInfo.note}
-                  </p>
-                </div>
               )}
+              <p className="text-xs text-room-charcoal-light mt-1">
+                定員: {meetingRoom.capacity}名
+              </p>
             </div>
           </div>
         </div>
 
-        {/* 予約機能（Phase 2で実装予定） */}
-        <div className="rounded-lg bg-room-base-light p-8 shadow border border-room-base-dark">
-          <div className="text-center">
-            <div className="mb-4">
-              <svg
-                className="mx-auto h-16 w-16 text-room-charcoal-light"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-room-charcoal mb-2">
-              予約機能は準備中です
-            </h3>
-            <p className="text-sm text-room-charcoal-light mb-4">
-              会議室の予約機能はPhase 2で実装予定です。
-              <br />
-              現在は予約情報の確認のみ可能です。
-            </p>
-            <div className="rounded-md bg-room-main bg-opacity-10 p-4 border border-room-main">
-              <p className="text-sm text-room-charcoal mb-2">
-                <strong>予定されている機能：</strong>
-              </p>
-              <ul className="text-sm text-room-charcoal-light text-left space-y-1 max-w-md mx-auto">
-                <li>• 空き状況の確認</li>
-                <li>• 日時・時間の選択</li>
-                <li>• 予約の作成・変更・キャンセル</li>
-                <li>• 複数人利用時の請求分け機能</li>
-                <li>• 予約確認メール送信</li>
-              </ul>
-            </div>
-          </div>
+        {/* 予約フォーム */}
+        <div className="mb-8 rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
+          <h3 className="text-lg font-semibold text-room-charcoal mb-4">
+            新規予約
+          </h3>
+          <BookingForm
+            userId={user.id}
+            memberType={userData?.member_type || 'regular'}
+            planInfo={currentPlan?.plans ? {
+              id: currentPlan.plans.id,
+              features: currentPlan.plans.features,
+            } : null}
+            hourlyRate={rateInfo.rate}
+            freeHours={rateInfo.freeHours}
+            meetingRoomId={meetingRoom.id}
+          />
+        </div>
+
+        {/* 予約一覧 */}
+        <div className="mb-8 rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
+          <h3 className="text-lg font-semibold text-room-charcoal mb-4">
+            予約一覧
+          </h3>
+          <BookingList
+            bookings={userBookings || []}
+            userId={user.id}
+          />
         </div>
 
         {/* 料金体系の説明 */}

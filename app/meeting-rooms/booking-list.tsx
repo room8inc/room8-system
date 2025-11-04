@@ -1,0 +1,163 @@
+'use client'
+
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+
+interface Booking {
+  id: string
+  booking_date: string
+  start_time: string
+  end_time: string
+  duration_hours: number
+  number_of_participants: number
+  status: string
+  total_amount: number
+  free_hours_used: number
+  notes: string | null
+}
+
+interface BookingListProps {
+  bookings: Booking[]
+  userId: string
+}
+
+export function BookingList({ bookings, userId }: BookingListProps) {
+  const router = useRouter()
+  const supabase = createClient()
+  const [cancelling, setCancelling] = useState<string | null>(null)
+
+  const handleCancel = async (bookingId: string) => {
+    if (!confirm('この予約をキャンセルしますか？')) {
+      return
+    }
+
+    setCancelling(bookingId)
+    try {
+      const { error } = await supabase
+        .from('meeting_room_bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', bookingId)
+        .eq('user_id', userId)
+
+      if (error) {
+        console.error('Cancel error:', error)
+        alert(`キャンセルに失敗しました: ${error.message}`)
+        return
+      }
+
+      router.refresh()
+    } catch (err) {
+      console.error('Cancel error:', err)
+      alert('キャンセル中にエラーが発生しました')
+    } finally {
+      setCancelling(null)
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; className: string }> = {
+      reserved: { label: '予約済み', className: 'bg-room-main bg-opacity-20 text-room-main' },
+      confirmed: { label: '確定', className: 'bg-room-wood bg-opacity-20 text-room-wood' },
+      in_use: { label: '利用中', className: 'bg-room-brass bg-opacity-20 text-room-brass' },
+      completed: { label: '完了', className: 'bg-room-base-dark text-room-charcoal' },
+      cancelled: { label: 'キャンセル', className: 'bg-room-charcoal-light text-room-charcoal-light' },
+    }
+    const statusInfo = statusMap[status] || { label: status, className: 'bg-gray-100 text-gray-800' }
+    return (
+      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusInfo.className}`}>
+        {statusInfo.label}
+      </span>
+    )
+  }
+
+  if (bookings.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-room-charcoal-light">予約がありません</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {bookings.map((booking) => {
+        const bookingDate = new Date(booking.booking_date)
+        const isPast = bookingDate < new Date() && booking.status !== 'completed' && booking.status !== 'cancelled'
+        const canCancel = booking.status === 'reserved' || booking.status === 'confirmed'
+
+        return (
+          <div
+            key={booking.id}
+            className={`rounded-md border p-4 ${
+              isPast
+                ? 'border-room-base-dark bg-room-base-dark bg-opacity-50'
+                : 'border-room-base-dark bg-room-base'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-room-charcoal">
+                    {bookingDate.toLocaleDateString('ja-JP', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      weekday: 'short',
+                    })}
+                  </span>
+                  {getStatusBadge(booking.status)}
+                </div>
+                <div className="text-sm text-room-charcoal-light">
+                  <span className="mr-4">
+                    {booking.start_time.substring(0, 5)} - {booking.end_time.substring(0, 5)}
+                  </span>
+                  <span>
+                    {Math.floor(booking.duration_hours)}時間{Math.round((booking.duration_hours % 1) * 60)}分
+                  </span>
+                </div>
+                {booking.number_of_participants > 1 && (
+                  <div className="text-xs text-room-charcoal-light mt-1">
+                    利用人数: {booking.number_of_participants}名
+                  </div>
+                )}
+                {booking.free_hours_used > 0 && (
+                  <div className="text-xs text-room-main mt-1">
+                    無料枠使用: {booking.free_hours_used}時間
+                  </div>
+                )}
+                {booking.notes && (
+                  <div className="text-xs text-room-charcoal-light mt-1">
+                    備考: {booking.notes}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-room-charcoal">
+                    ¥{booking.total_amount.toLocaleString()}
+                  </p>
+                  {booking.free_hours_used > 0 && (
+                    <p className="text-xs text-room-main">
+                      無料枠使用あり
+                    </p>
+                  )}
+                </div>
+                {canCancel && (
+                  <button
+                    onClick={() => handleCancel(booking.id)}
+                    disabled={cancelling === booking.id}
+                    className="rounded-md bg-room-charcoal px-3 py-1.5 text-xs text-white hover:bg-room-charcoal-light disabled:opacity-50"
+                  >
+                    {cancelling === booking.id ? 'キャンセル中...' : 'キャンセル'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
