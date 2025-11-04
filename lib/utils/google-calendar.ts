@@ -67,10 +67,142 @@ export function getGoogleCalendarClientFromEnv() {
 }
 
 /**
+ * Google Calendar APIクライアントを取得（OAuth認証トークンから）
+ */
+export async function getGoogleCalendarClientFromOAuth() {
+  const { createClient } = await import('@supabase/supabase-js')
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabaseの環境変数が設定されていません')
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey)
+
+  // アクティブなOAuthトークンを取得
+  const { data: tokenData, error } = await supabase
+    .from('google_oauth_tokens')
+    .select('access_token, refresh_token, expires_at')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (error || !tokenData) {
+    throw new Error('OAuth認証トークンが見つかりません。管理画面でGoogleアカウントに接続してください。')
+  }
+
+  // トークンの有効期限チェック
+  if (tokenData.expires_at && new Date(tokenData.expires_at) < new Date()) {
+    // トークンが期限切れの場合、リフレッシュトークンで更新
+    if (tokenData.refresh_token) {
+      const refreshedToken = await refreshOAuthToken(tokenData.refresh_token)
+      if (refreshedToken) {
+        // 更新されたトークンを使用
+        const auth = new google.auth.OAuth2()
+        auth.setCredentials({
+          access_token: refreshedToken.access_token,
+          refresh_token: refreshedToken.refresh_token || tokenData.refresh_token,
+        })
+        const calendar = google.calendar({ version: 'v3', auth })
+        return { calendar, auth }
+      }
+    }
+    throw new Error('OAuth認証トークンが期限切れです。管理画面で再認証してください。')
+  }
+
+  // アクセストークンを使用
+  const auth = new google.auth.OAuth2()
+  auth.setCredentials({
+    access_token: tokenData.access_token,
+    refresh_token: tokenData.refresh_token || undefined,
+  })
+
+  const calendar = google.calendar({ version: 'v3', auth })
+
+  return { calendar, auth }
+}
+
+/**
+ * OAuthトークンをリフレッシュ
+ */
+async function refreshOAuthToken(refreshToken: string): Promise<{ access_token: string; refresh_token?: string; expires_in?: number } | null> {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
+
+  if (!clientId || !clientSecret) {
+    console.error('OAuth設定が不完全です')
+    return null
+  }
+
+  try {
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }),
+    })
+
+    if (!response.ok) {
+      console.error('Token refresh failed:', await response.text())
+      return null
+    }
+
+    const tokenData = await response.json()
+
+    // データベースに保存
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (supabaseUrl && supabaseKey) {
+      const supabase = createClient(supabaseUrl, supabaseKey)
+      const expiresAt = tokenData.expires_in
+        ? new Date(Date.now() + tokenData.expires_in * 1000)
+        : null
+
+      await supabase
+        .from('google_oauth_tokens')
+        .update({
+          access_token: tokenData.access_token,
+          expires_at: expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('refresh_token', refreshToken)
+    }
+
+    return tokenData
+  } catch (error) {
+    console.error('Token refresh error:', error)
+    return null
+  }
+}
+
+/**
  * Google Calendar APIクライアントを取得（データベースからカレンダーIDを取得）
+ * Service AccountまたはOAuth認証を使用
  */
 export async function getGoogleCalendarClient() {
-  const { calendar } = getGoogleCalendarClientFromEnv()
+  let calendar: any
+  let auth: any
+
+  // まずOAuthトークンを試す（設定されている場合）
+  try {
+    const oauthClient = await getGoogleCalendarClientFromOAuth()
+    calendar = oauthClient.calendar
+    auth = oauthClient.auth
+  } catch (oauthError) {
+    // OAuthが設定されていない場合はService Accountを使用
+    console.log('OAuth認証が設定されていません。Service Accountを使用します。')
+    const envClient = getGoogleCalendarClientFromEnv()
+    calendar = envClient.calendar
+  }
   
   // データベースからアクティブなカレンダーIDを取得
   const { createClient } = await import('@supabase/supabase-js')

@@ -28,6 +28,12 @@ interface Settings {
   is_active: boolean
 }
 
+interface OAuthStatus {
+  connected: boolean
+  email?: string
+  expiresAt?: string
+}
+
 export function GoogleCalendarSettings() {
   const [status, setStatus] = useState<ConnectionStatus | null>(null)
   const [loading, setLoading] = useState(false)
@@ -37,12 +43,64 @@ export function GoogleCalendarSettings() {
   const [selectedCalendarId, setSelectedCalendarId] = useState<string>('')
   const [currentSettings, setCurrentSettings] = useState<Settings | null>(null)
   const [saving, setSaving] = useState(false)
+  const [oauthStatus, setOAuthStatus] = useState<OAuthStatus | null>(null)
+  const [loadingOAuth, setLoadingOAuth] = useState(false)
 
   useEffect(() => {
     checkConnection()
     loadCurrentSettings()
     loadCalendars()
+    loadOAuthStatus()
+
+    // URLパラメータからsuccess/errorを取得して表示
+    const params = new URLSearchParams(window.location.search)
+    const success = params.get('success')
+    const error = params.get('error')
+    
+    if (success) {
+      alert(success)
+      // URLからパラメータを削除
+      window.history.replaceState({}, '', window.location.pathname)
+      // OAuthステータスを再読み込み
+      loadOAuthStatus()
+      checkConnection()
+    }
+    
+    if (error) {
+      alert(`エラー: ${error}`)
+      // URLからパラメータを削除
+      window.history.replaceState({}, '', window.location.pathname)
+    }
   }, [])
+
+  const loadOAuthStatus = async () => {
+    try {
+      const response = await fetch('/api/admin/google-calendar/oauth/status')
+      const data = await response.json()
+      if (data.connected !== undefined) {
+        setOAuthStatus(data)
+      }
+    } catch (error: any) {
+      console.error('Failed to load OAuth status:', error)
+    }
+  }
+
+  const connectOAuth = async () => {
+    setLoadingOAuth(true)
+    try {
+      const response = await fetch('/api/admin/google-calendar/oauth/auth')
+      const data = await response.json()
+      if (data.authUrl) {
+        // OAuth認証URLにリダイレクト
+        window.location.href = data.authUrl
+      } else {
+        throw new Error(data.error || '認証URLの取得に失敗しました')
+      }
+    } catch (error: any) {
+      alert(`OAuth認証の開始に失敗しました: ${error.message}`)
+      setLoadingOAuth(false)
+    }
+  }
 
   const loadCurrentSettings = async () => {
     try {
@@ -283,20 +341,75 @@ export function GoogleCalendarSettings() {
             </div>
           )}
 
+          {/* OAuth認証セクション */}
+          <div className="rounded-md bg-room-wood bg-opacity-10 border border-room-wood p-4">
+            <h3 className="text-sm font-medium text-room-wood-dark mb-3">
+              Googleアカウントで接続（OAuth認証）
+            </h3>
+            <p className="text-xs text-room-charcoal-light mb-3">
+              管理者のGoogleアカウントでログインして接続できます。Service Accountの設定が不要です。
+            </p>
+            
+            {oauthStatus?.connected ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-green-700 font-medium">✓ 接続済み</span>
+                  {oauthStatus.email && (
+                    <span className="text-xs text-room-charcoal-light">
+                      ({oauthStatus.email})
+                    </span>
+                  )}
+                </div>
+                {oauthStatus.expiresAt && (
+                  <p className="text-xs text-room-charcoal-light">
+                    有効期限: {new Date(oauthStatus.expiresAt).toLocaleString('ja-JP')}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={connectOAuth}
+                disabled={loadingOAuth}
+                className="w-full rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingOAuth ? '接続中...' : 'Googleアカウントで接続'}
+              </button>
+            )}
+          </div>
+
           {/* 設定方法の説明 */}
           {!status.connected && (
             <div className="rounded-md bg-room-wood bg-opacity-10 border border-room-wood p-4">
               <p className="text-sm font-medium text-room-wood-dark mb-2">
-                設定方法:
+                設定方法（2つの方法から選択）:
               </p>
-              <ol className="text-sm text-room-wood-dark space-y-1 list-decimal list-inside">
-                <li>Google Cloud Consoleでプロジェクトを作成</li>
-                <li>Google Calendar APIを有効化</li>
-                <li>Service Accountを作成し、JSONキーをダウンロード</li>
-                <li>Service Accountのメールアドレスをカレンダーに共有（編集権限を付与）</li>
-                <li>環境変数（GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY）をVercelに設定</li>
-                <li>接続テストが成功したら、使用するカレンダーを選択</li>
-              </ol>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-room-wood-dark mb-1">
+                    方法1: Googleアカウントで接続（推奨・簡単）
+                  </p>
+                  <ol className="text-xs text-room-wood-dark space-y-1 list-decimal list-inside ml-2">
+                    <li>Google Cloud Consoleでプロジェクトを作成</li>
+                    <li>Google Calendar APIを有効化</li>
+                    <li>OAuth 2.0クライアントIDを作成（Webアプリケーション）</li>
+                    <li>環境変数（GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET）を設定</li>
+                    <li>上記の「Googleアカウントで接続」ボタンをクリック</li>
+                  </ol>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-room-wood-dark mb-1">
+                    方法2: Service Accountを使用
+                  </p>
+                  <ol className="text-xs text-room-wood-dark space-y-1 list-decimal list-inside ml-2">
+                    <li>Google Cloud Consoleでプロジェクトを作成</li>
+                    <li>Google Calendar APIを有効化</li>
+                    <li>Service Accountを作成し、JSONキーをダウンロード</li>
+                    <li>Service Accountのメールアドレスをカレンダーに共有（編集権限を付与）</li>
+                    <li>環境変数（GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY）を設定</li>
+                    <li>接続テストが成功したら、使用するカレンダーを選択</li>
+                  </ol>
+                </div>
+              </div>
               <p className="text-xs text-room-charcoal-light mt-2">
                 詳細は <code className="bg-room-base-dark px-1 rounded">ENV_VARIABLES.md</code> を参照してください。
               </p>
