@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { LogoutButton } from './logout-button'
 import { QRScannerButton } from './qr-scanner-button'
 import { formatJapaneseName } from '@/lib/utils/name'
+import { RealtimeCheckinInfo } from './realtime-checkin-info'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -97,6 +98,19 @@ export default async function DashboardPage() {
                   <p className="mt-1 text-xs text-room-charcoal-light">
                     チェックイン時刻: {new Date(currentCheckin.checkin_at).toLocaleString('ja-JP')}
                   </p>
+                )}
+                {/* リアルタイム情報表示 */}
+                {currentCheckin.checkin_at && (
+                  <RealtimeCheckinInfo
+                    checkinAt={currentCheckin.checkin_at}
+                    memberType={userData?.member_type || 'regular'}
+                    planInfo={currentPlan?.plans ? {
+                      name: currentPlan.plans.name || '',
+                      startTime: currentPlan.plans.start_time || undefined,
+                      endTime: currentPlan.plans.end_time || undefined,
+                      availableDays: currentPlan.plans.available_days || undefined,
+                    } : null}
+                  />
                 )}
                 <QRScannerButton
                   mode="checkout"
