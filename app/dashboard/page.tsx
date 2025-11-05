@@ -60,9 +60,20 @@ export default async function DashboardPage() {
   // ユーザー情報を取得
   const { data: userData } = await supabase
     .from('users')
-    .select('member_type, name')
+    .select('member_type, name, is_staff')
     .eq('id', user.id)
     .single()
+
+  // 利用者ユーザーの場合、staff_member_idを取得
+  let staffMemberId = null
+  if (userData?.is_staff === true) {
+    const { data: staffMember } = await supabase
+      .from('staff_members')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single()
+    staffMemberId = staffMember?.id || null
+  }
 
   // 現在のプラン情報を取得
   const { data: currentPlan } = await supabase
@@ -76,15 +87,24 @@ export default async function DashboardPage() {
   // 会議室予約一覧を取得（今後の予約のみ、最新5件）
   const todayStr = today.toISOString().split('T')[0]
 
-  const { data: upcomingBookings } = await supabase
+  let upcomingBookingsQuery = supabase
     .from('meeting_room_bookings')
     .select('*')
-    .eq('user_id', user.id)
     .in('status', ['reserved', 'confirmed'])
     .gte('booking_date', todayStr)
     .order('booking_date', { ascending: true })
     .order('start_time', { ascending: true })
     .limit(5)
+
+  if (userData?.is_staff === true && staffMemberId) {
+    // 利用者ユーザーの場合、staff_member_idでフィルタ
+    upcomingBookingsQuery = upcomingBookingsQuery.eq('staff_member_id', staffMemberId)
+  } else {
+    // 通常ユーザーの場合、user_idでフィルタ
+    upcomingBookingsQuery = upcomingBookingsQuery.eq('user_id', user.id)
+  }
+
+  const { data: upcomingBookings } = await upcomingBookingsQuery
 
   const isCheckedIn = !!currentCheckin
   const admin = await isAdmin()
