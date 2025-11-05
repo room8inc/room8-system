@@ -489,9 +489,9 @@ export function BookingForm({
                 <button
                   type="button"
                   onClick={() => handleMinuteSelect(0)}
-                  disabled={checkingAvailability || (availableMinutes && availableMinutes['0'] === false)}
+                  disabled={checkingAvailability || (!!availableMinutes && availableMinutes['0'] === false)}
                   className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main ${
-                    availableMinutes && availableMinutes['0'] === false
+                    !!availableMinutes && availableMinutes['0'] === false
                       ? 'border-room-base-dark bg-room-base-dark text-room-charcoal-light cursor-not-allowed opacity-50'
                       : 'border-room-base-dark bg-room-base hover:bg-room-base-dark text-room-charcoal'
                   }`}
@@ -503,9 +503,9 @@ export function BookingForm({
                 <button
                   type="button"
                   onClick={() => handleMinuteSelect(30)}
-                  disabled={checkingAvailability || (availableMinutes && availableMinutes['30'] === false)}
+                  disabled={checkingAvailability || (!!availableMinutes && availableMinutes['30'] === false)}
                   className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main ${
-                    availableMinutes && availableMinutes['30'] === false
+                    !!availableMinutes && availableMinutes['30'] === false
                       ? 'border-room-base-dark bg-room-base-dark text-room-charcoal-light cursor-not-allowed opacity-50'
                       : 'border-room-base-dark bg-room-base hover:bg-room-base-dark text-room-charcoal'
                   }`}
@@ -513,7 +513,7 @@ export function BookingForm({
                   {checkingAvailability ? '確認中...' : `${selectedHour}:30`}
                 </button>
               )}
-              {availableMinutes && availableMinutes['0'] === false && availableMinutes['30'] === false && (
+              {!!availableMinutes && availableMinutes['0'] === false && availableMinutes['30'] === false && (
                 <div className="flex-1 rounded-md border border-room-base-dark bg-room-base px-3 py-2 text-sm text-room-charcoal-light">
                   この時間帯は予約できません
                 </div>
