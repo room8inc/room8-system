@@ -257,7 +257,7 @@ export function BookingForm({
           start_time: formData.startTime,
           end_time: endTime,
           duration_hours: duration,
-          number_of_participants: null, // 一室貸し切りのため人数は不要
+          number_of_participants: 1, // 一室貸し切りのため人数は1
           status: 'reserved',
           member_type_at_booking: memberType,
           plan_id_at_booking: planInfo?.id || null,
