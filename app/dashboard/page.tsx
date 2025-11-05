@@ -97,8 +97,8 @@ export default async function DashboardPage() {
     .limit(5)
 
   if (userData?.is_staff === true && staffMemberId) {
-    // 利用者ユーザーの場合、staff_member_idでフィルタ
-    upcomingBookingsQuery = upcomingBookingsQuery.eq('staff_member_id', staffMemberId)
+    // 利用者ユーザーの場合、user_idまたはstaff_member_idでフィルタ
+    upcomingBookingsQuery = upcomingBookingsQuery.or(`user_id.eq.${user.id},staff_member_id.eq.${staffMemberId}`)
   } else {
     // 通常ユーザーの場合、user_idでフィルタ
     upcomingBookingsQuery = upcomingBookingsQuery.eq('user_id', user.id)

@@ -119,7 +119,7 @@ export default async function MeetingRoomsPage() {
   const rateInfo = calculateRate()
 
   // ユーザーの予約一覧を取得（最新順）
-  // 利用者ユーザーの場合も考慮
+  // 利用者ユーザーの場合も考慮（user_idまたはstaff_member_idで検索）
   let userBookingsQuery = supabase
     .from('meeting_room_bookings')
     .select('*, google_calendar_event_id')
@@ -129,8 +129,8 @@ export default async function MeetingRoomsPage() {
     .limit(20)
 
   if (userData?.is_staff === true && staffMemberId) {
-    // 利用者ユーザーの場合、staff_member_idでフィルタ
-    userBookingsQuery = userBookingsQuery.eq('staff_member_id', staffMemberId)
+    // 利用者ユーザーの場合、user_idまたはstaff_member_idでフィルタ
+    userBookingsQuery = userBookingsQuery.or(`user_id.eq.${user.id},staff_member_id.eq.${staffMemberId}`)
   } else {
     // 通常ユーザーの場合、user_idでフィルタ
     userBookingsQuery = userBookingsQuery.eq('user_id', user.id)
