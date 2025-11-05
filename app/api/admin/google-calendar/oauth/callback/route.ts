@@ -40,6 +40,13 @@ export async function GET(request: NextRequest) {
     const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || 
       `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/admin/google-calendar/oauth/callback`
 
+    console.log('OAuth callback:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      redirectUri,
+      code: code ? `${code.substring(0, 20)}...` : null,
+    })
+
     if (!clientId || !clientSecret) {
       return NextResponse.redirect('/admin/google-calendar?error=OAuth設定が不完全です')
     }
@@ -60,10 +67,20 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      console.error('Token exchange error:', errorData)
+      const errorText = await tokenResponse.text()
+      let errorData
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {
+        errorData = { error: errorText || 'トークン取得に失敗しました' }
+      }
+      console.error('Token exchange error:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        errorData,
+      })
       return NextResponse.redirect(
-        `/admin/google-calendar?error=${encodeURIComponent(errorData.error || 'トークン取得に失敗しました')}`
+        `/admin/google-calendar?error=${encodeURIComponent(errorData.error_description || errorData.error || 'トークン取得に失敗しました')}`
       )
     }
 
@@ -71,16 +88,32 @@ export async function GET(request: NextRequest) {
 
     // トークンをデータベースに保存
     // 既存のトークンを削除（アクティブなトークンは1つだけ）
-    await supabase
+    // まず既存のトークンを取得してから削除
+    const { data: existingTokens, error: selectError } = await supabase
       .from('google_oauth_tokens')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000') // 全削除
+      .select('id')
+
+    if (selectError) {
+      console.error('Token select error:', selectError)
+      // 選択エラーは無視して続行（既存トークンがない場合もある）
+    } else if (existingTokens && existingTokens.length > 0) {
+      // 既存のトークンを削除
+      const { error: deleteError } = await supabase
+        .from('google_oauth_tokens')
+        .delete()
+        .in('id', existingTokens.map(t => t.id))
+
+      if (deleteError) {
+        console.error('Token delete error:', deleteError)
+        // 削除エラーは無視して続行（既存トークンがない場合もある）
+      }
+    }
 
     const expiresAt = tokenData.expires_in
       ? new Date(Date.now() + tokenData.expires_in * 1000)
       : null
 
-    const { error: insertError } = await supabase
+    const { error: insertError, data: insertData } = await supabase
       .from('google_oauth_tokens')
       .insert({
         access_token: tokenData.access_token,
@@ -89,15 +122,34 @@ export async function GET(request: NextRequest) {
         token_type: tokenData.token_type || 'Bearer',
         scope: tokenData.scope || null,
       })
+      .select()
 
     if (insertError) {
       console.error('Token save error:', insertError)
-      return NextResponse.redirect('/admin/google-calendar?error=トークンの保存に失敗しました')
+      console.error('Token data:', {
+        hasAccessToken: !!tokenData.access_token,
+        hasRefreshToken: !!tokenData.refresh_token,
+        expiresIn: tokenData.expires_in,
+        scope: tokenData.scope,
+      })
+      return NextResponse.redirect(
+        `/admin/google-calendar?error=${encodeURIComponent(`トークンの保存に失敗しました: ${insertError.message}`)}`
+      )
     }
+
+    console.log('Token saved successfully:', {
+      id: insertData?.[0]?.id,
+      hasAccessToken: !!insertData?.[0]?.access_token,
+      hasRefreshToken: !!insertData?.[0]?.refresh_token,
+    })
 
     return NextResponse.redirect('/admin/google-calendar?success=Googleアカウントとの連携に成功しました')
   } catch (error: any) {
-    console.error('Google OAuth callback error:', error)
+    console.error('Google OAuth callback error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    })
     return NextResponse.redirect(
       `/admin/google-calendar?error=${encodeURIComponent(error.message || '認証処理中にエラーが発生しました')}`
     )
