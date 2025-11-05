@@ -3,9 +3,14 @@ import { syncGoogleCalendarEvents } from '@/lib/utils/google-calendar-sync'
 
 export const runtime = 'nodejs'
 
+// キャッシュを無効化（Webhookは常に最新の状態で処理する必要がある）
+export const dynamic = 'force-dynamic'
+
 /**
  * GoogleカレンダーのWebhookエンドポイント
  * イベント変更通知を受け取って同期する
+ * 
+ * 注意: このエンドポイントは認証不要です（Googleからの通知を受け取るため）
  */
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +21,14 @@ export async function POST(request: NextRequest) {
     const xGoogChannelToken = headers['x-goog-channel-token']
     const xGoogResourceId = headers['x-goog-resource-id']
     const xGoogResourceState = headers['x-goog-resource-state']
+
+    // Googleからのリクエストか確認（User-Agentで判定）
+    const userAgent = headers['user-agent'] || ''
+    if (!userAgent.includes('APIs-Google')) {
+      console.warn('Google以外からのリクエスト:', userAgent)
+      // Google以外からのリクエストでも200を返す（セキュリティのため）
+      return NextResponse.json({ success: true, message: '無効なリクエスト' })
+    }
 
     // デバッグ用ログ
     console.log('Webhook受信:', {
