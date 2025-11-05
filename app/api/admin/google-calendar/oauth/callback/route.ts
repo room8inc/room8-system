@@ -136,8 +136,15 @@ export async function GET(request: NextRequest) {
         expiresIn: tokenData.expires_in,
         scope: tokenData.scope,
       })
+      console.error('User ID:', user.id)
+      console.error('Is Admin:', admin)
+      
+      // エラーの詳細をURLパラメータに含める（デバッグ用）
+      const errorDetails = encodeURIComponent(
+        `トークンの保存に失敗しました: ${insertError.message || insertError.code || '不明なエラー'}`
+      )
       return NextResponse.redirect(
-        `/admin/google-calendar?error=${encodeURIComponent(`トークンの保存に失敗しました: ${insertError.message}`)}`
+        `/admin/google-calendar?error=${errorDetails}&details=${encodeURIComponent(JSON.stringify(insertError))}`
       )
     }
 
@@ -153,9 +160,20 @@ export async function GET(request: NextRequest) {
       message: error.message,
       stack: error.stack,
       name: error.name,
+      cause: error.cause,
     })
+    
+    // エラーの詳細をURLパラメータに含める（デバッグ用）
+    const errorMessage = error.message || '認証処理中にエラーが発生しました'
+    const errorDetails = encodeURIComponent(
+      `${errorMessage} (${error.name || 'Error'})`
+    )
     return NextResponse.redirect(
-      `/admin/google-calendar?error=${encodeURIComponent(error.message || '認証処理中にエラーが発生しました')}`
+      `/admin/google-calendar?error=${errorDetails}&details=${encodeURIComponent(JSON.stringify({
+        message: error.message,
+        name: error.name,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n'), // 最初の5行だけ
+      }))}`
     )
   }
 }

@@ -67,7 +67,18 @@ export function GoogleCalendarSettings() {
     }
     
     if (error) {
-      alert(`エラー: ${error}`)
+      const details = params.get('details')
+      let errorMessage = `エラー: ${error}`
+      if (details) {
+        try {
+          const detailsObj = JSON.parse(details)
+          errorMessage += `\n\n詳細:\n${JSON.stringify(detailsObj, null, 2)}`
+        } catch {
+          errorMessage += `\n\n詳細: ${details}`
+        }
+      }
+      console.error('OAuth Error:', error, details)
+      alert(errorMessage)
       // URLからパラメータを削除
       window.history.replaceState({}, '', window.location.pathname)
     }
