@@ -120,6 +120,14 @@ export function BookingList({ bookings, userId }: BookingListProps) {
         const bookingDate = new Date(booking.booking_date)
         const isPast = bookingDate < new Date() && booking.status !== 'completed' && booking.status !== 'cancelled'
         const canCancel = booking.status === 'reserved' || booking.status === 'confirmed'
+        
+        console.log('Booking render:', {
+          id: booking.id,
+          status: booking.status,
+          canCancel,
+          bookingDate: booking.booking_date,
+          isPast
+        })
 
         return (
           <div
@@ -180,9 +188,17 @@ export function BookingList({ bookings, userId }: BookingListProps) {
                 </div>
                 {canCancel && (
                   <button
-                    onClick={() => handleCancel(booking.id, booking.google_calendar_event_id)}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      console.log('Cancel button clicked for booking:', booking.id)
+                      console.log('Booking status:', booking.status)
+                      console.log('Can cancel:', canCancel)
+                      handleCancel(booking.id, booking.google_calendar_event_id)
+                    }}
                     disabled={cancelling === booking.id}
-                    className="rounded-md bg-room-charcoal px-3 py-1.5 text-xs text-white hover:bg-room-charcoal-light disabled:opacity-50"
+                    className="rounded-md bg-room-charcoal px-3 py-1.5 text-xs text-white hover:bg-room-charcoal-light disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {cancelling === booking.id ? 'キャンセル中...' : 'キャンセル'}
                   </button>
