@@ -14,13 +14,17 @@ export async function GET(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
+    // 絶対URLを構築するためのベースURLを取得
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+      `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('host') || 'room8-system.vercel.app'}`
+
     if (!user) {
-      return NextResponse.redirect('/login?error=認証が必要です')
+      return NextResponse.redirect(`${baseUrl}/login?error=認証が必要です`)
     }
 
     const admin = await isAdmin()
     if (!admin) {
-      return NextResponse.redirect('/admin/google-calendar?error=管理者権限が必要です')
+      return NextResponse.redirect(`${baseUrl}/admin/google-calendar?error=管理者権限が必要です`)
     }
 
     const searchParams = request.nextUrl.searchParams
@@ -28,11 +32,11 @@ export async function GET(request: NextRequest) {
     const error = searchParams.get('error')
 
     if (error) {
-      return NextResponse.redirect(`/admin/google-calendar?error=${encodeURIComponent(error)}`)
+      return NextResponse.redirect(`${baseUrl}/admin/google-calendar?error=${encodeURIComponent(error)}`)
     }
 
     if (!code) {
-      return NextResponse.redirect('/admin/google-calendar?error=認証コードが取得できませんでした')
+      return NextResponse.redirect(`${baseUrl}/admin/google-calendar?error=認証コードが取得できませんでした`)
     }
 
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
@@ -52,7 +56,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!clientId || !clientSecret) {
-      return NextResponse.redirect('/admin/google-calendar?error=OAuth設定が不完全です')
+      return NextResponse.redirect(`${baseUrl}/admin/google-calendar?error=OAuth設定が不完全です`)
     }
 
     // アクセストークンを取得
@@ -84,7 +88,7 @@ export async function GET(request: NextRequest) {
         errorData,
       })
       return NextResponse.redirect(
-        `/admin/google-calendar?error=${encodeURIComponent(errorData.error_description || errorData.error || 'トークン取得に失敗しました')}`
+        `${baseUrl}/admin/google-calendar?error=${encodeURIComponent(errorData.error_description || errorData.error || 'トークン取得に失敗しました')}`
       )
     }
 
@@ -139,12 +143,22 @@ export async function GET(request: NextRequest) {
       console.error('User ID:', user.id)
       console.error('Is Admin:', admin)
       
+      // テーブルが存在しない場合の特別なエラーメッセージ
+      if (insertError.code === 'PGRST205') {
+        const errorMessage = encodeURIComponent(
+          'データベーステーブルが存在しません。Supabaseでマイグレーション（034_create_google_oauth_tokens.sql）を実行してください。'
+        )
+        return NextResponse.redirect(
+          `${baseUrl}/admin/google-calendar?error=${errorMessage}`
+        )
+      }
+      
       // エラーの詳細をURLパラメータに含める（デバッグ用）
       const errorDetails = encodeURIComponent(
         `トークンの保存に失敗しました: ${insertError.message || insertError.code || '不明なエラー'}`
       )
       return NextResponse.redirect(
-        `/admin/google-calendar?error=${errorDetails}&details=${encodeURIComponent(JSON.stringify(insertError))}`
+        `${baseUrl}/admin/google-calendar?error=${errorDetails}&details=${encodeURIComponent(JSON.stringify(insertError))}`
       )
     }
 
@@ -154,7 +168,7 @@ export async function GET(request: NextRequest) {
       hasRefreshToken: !!insertData?.[0]?.refresh_token,
     })
 
-    return NextResponse.redirect('/admin/google-calendar?success=Googleアカウントとの連携に成功しました')
+    return NextResponse.redirect(`${baseUrl}/admin/google-calendar?success=Googleアカウントとの連携に成功しました`)
   } catch (error: any) {
     console.error('Google OAuth callback error:', {
       message: error.message,
@@ -168,8 +182,11 @@ export async function GET(request: NextRequest) {
     const errorDetails = encodeURIComponent(
       `${errorMessage} (${error.name || 'Error'})`
     )
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+      `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('host') || 'room8-system.vercel.app'}`
+    
     return NextResponse.redirect(
-      `/admin/google-calendar?error=${errorDetails}&details=${encodeURIComponent(JSON.stringify({
+      `${baseUrl}/admin/google-calendar?error=${errorDetails}&details=${encodeURIComponent(JSON.stringify({
         message: error.message,
         name: error.name,
         stack: error.stack?.split('\n').slice(0, 5).join('\n'), // 最初の5行だけ
