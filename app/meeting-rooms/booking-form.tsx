@@ -46,6 +46,9 @@ export function BookingForm({
   const [checkingAvailability, setCheckingAvailability] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<{ '0': boolean; '30': boolean } | null>(null)
 
+  // 営業時間の終了時刻（例: 22:00）。この時刻を超える終了は不可とする。
+  const BUSINESS_CLOSE_TIME = '22:00'
+
   // 今日以降の日付のみ選択可能
   const today = new Date().toISOString().split('T')[0]
 
@@ -375,6 +378,12 @@ export function BookingForm({
       for (const minutes of [0, 30] as const) {
         const startTime = `${hour}:${String(minutes).padStart(2, '0')}`
         const endTime = calculateEndTime(startTime, formData.durationHours)
+
+        // 営業時間終了（22:00）を超える場合は不可
+        if (endTime > BUSINESS_CLOSE_TIME) {
+          result[String(minutes) as '0' | '30'] = false
+          continue
+        }
 
         // データベースの予約と重複チェック
         if (existingBookings) {
