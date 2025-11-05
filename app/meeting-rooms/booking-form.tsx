@@ -605,23 +605,28 @@ export function BookingForm({
               {memberType === 'regular' ? (
                 // 定額会員（会員）向けのキャンセルポリシー
                 <ul className="text-xs text-room-charcoal-light space-y-1">
-                  <li>• 予約日の前日17:00まで：キャンセル料無料</li>
-                  <li>• 予約日の前日17:00以降：キャンセル料100%</li>
-                  <li>• 当日キャンセル：キャンセル料100%</li>
-                  <li>• 無断キャンセル：キャンセル料100%</li>
+                  <li>• 予約日の前日17:00まで：キャンセル料無料（決済手数料も発生しません）</li>
+                  <li>• 当日キャンセル：返金なし</li>
+                  {planInfo?.features?.type === 'shared_office' && freeHours && freeHours > 0 && (
+                    <>
+                      <li className="mt-2 pt-2 border-t border-room-base-dark">
+                        <span className="text-room-main font-medium">※ シェアオフィスプラン（無料枠あり）</span>
+                      </li>
+                      <li>• 前日17:00までキャンセル：無料枠が戻ります</li>
+                      <li>• 当日キャンセル：無料枠を消費します</li>
+                    </>
+                  )}
                   <li className="mt-2 pt-2 border-t border-room-base-dark">
-                    <span className="text-room-main font-medium">※ 定額会員様</span>：キャンセル料は月末の請求に含まれます
+                    <span className="text-room-main font-medium">※ 定額会員様</span>：ひと月まとめて決済のため、前日までキャンセルは決済手数料もかかりません
                   </li>
                 </ul>
               ) : (
                 // 非会員（ドロップイン会員・ゲスト）向けのキャンセルポリシー
                 <ul className="text-xs text-room-charcoal-light space-y-1">
-                  <li>• 予約日の前日17:00まで：キャンセル料無料</li>
-                  <li>• 予約日の前日17:00以降：キャンセル料100%</li>
-                  <li>• 当日キャンセル：キャンセル料100%</li>
-                  <li>• 無断キャンセル：キャンセル料100%</li>
+                  <li>• 予約日の前日17:00まで：キャンセル料無料（決済手数料3.6%+40円のみ差し引きます）</li>
+                  <li>• 当日キャンセル：返金なし（100%）</li>
                   <li className="mt-2 pt-2 border-t border-room-base-dark">
-                    <span className="text-room-main font-medium">※ 非会員様</span>：キャンセル料は即座に請求されます
+                    <span className="text-room-main font-medium">※ 非会員様</span>：予約時に決済を行います。前日までキャンセルの場合、決済手数料のみ差し引いて返金されます
                   </li>
                 </ul>
               )}
@@ -632,12 +637,12 @@ export function BookingForm({
               {memberType === 'regular' ? (
                 <div className="space-y-2 text-xs text-room-charcoal-light">
                   <p>※ 予約を確定すると、上記のキャンセルポリシーが適用されます。</p>
-                  <p>※ 定額会員様は、予約料金とキャンセル料は月末にまとめて請求されます。</p>
+                  <p>※ 定額会員様は、予約料金は月末にまとめて請求されます。</p>
                 </div>
               ) : (
                 <div className="space-y-2 text-xs text-room-charcoal-light">
                   <p>※ 予約を確定すると、上記のキャンセルポリシーが適用されます。</p>
-                  <p>※ 非会員様は、予約料金を即座に決済していただきます。</p>
+                  <p>※ 非会員様は、予約時に決済を行います。前日までキャンセルの場合、決済手数料（3.6%+40円）を差し引いた金額が返金されます。</p>
                 </div>
               )}
             </div>
