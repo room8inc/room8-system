@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   // Webhookエンドポイントは認証不要なので、早期リターン
   if (request.nextUrl.pathname === '/api/calendar/webhook') {
+    console.log('Webhookエンドポイント: ミドルウェアをスキップ')
     return NextResponse.next()
   }
 

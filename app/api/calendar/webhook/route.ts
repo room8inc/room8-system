@@ -13,6 +13,9 @@ export const dynamic = 'force-dynamic'
  * 注意: このエンドポイントは認証不要です（Googleからの通知を受け取るため）
  */
 export async function POST(request: NextRequest) {
+  // 最初にログを出力して、この関数が呼び出されているか確認
+  console.log('=== Webhook POST ハンドラー実行開始 ===')
+  
   try {
     // Google Calendar Watch APIの通知形式を確認
     // https://developers.google.com/calendar/api/guides/push#receiving-notifications
