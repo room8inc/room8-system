@@ -1,3 +1,6 @@
+-- RLSを有効化
+ALTER TABLE google_calendar_settings ENABLE ROW LEVEL SECURITY;
+
 -- Googleカレンダー設定のRLSポリシー
 -- 管理者のみアクセス可能
 CREATE POLICY "Allow admins to manage google_calendar_settings"
