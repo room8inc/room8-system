@@ -35,20 +35,30 @@ export function BookingList({ bookings, userId }: BookingListProps) {
 
     setCancelling(bookingId)
     try {
+      console.log('Cancelling booking:', bookingId)
+      console.log('Current user from props:', userId)
+      
+      // 現在のユーザーIDを取得
+      const { data: { user } } = await supabase.auth.getUser()
+      console.log('Auth user ID:', user?.id)
+      
       // まず予約をキャンセル状態に更新
       // RLSポリシーでアクセス権限をチェックするため、user_idの条件は不要
       const { error, data } = await supabase
         .from('meeting_room_bookings')
         .update({ status: 'cancelled' })
         .eq('id', bookingId)
-        .select('google_calendar_event_id')
+        .select('google_calendar_event_id, user_id, staff_member_id')
         .single()
 
       if (error) {
         console.error('Cancel error:', error)
+        console.error('Error details:', JSON.stringify(error, null, 2))
         alert(`キャンセルに失敗しました: ${error.message}`)
         return
       }
+
+      console.log('Cancel success:', data)
 
       // GoogleカレンダーのイベントIDがある場合は削除
       const eventIdToDelete = googleCalendarEventId || data?.google_calendar_event_id
