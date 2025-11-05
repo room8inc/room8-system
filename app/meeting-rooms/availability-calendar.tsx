@@ -173,7 +173,7 @@ export function AvailabilityCalendar({
               date: dateStr,
               timeSlot,
               available: false,
-              reason: '既に予約済み',
+              reason: '既に予約済み（データベース）',
             })
             continue
           }
@@ -216,7 +216,7 @@ export function AvailabilityCalendar({
                     availabilityMap.set(key, {
                       ...status,
                       available: false,
-                      reason: result.reason || '予約不可',
+                      reason: result.reason || 'Googleカレンダーに予定あり',
                     })
                   }
                 } else {
@@ -357,7 +357,7 @@ export function AvailabilityCalendar({
                           ? 'bg-white hover:bg-room-base cursor-pointer'
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
-                      title={status?.reason || ''}
+                      title={status?.reason || (isAvailable ? '予約可能' : '予約不可')}
                     >
                       {isAvailable ? '○' : '×'}
                     </td>
@@ -369,10 +369,21 @@ export function AvailabilityCalendar({
         </table>
       </div>
 
-      {/* 凡例 */}
-      <div className="flex items-center gap-4 text-xs text-room-charcoal-light">
-        <span>○ 予約可能な時間があります</span>
-        <span>× 予約できません</span>
+      {/* 凡例と説明 */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-4 text-xs text-room-charcoal-light">
+          <span>○ 予約可能な時間があります</span>
+          <span>× 予約できません</span>
+        </div>
+        <div className="text-xs text-room-charcoal-light bg-room-base-dark p-2 rounded">
+          <p className="font-medium mb-1">空き状況の判定基準:</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>データベース内の既存予約をチェック</li>
+            <li>Googleカレンダーの予定をチェック</li>
+            <li>過去の日時は予約不可</li>
+            <li>選択した利用時間で予約可能かを判定</li>
+          </ul>
+        </div>
       </div>
 
       {loading && (
