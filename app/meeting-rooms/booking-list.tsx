@@ -39,10 +39,22 @@ export function BookingList({ bookings, userId }: BookingListProps) {
     if (!pendingCancel) return
     
     const { bookingId, googleCalendarEventId } = pendingCancel
-    setShowConfirmDialog(null)
-    setPendingCancel(null)
     
-    await handleCancel(bookingId, googleCalendarEventId)
+    // モーダルを閉じる前にキャンセル処理を開始
+    setCancelling(bookingId)
+    
+    try {
+      await handleCancel(bookingId, googleCalendarEventId)
+      // 成功したらモーダルを閉じる
+      setShowConfirmDialog(null)
+      setPendingCancel(null)
+    } catch (err) {
+      // エラーが発生した場合、モーダルは開いたままにする
+      console.error('Cancel failed:', err)
+      // エラーはhandleCancel内でalertで表示される
+    } finally {
+      setCancelling(null)
+    }
   }
 
   const handleCancelCancel = () => {
@@ -51,8 +63,6 @@ export function BookingList({ bookings, userId }: BookingListProps) {
   }
 
   const handleCancel = async (bookingId: string, googleCalendarEventId: string | null) => {
-
-    setCancelling(bookingId)
     try {
       console.log('Cancelling booking:', bookingId)
       console.log('Current user from props:', userId)
@@ -74,7 +84,7 @@ export function BookingList({ bookings, userId }: BookingListProps) {
         console.error('Cancel error:', error)
         console.error('Error details:', JSON.stringify(error, null, 2))
         alert(`キャンセルに失敗しました: ${error.message}`)
-        return
+        throw new Error(error.message)
       }
 
       console.log('Cancel success:', data)
@@ -103,9 +113,9 @@ export function BookingList({ bookings, userId }: BookingListProps) {
       router.refresh()
     } catch (err) {
       console.error('Cancel error:', err)
-      alert('キャンセル中にエラーが発生しました')
-    } finally {
-      setCancelling(null)
+      const errorMessage = err instanceof Error ? err.message : 'キャンセル中にエラーが発生しました'
+      alert(errorMessage)
+      throw err // エラーを再スローして、handleConfirmCancelで処理できるようにする
     }
   }
 
@@ -156,9 +166,10 @@ export function BookingList({ bookings, userId }: BookingListProps) {
               <button
                 type="button"
                 onClick={handleConfirmCancel}
-                className="px-4 py-2 text-sm rounded-md bg-room-charcoal text-white hover:bg-room-charcoal-light"
+                disabled={cancelling !== null}
+                className="px-4 py-2 text-sm rounded-md bg-room-charcoal text-white hover:bg-room-charcoal-light disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                確定
+                {cancelling ? 'キャンセル中...' : '確定'}
               </button>
             </div>
           </div>
