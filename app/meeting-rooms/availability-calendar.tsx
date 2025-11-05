@@ -69,7 +69,7 @@ export function AvailabilityCalendar({
   }
 
   // 日付の表示用フォーマット
-  const formatDateDisplay = (date: Date): string => {
+  const formatDateDisplay = (date: Date): { text: string; color: string } => {
     const month = date.getMonth() + 1
     const day = date.getDate()
     const weekdays = ['日', '月', '火', '水', '木', '金', '土']
