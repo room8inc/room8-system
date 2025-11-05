@@ -3,6 +3,9 @@ ALTER TABLE google_oauth_tokens ENABLE ROW LEVEL SECURITY;
 
 -- Google OAuthトークンのRLSポリシー
 -- 管理者のみアクセス可能
+-- 既存のポリシーを削除してから再作成（既に存在する場合に備えて）
+DROP POLICY IF EXISTS "Allow admins to manage google_oauth_tokens" ON google_oauth_tokens;
+
 CREATE POLICY "Allow admins to manage google_oauth_tokens"
   ON google_oauth_tokens FOR ALL
   TO authenticated
