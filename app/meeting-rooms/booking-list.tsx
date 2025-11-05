@@ -27,11 +27,30 @@ export function BookingList({ bookings, userId }: BookingListProps) {
   const router = useRouter()
   const supabase = createClient()
   const [cancelling, setCancelling] = useState<string | null>(null)
+  const [showConfirmDialog, setShowConfirmDialog] = useState<string | null>(null)
+  const [pendingCancel, setPendingCancel] = useState<{ bookingId: string; googleCalendarEventId: string | null } | null>(null)
+
+  const handleCancelClick = (bookingId: string, googleCalendarEventId: string | null) => {
+    setPendingCancel({ bookingId, googleCalendarEventId })
+    setShowConfirmDialog(bookingId)
+  }
+
+  const handleConfirmCancel = async () => {
+    if (!pendingCancel) return
+    
+    const { bookingId, googleCalendarEventId } = pendingCancel
+    setShowConfirmDialog(null)
+    setPendingCancel(null)
+    
+    await handleCancel(bookingId, googleCalendarEventId)
+  }
+
+  const handleCancelCancel = () => {
+    setShowConfirmDialog(null)
+    setPendingCancel(null)
+  }
 
   const handleCancel = async (bookingId: string, googleCalendarEventId: string | null) => {
-    if (!confirm('この予約をキャンセルしますか？')) {
-      return
-    }
 
     setCancelling(bookingId)
     try {
@@ -115,7 +134,38 @@ export function BookingList({ bookings, userId }: BookingListProps) {
   }
 
   return (
-    <div className="space-y-3">
+    <>
+      {/* 確認ダイアログ */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-medium text-room-charcoal mb-4">
+              予約のキャンセル
+            </h3>
+            <p className="text-room-charcoal-light mb-6">
+              この予約をキャンセルしますか？
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={handleCancelCancel}
+                className="px-4 py-2 text-sm rounded-md border border-room-base-dark text-room-charcoal hover:bg-room-base"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancel}
+                className="px-4 py-2 text-sm rounded-md bg-room-charcoal text-white hover:bg-room-charcoal-light"
+              >
+                確定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="space-y-3">
       {bookings.map((booking) => {
         const bookingDate = new Date(booking.booking_date)
         const isPast = bookingDate < new Date() && booking.status !== 'completed' && booking.status !== 'cancelled'
@@ -195,9 +245,9 @@ export function BookingList({ bookings, userId }: BookingListProps) {
                       console.log('Cancel button clicked for booking:', booking.id)
                       console.log('Booking status:', booking.status)
                       console.log('Can cancel:', canCancel)
-                      handleCancel(booking.id, booking.google_calendar_event_id)
+                      handleCancelClick(booking.id, booking.google_calendar_event_id)
                     }}
-                    disabled={cancelling === booking.id}
+                    disabled={cancelling === booking.id || showConfirmDialog === booking.id}
                     className="rounded-md bg-room-charcoal px-3 py-1.5 text-xs text-white hover:bg-room-charcoal-light disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {cancelling === booking.id ? 'キャンセル中...' : 'キャンセル'}
@@ -209,6 +259,7 @@ export function BookingList({ bookings, userId }: BookingListProps) {
         )
       })}
     </div>
+    </>
   )
 }
 
