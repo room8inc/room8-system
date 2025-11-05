@@ -63,6 +63,7 @@ export function GoogleCalendarSettings() {
       window.history.replaceState({}, '', window.location.pathname)
       // OAuthステータスを再読み込み
       loadOAuthStatus()
+      loadCalendars() // カレンダーリストを再読み込み
       checkConnection()
     }
     
@@ -325,7 +326,7 @@ export function GoogleCalendarSettings() {
           )}
 
           {/* カレンダー選択 */}
-          {status.connected && (
+          {(status.connected || oauthStatus?.connected) && (
             <div className="rounded-md bg-room-wood bg-opacity-10 border border-room-wood p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-room-wood-dark">
@@ -344,7 +345,7 @@ export function GoogleCalendarSettings() {
                 <p className="text-sm text-room-charcoal-light">カレンダーを読み込み中...</p>
               ) : calendars.length === 0 ? (
                 <p className="text-sm text-room-charcoal-light">
-                  カレンダーが見つかりません。Service Accountに編集権限が付与されたカレンダーがありません。
+                  カレンダーが見つかりません。Googleアカウントに編集権限が付与されたカレンダーがありません。
                 </p>
               ) : (
                 <div className="space-y-3">
