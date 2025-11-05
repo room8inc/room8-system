@@ -43,6 +43,8 @@ export function BookingForm({
 
   // 選択された時刻（時間のみ、分は未選択）
   const [selectedHour, setSelectedHour] = useState<string | null>(null)
+  const [checkingAvailability, setCheckingAvailability] = useState(false)
+  const [availableMinutes, setAvailableMinutes] = useState<{ '0': boolean; '30': boolean } | null>(null)
 
   // 今日以降の日付のみ選択可能
   const today = new Date().toISOString().split('T')[0]
@@ -131,34 +133,32 @@ export function BookingForm({
         }
       }
 
-      // 2. Googleカレンダーをチェック
-      try {
-        const calendarCheckResponse = await fetch('/api/calendar/check-availability', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            date: formData.bookingDate,
-            startTime: formData.startTime,
-            endTime: endTime,
-          }),
+      // 2. Googleカレンダーをチェック（DBキャッシュから）
+      const { data: calendarEvents, error: calendarError } = await supabase
+        .from('google_calendar_events_cache')
+        .select('*')
+        .gte('start_time', new Date(`${formData.bookingDate}T${formData.startTime}:00+09:00`).toISOString())
+        .lte('end_time', new Date(`${formData.bookingDate}T${endTime}:00+09:00`).toISOString())
+
+      if (calendarError) {
+        console.error('Googleカレンダーイベント取得エラー:', calendarError)
+        return { available: false, reason: 'Googleカレンダーの確認に失敗しました' }
+      }
+
+      if (calendarEvents && calendarEvents.length > 0) {
+        // イベントとの重複をチェック
+        const hasOverlap = calendarEvents.some((event: any) => {
+          const eventStart = new Date(event.start_time)
+          const eventEnd = new Date(event.end_time)
+          const requestStart = new Date(`${formData.bookingDate}T${formData.startTime}:00+09:00`)
+          const requestEnd = new Date(`${formData.bookingDate}T${endTime}:00+09:00`)
+
+          return requestStart.getTime() < eventEnd.getTime() && requestEnd.getTime() > eventStart.getTime()
         })
 
-        if (!calendarCheckResponse.ok) {
-          console.error('Google Calendar check failed:', await calendarCheckResponse.text())
-          // Googleカレンダーのチェックが失敗した場合は、予約を許可しない（安全側に倒す）
-          return { available: false, reason: 'Googleカレンダーの確認に失敗しました' }
+        if (hasOverlap) {
+          return { available: false, reason: 'Googleカレンダーに予定あり' }
         }
-
-        const calendarResult = await calendarCheckResponse.json()
-        if (!calendarResult.available) {
-          return { available: false, reason: calendarResult.reason || 'この時間帯は予約できません' }
-        }
-      } catch (calendarErr) {
-        console.error('Google Calendar check error:', calendarErr)
-        // Googleカレンダーのチェックが失敗した場合は、予約を許可しない（安全側に倒す）
-        return { available: false, reason: 'Googleカレンダーの確認中にエラーが発生しました' }
       }
 
       return { available: true }
@@ -332,8 +332,81 @@ export function BookingForm({
 
   const amount = calculateAmount()
 
+  const checkAvailability = async () => {
+    if (!formData.bookingDate || !formData.startTime || !formData.durationHours) {
+      return { available: false, reason: '日時が選択されていません' }
+    }
+
+    const endTime = calculateEndTime(formData.startTime, formData.durationHours)
+
+    try {
+      // 1. データベース内の既存予約をチェック
+      const { data: existingBookings, error: checkError } = await supabase
+        .from('meeting_room_bookings')
+        .select('*')
+        .eq('meeting_room_id', meetingRoomId)
+        .eq('booking_date', formData.bookingDate)
+        .in('status', ['reserved', 'confirmed', 'in_use'])
+
+      if (checkError) {
+        console.error('Availability check error:', checkError)
+        return { available: false, reason: '空き状況の確認に失敗しました' }
+      }
+
+      // クライアント側で時間の重複をチェック
+      if (existingBookings) {
+        const requestStart = formData.startTime
+        const requestEnd = endTime
+
+        const hasOverlap = existingBookings.some((booking) => {
+          const bookingStart = booking.start_time
+          const bookingEnd = booking.end_time
+          // 時間が重複しているかチェック
+          return requestStart < bookingEnd && requestEnd > bookingStart
+        })
+
+        if (hasOverlap) {
+          return { available: false, reason: 'この時間帯は既に予約されています' }
+        }
+      }
+
+      // 2. Googleカレンダーをチェック（DBキャッシュから）
+      const { data: calendarEvents, error: calendarError } = await supabase
+        .from('google_calendar_events_cache')
+        .select('*')
+        .gte('start_time', new Date(`${formData.bookingDate}T${formData.startTime}:00+09:00`).toISOString())
+        .lte('end_time', new Date(`${formData.bookingDate}T${endTime}:00+09:00`).toISOString())
+
+      if (calendarError) {
+        console.error('Googleカレンダーイベント取得エラー:', calendarError)
+        return { available: false, reason: 'Googleカレンダーの確認に失敗しました' }
+      }
+
+      if (calendarEvents && calendarEvents.length > 0) {
+        // イベントとの重複をチェック
+        const hasOverlap = calendarEvents.some((event: any) => {
+          const eventStart = new Date(event.start_time)
+          const eventEnd = new Date(event.end_time)
+          const requestStart = new Date(`${formData.bookingDate}T${formData.startTime}:00+09:00`)
+          const requestEnd = new Date(`${formData.bookingDate}T${endTime}:00+09:00`)
+
+          return requestStart.getTime() < eventEnd.getTime() && requestEnd.getTime() > eventStart.getTime()
+        })
+
+        if (hasOverlap) {
+          return { available: false, reason: 'Googleカレンダーに予定あり' }
+        }
+      }
+
+      return { available: true }
+    } catch (err) {
+      console.error('Availability check error:', err)
+      return { available: false, reason: '空き状況の確認中にエラーが発生しました' }
+    }
+  }
+
   // カレンダーで日時を選択されたときのハンドラー
-  const handleSlotSelect = (date: string, startTime: string) => {
+  const handleSlotSelect = async (date: string, startTime: string) => {
     // 時間部分を抽出（例: "10:00" → "10"）
     const hour = startTime.split(':')[0]
     setSelectedHour(hour)
@@ -342,6 +415,10 @@ export function BookingForm({
       bookingDate: date,
       startTime: '', // まだ完全な時刻は設定しない（0分か30分を選択させる）
     })
+    
+    // 0分と30分の利用可能性をチェック
+    const availability = await checkMinuteAvailability(date, hour)
+    setAvailableMinutes(availability)
   }
 
   // 開始時刻の分を選択（0分または30分）
@@ -354,6 +431,7 @@ export function BookingForm({
       startTime: startTime,
     })
     setSelectedHour(null) // 選択完了したらリセット
+    setAvailableMinutes(null) // 利用可能性の状態もリセット
   }
 
   return (
