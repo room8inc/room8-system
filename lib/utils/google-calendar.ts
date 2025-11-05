@@ -252,17 +252,14 @@ export async function checkGoogleCalendarAvailability(
     const startDateTime = new Date(`${date}T${startTime}:00+09:00`)
     const endDateTime = new Date(`${date}T${endTime}:00+09:00`)
 
-    // Googleカレンダーから予定を取得（範囲を広めに取得して重複をチェック）
-    // 開始時刻の1日前から終了時刻の1日後まで取得して、重複をチェック
-    const searchStart = new Date(startDateTime)
-    searchStart.setDate(searchStart.getDate() - 1)
-    const searchEnd = new Date(endDateTime)
-    searchEnd.setDate(searchEnd.getDate() + 1)
+    // その日の0時から23時59分59秒まで（日本時間）を取得範囲とする
+    const dayStart = new Date(`${date}T00:00:00+09:00`)
+    const dayEnd = new Date(`${date}T23:59:59+09:00`)
 
     const response = await calendar.events.list({
       calendarId: calendarId,
-      timeMin: searchStart.toISOString(),
-      timeMax: searchEnd.toISOString(),
+      timeMin: dayStart.toISOString(),
+      timeMax: dayEnd.toISOString(),
       singleEvents: true,
       orderBy: 'startTime',
     })
@@ -276,11 +273,22 @@ export async function checkGoogleCalendarAvailability(
 
       if (!eventStart || !eventEnd) continue
 
+      // イベントの日付を日本時間で取得（日付が一致するか確認）
+      const eventDateJST = new Date(eventStart.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))
+      const checkDateJST = new Date(startDateTime.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))
+      const eventDateStr = eventDateJST.toISOString().split('T')[0]
+      const checkDateStr = checkDateJST.toISOString().split('T')[0]
+
+      // 日付が一致しない場合はスキップ
+      if (eventDateStr !== checkDateStr) {
+        continue
+      }
+
       // 時間の重複チェック: 開始時刻が予定終了時刻より前で、終了時刻が予定開始時刻より後
       const overlaps = startDateTime < eventEnd && endDateTime > eventStart
 
       if (overlaps) {
-        console.log(`Googleカレンダーの予定と重複: ${date} ${startTime}-${endTime} vs ${eventStart.toISOString()}-${eventEnd.toISOString()}`)
+        console.log(`Googleカレンダーの予定と重複: ${date} ${startTime}-${endTime} vs ${eventStart.toISOString()}(${eventDateStr}) - ${eventEnd.toISOString()}`)
         return {
           available: false,
           reason: `この時間帯はGoogleカレンダーに予定が入っています（${event.summary || '予定あり'}）`,
