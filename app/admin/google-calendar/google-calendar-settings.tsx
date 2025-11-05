@@ -34,6 +34,13 @@ interface OAuthStatus {
   expiresAt?: string
 }
 
+interface WatchChannelStatus {
+  registered: boolean
+  channelId?: string
+  expiration?: string
+  isExpired?: boolean
+}
+
 export function GoogleCalendarSettings() {
   const [status, setStatus] = useState<ConnectionStatus | null>(null)
   const [loading, setLoading] = useState(false)
@@ -45,12 +52,15 @@ export function GoogleCalendarSettings() {
   const [saving, setSaving] = useState(false)
   const [oauthStatus, setOAuthStatus] = useState<OAuthStatus | null>(null)
   const [loadingOAuth, setLoadingOAuth] = useState(false)
+  const [watchChannelStatus, setWatchChannelStatus] = useState<WatchChannelStatus | null>(null)
+  const [loadingWatch, setLoadingWatch] = useState(false)
 
   useEffect(() => {
     checkConnection()
     loadCurrentSettings()
     loadCalendars()
     loadOAuthStatus()
+    loadWatchChannelStatus()
 
     // URLパラメータからsuccess/errorを取得して表示
     const params = new URLSearchParams(window.location.search)
@@ -94,6 +104,40 @@ export function GoogleCalendarSettings() {
       }
     } catch (error: any) {
       console.error('Failed to load OAuth status:', error)
+    }
+  }
+
+  const loadWatchChannelStatus = async () => {
+    try {
+      const response = await fetch('/api/admin/google-calendar/watch')
+      const data = await response.json()
+      if (data.registered !== undefined) {
+        setWatchChannelStatus(data)
+      }
+    } catch (error: any) {
+      console.error('Failed to load watch channel status:', error)
+    }
+  }
+
+  const registerWatchChannel = async () => {
+    setLoadingWatch(true)
+    try {
+      const response = await fetch('/api/admin/google-calendar/watch', {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Watchチャンネルの登録に失敗しました')
+      }
+
+      alert(`Watchチャンネルを登録しました！\n有効期限: ${new Date(data.expiration).toLocaleString('ja-JP')}`)
+      await loadWatchChannelStatus()
+    } catch (error: any) {
+      alert(`Watchチャンネルの登録に失敗しました: ${error.message}`)
+    } finally {
+      setLoadingWatch(false)
     }
   }
 
@@ -416,6 +460,56 @@ export function GoogleCalendarSettings() {
               </button>
             )}
           </div>
+
+          {/* Watchチャンネル登録セクション */}
+          {oauthStatus?.connected && (
+            <div className="rounded-md bg-room-wood bg-opacity-10 border border-room-wood p-4">
+              <h3 className="text-sm font-medium text-room-wood-dark mb-3">
+                リアルタイム同期設定（Push Notifications）
+              </h3>
+              <p className="text-xs text-room-charcoal-light mb-3">
+                Googleカレンダーの変更をリアルタイムで検知して自動同期します。別システムや直接Googleカレンダーに追加された予約も自動で反映されます。
+              </p>
+              
+              {watchChannelStatus?.registered ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${watchChannelStatus.isExpired ? 'text-red-700' : 'text-green-700'}`}>
+                      {watchChannelStatus.isExpired ? '⚠ 有効期限切れ' : '✓ 登録済み'}
+                    </span>
+                  </div>
+                  {watchChannelStatus.expiration && (
+                    <p className="text-xs text-room-charcoal-light">
+                      有効期限: {new Date(watchChannelStatus.expiration).toLocaleString('ja-JP')}
+                    </p>
+                  )}
+                  {watchChannelStatus.isExpired && (
+                    <p className="text-xs text-red-700">
+                      チャンネルの有効期限が切れています。再登録してください。
+                    </p>
+                  )}
+                  <button
+                    onClick={registerWatchChannel}
+                    disabled={loadingWatch}
+                    className="w-full rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                  >
+                    {loadingWatch ? '登録中...' : 'チャンネルを再登録'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={registerWatchChannel}
+                  disabled={loadingWatch}
+                  className="w-full rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loadingWatch ? '登録中...' : 'Watchチャンネルを登録'}
+                </button>
+              )}
+              <p className="text-xs text-room-charcoal-light mt-2">
+                注意: チャンネルの有効期限は約7日間です。期限切れの場合は再登録が必要です。また、毎日3時に定期同期も実行されます。
+              </p>
+            </div>
+          )}
 
           {/* 設定方法の説明 */}
           {!status.connected && !oauthStatus?.connected && (

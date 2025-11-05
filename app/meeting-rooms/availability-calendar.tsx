@@ -196,22 +196,33 @@ export function AvailabilityCalendar({
         }
       }
 
-      // Googleカレンダーから週全体のイベントを一度に取得
+      // DBからGoogleカレンダーのイベントを取得
       try {
-        const calendarResponse = await fetch('/api/calendar/week-events', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            startDate: weekStartDate,
-            endDate: weekEndDate,
-          }),
-        })
+        // 週の開始日時と終了日時を取得
+        const weekStartDateTime = new Date(weekDates[0])
+        weekStartDateTime.setHours(0, 0, 0, 0)
+        const weekEndDateTime = new Date(weekDates[6])
+        weekEndDateTime.setHours(23, 59, 59, 999)
 
-        if (calendarResponse.ok) {
-          const { events } = await calendarResponse.json()
-          
+        const { data: calendarEvents, error: calendarError } = await supabase
+          .from('google_calendar_events_cache')
+          .select('*')
+          .gte('start_time', weekStartDateTime.toISOString())
+          .lte('end_time', weekEndDateTime.toISOString())
+
+        if (calendarError) {
+          console.error('Googleカレンダーイベント取得エラー:', calendarError)
+          // エラー時は安全側に倒す（すべて予約不可にする）
+          availabilityMap.forEach((status, key) => {
+            if (status.available) {
+              availabilityMap.set(key, {
+                ...status,
+                available: false,
+                reason: 'Googleカレンダーの確認に失敗',
+              })
+            }
+          })
+        } else {
           // 各時間帯のGoogleカレンダーイベントとの重複をチェック
           availabilityMap.forEach((status, key) => {
             if (!status.available) return // 既に予約不可の場合はスキップ
@@ -223,12 +234,12 @@ export function AvailabilityCalendar({
             const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`
 
             // イベントと重複があるかチェック
-            const hasOverlap = events.some((event: any) => {
-              if (!event.start || !event.end) return false
+            const hasOverlap = calendarEvents?.some((event: any) => {
+              if (!event.start_time || !event.end_time) return false
 
               // イベントの日付をJSTで取得
-              const eventStart = new Date(event.start)
-              const eventEnd = new Date(event.end)
+              const eventStart = new Date(event.start_time)
+              const eventEnd = new Date(event.end_time)
               
               // イベントの日付文字列をJSTで取得
               const eventDateStr = new Intl.DateTimeFormat('en-CA', {
@@ -250,7 +261,7 @@ export function AvailabilityCalendar({
               const overlaps = requestStart.getTime() < eventEnd.getTime() && requestEnd.getTime() > eventStart.getTime()
               
               if (overlaps) {
-                console.log(`Googleカレンダー予約と重複: ${status.date} ${status.timeSlot}-${endTime} vs ${event.start}-${event.end}`)
+                console.log(`Googleカレンダー予約と重複: ${status.date} ${status.timeSlot}-${endTime} vs ${event.start_time}-${event.end_time}`)
               }
               
               return overlaps
@@ -261,18 +272,6 @@ export function AvailabilityCalendar({
                 ...status,
                 available: false,
                 reason: 'Googleカレンダーに予定あり',
-              })
-            }
-          })
-        } else {
-          console.error('Googleカレンダーの取得に失敗しました')
-          // エラー時は安全側に倒す（すべて予約不可にする）
-          availabilityMap.forEach((status, key) => {
-            if (status.available) {
-              availabilityMap.set(key, {
-                ...status,
-                available: false,
-                reason: 'Googleカレンダーの確認に失敗',
               })
             }
           })

@@ -60,6 +60,14 @@
 
 **詳細な設定手順は** `docs/GOOGLE_OAUTH_SETUP.md` を参照してください。
 
+### 定期同期・Webhook関連
+
+| 環境変数名 | 用途 | 取得方法 |
+|-----------|------|---------|
+| `CRON_SECRET` | Vercel Cronジョブの認証用シークレット（オプション） | 任意のランダムな文字列を生成（例: `openssl rand -hex 32`）<br>**設定しない場合は認証なしで実行される（セキュリティリスクあり）** |
+
+**注意**: `CRON_SECRET`はセキュリティのために設定することを推奨します。設定しない場合、誰でも`/api/cron/sync-google-calendar`にアクセスできてしまいます。
+
 #### 方法2: Service Account（従来の方法）
 
 Service Accountのキーを使用する方法です。
