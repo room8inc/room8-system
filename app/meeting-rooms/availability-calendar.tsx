@@ -63,9 +63,13 @@ export function AvailabilityCalendar({
     setCurrentWeekStart(newDate)
   }
 
-  // 日付を文字列に変換（YYYY-MM-DD）
+  // 日付を文字列に変換（YYYY-MM-DD、日本時間で）
   const formatDate = (date: Date): string => {
-    return date.toISOString().split('T')[0]
+    // ローカル時刻（日本時間）で日付を取得
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 
   // 日付の表示用フォーマット
