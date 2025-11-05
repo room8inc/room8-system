@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const webhookUrl = `${baseUrl}/api/calendar/webhook`
+    const webhookUrl = `${baseUrl}/api/calendar/webhook-v2`
 
     // チャンネルIDとトークンを生成（ランダム文字列）
     const channelId = `channel-${Date.now()}-${Math.random().toString(36).substring(7)}`
@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const webhookUrl = `${baseUrl}/api/calendar/webhook`
+    const webhookUrl = `${baseUrl}/api/calendar/webhook-v2`
 
     // チャンネル情報を取得
     const { data: channels } = await supabase
