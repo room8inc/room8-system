@@ -326,7 +326,7 @@ export function GoogleCalendarSettings() {
           )}
 
           {/* カレンダー選択 */}
-          {(status.connected || oauthStatus?.connected) && (
+          {oauthStatus?.connected && (
             <div className="rounded-md bg-room-wood bg-opacity-10 border border-room-wood p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-room-wood-dark">

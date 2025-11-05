@@ -1,32 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getGoogleCalendarClientFromEnv } from '@/lib/utils/google-calendar'
+import { getGoogleCalendarClient } from '@/lib/utils/google-calendar'
 
 export const runtime = 'nodejs'
 
 /**
- * Googleカレンダーへの接続テスト
+ * Googleカレンダーへの接続テスト（OAuth優先、なければService Account）
  */
 export async function GET(request: NextRequest) {
   try {
-    // 環境変数の設定状況を確認
-    const hasServiceAccountEmail = !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-    const hasPrivateKey = !!process.env.GOOGLE_PRIVATE_KEY
-
-    if (!hasServiceAccountEmail || !hasPrivateKey) {
-      return NextResponse.json({
-        connected: false,
-        error: '環境変数が設定されていません',
-        missing: {
-          serviceAccountEmail: !hasServiceAccountEmail,
-          privateKey: !hasPrivateKey,
-          calendarId: false, // カレンダーIDは管理画面で設定するため、環境変数は不要
-        },
-      })
-    }
-
     // 接続テスト: カレンダーリストを取得してみる
     try {
-      const { calendar } = getGoogleCalendarClientFromEnv()
+      const { calendar } = await getGoogleCalendarClient()
 
       // カレンダーリストを取得（接続テスト）
       await calendar.calendarList.list({
