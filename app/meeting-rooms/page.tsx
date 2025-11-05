@@ -119,10 +119,10 @@ export default async function MeetingRoomsPage() {
   const rateInfo = calculateRate()
 
   // ユーザーの予約一覧を取得（最新順）
-  // ダッシュボードと同じ方法で取得
+  // ダッシュボードと同じ方法で取得（完全に同じ実装）
   let userBookingsQuery = supabase
     .from('meeting_room_bookings')
-    .select('*, google_calendar_event_id')
+    .select('*')
     .neq('status', 'cancelled')
     .order('booking_date', { ascending: false })
     .order('start_time', { ascending: false })
@@ -130,7 +130,7 @@ export default async function MeetingRoomsPage() {
 
   if (userData?.is_staff === true && staffMemberId) {
     // 利用者ユーザーの場合、user_idまたはstaff_member_idでフィルタ
-    // ダッシュボードと同じ方法を使用
+    // ダッシュボードと完全に同じ方法を使用
     userBookingsQuery = userBookingsQuery.or(`user_id.eq.${user.id},staff_member_id.eq.${staffMemberId}`)
   } else {
     // 通常ユーザーの場合、user_idでフィルタ
@@ -144,6 +144,16 @@ export default async function MeetingRoomsPage() {
   }
   
   console.log('Bookings count:', userBookings?.length || 0)
+  console.log('User ID:', user.id)
+  if (userData?.is_staff === true) {
+    console.log('Staff Member ID:', staffMemberId)
+  }
+  
+  // google_calendar_event_idも含めて取得（必要に応じて）
+  const bookingsWithCalendarId = userBookings?.map((booking: any) => ({
+    ...booking,
+    google_calendar_event_id: booking.google_calendar_event_id || null
+  })) || []
 
   return (
     <div className="min-h-screen bg-room-base">
@@ -215,7 +225,7 @@ export default async function MeetingRoomsPage() {
             予約一覧
           </h3>
           <BookingList
-            bookings={userBookings || []}
+            bookings={bookingsWithCalendarId}
             userId={user.id}
           />
         </div>
