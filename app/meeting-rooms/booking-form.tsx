@@ -33,6 +33,7 @@ export function BookingForm({
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
 
   const [formData, setFormData] = useState({
     bookingDate: '',
@@ -181,16 +182,21 @@ export function BookingForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    // バリデーション
+    if (!formData.bookingDate || !formData.startTime || !formData.durationHours) {
+      setError('日時と利用時間を選択してください')
+      return
+    }
+    // モーダルを表示
+    setShowConfirmModal(true)
+  }
+
+  const handleConfirmBooking = async () => {
+    setShowConfirmModal(false)
+    setError(null)
     setLoading(true)
 
     try {
-      // バリデーション
-      if (!formData.bookingDate || !formData.startTime || !formData.durationHours) {
-        setError('日時と利用時間を選択してください')
-        setLoading(false)
-        return
-      }
-
       const duration = formData.durationHours
       const endTime = calculateEndTime(formData.startTime, duration)
 
@@ -545,7 +551,96 @@ export function BookingForm({
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      {/* 確認モーダル */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-medium text-room-charcoal mb-4">
+              予約内容の確認
+            </h3>
+            
+            {/* 予約内容 */}
+            <div className="mb-6 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-room-charcoal-light">予約日</span>
+                <span className="text-room-charcoal font-medium">
+                  {new Date(formData.bookingDate).toLocaleDateString('ja-JP', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    weekday: 'short',
+                  })}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-room-charcoal-light">開始時刻</span>
+                <span className="text-room-charcoal font-medium">{formData.startTime}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-room-charcoal-light">利用時間</span>
+                <span className="text-room-charcoal font-medium">
+                  {formatDuration(formData.durationHours)}
+                </span>
+              </div>
+              {endTime && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-room-charcoal-light">終了時刻</span>
+                  <span className="text-room-charcoal font-medium">{endTime}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm pt-2 border-t border-room-base-dark">
+                <span className="text-room-charcoal-light">予定料金</span>
+                <span className="text-lg font-bold text-room-wood">
+                  ¥{amount.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* キャンセルポリシー */}
+            <div className="mb-6 p-4 bg-room-base-light rounded-md border border-room-base-dark">
+              <h4 className="text-sm font-medium text-room-charcoal mb-2">
+                キャンセルポリシー
+              </h4>
+              <ul className="text-xs text-room-charcoal-light space-y-1">
+                <li>• 予約日の前日17:00まで：キャンセル料無料</li>
+                <li>• 予約日の前日17:00以降：キャンセル料100%</li>
+                <li>• 当日キャンセル：キャンセル料100%</li>
+                <li>• 無断キャンセル：キャンセル料100%</li>
+              </ul>
+            </div>
+
+            {/* 注意事項 */}
+            <div className="mb-6 p-4 bg-room-wood bg-opacity-10 rounded-md border border-room-wood">
+              <p className="text-xs text-room-charcoal-light">
+                ※ 予約を確定すると、上記のキャンセルポリシーが適用されます。
+              </p>
+            </div>
+
+            {/* ボタン */}
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={loading}
+                className="px-4 py-2 text-sm rounded-md border border-room-base-dark text-room-charcoal hover:bg-room-base disabled:opacity-50"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBooking}
+                disabled={loading}
+                className="px-4 py-2 text-sm rounded-md bg-room-main text-white hover:bg-room-main-light disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? '予約中...' : '確定'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-6">
       {/* 空き状況カレンダー */}
       <div className="rounded-lg bg-room-base-light p-4 shadow border border-room-base-dark">
         <h3 className="text-lg font-semibold text-room-charcoal mb-4">
@@ -729,6 +824,7 @@ export function BookingForm({
       </button>
     </form>
     </div>
+    </>
   )
 }
 
