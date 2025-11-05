@@ -45,6 +45,7 @@ export function BookingForm({
   const [selectedHour, setSelectedHour] = useState<string | null>(null)
   const [checkingAvailability, setCheckingAvailability] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<{ '0': boolean; '30': boolean } | null>(null)
+  const [maxAvailableDuration, setMaxAvailableDuration] = useState<number | null>(null) // 選択時刻から利用可能な最大時間
 
   // 営業時間の終了時刻（例: 22:00）。この時刻を超える終了は不可とする。
   const BUSINESS_CLOSE_TIME = '22:00'
@@ -60,6 +61,11 @@ export function BookingForm({
       durationOptions.push(hours + 0.5) // 1時間30分、2時間30分...
     }
   }
+
+  // 選択された開始時刻に基づいて利用可能な時間のみフィルタリング
+  const availableDurationOptions = maxAvailableDuration !== null
+    ? durationOptions.filter(hours => hours <= maxAvailableDuration)
+    : durationOptions
 
   // 利用時間から終了時刻を計算
   const calculateEndTime = (startTime: string, durationHours: number): string => {
@@ -434,20 +440,102 @@ export function BookingForm({
       bookingDate: date,
       startTime: '', // まだ完全な時刻は設定しない（0分か30分を選択させる）
     })
+    setMaxAvailableDuration(null) // 日付・時間が変更されたら最大時間もリセット
     
     // 0分と30分の利用可能性をチェック
     const availability = await checkMinuteAvailability(date, hour)
     setAvailableMinutes(availability)
   }
 
+  // 選択された開始時刻から利用可能な最大時間を計算
+  const calculateMaxAvailableDuration = async (date: string, startTime: string): Promise<number> => {
+    try {
+      // 営業時間終了（22:00）から逆算して最大時間を計算
+      const [startHour, startMin] = startTime.split(':').map(Number)
+      const [closeHour, closeMin] = BUSINESS_CLOSE_TIME.split(':').map(Number)
+      
+      const startMinutes = startHour * 60 + startMin
+      const closeMinutes = closeHour * 60 + closeMin
+      const maxDurationFromCloseTime = (closeMinutes - startMinutes) / 60 // 時間単位
+
+      // 既存予約の開始時刻を取得
+      const { data: existingBookings, error: checkError } = await supabase
+        .from('meeting_room_bookings')
+        .select('start_time')
+        .eq('meeting_room_id', meetingRoomId)
+        .eq('booking_date', date)
+        .in('status', ['reserved', 'confirmed', 'in_use'])
+        .gt('start_time', startTime) // 開始時刻より後の予約のみ
+        .order('start_time', { ascending: true })
+        .limit(1)
+
+      // Googleカレンダーのイベントも取得
+      const dayStart = new Date(`${date}T00:00:00+09:00`)
+      const dayEnd = new Date(`${date}T23:59:59+09:00`)
+      
+      const { data: calendarEvents, error: calendarError } = await supabase
+        .from('google_calendar_events_cache')
+        .select('start_time')
+        .gte('start_time', dayStart.toISOString())
+        .lte('start_time', dayEnd.toISOString())
+        .order('start_time', { ascending: true })
+
+      let maxDurationFromBookings = 6 // デフォルトは最大6時間
+
+      // 最も近い予約の開始時刻をチェック
+      const nextBookingStart = existingBookings?.[0]?.start_time
+      if (nextBookingStart) {
+        const [nextHour, nextMin] = nextBookingStart.split(':').map(Number)
+        const nextMinutes = nextHour * 60 + nextMin
+        maxDurationFromBookings = (nextMinutes - startMinutes) / 60
+      }
+
+      // Googleカレンダーのイベントもチェック
+      if (calendarEvents && calendarEvents.length > 0) {
+        for (const event of calendarEvents) {
+          // ISO文字列から時刻部分を抽出（例: "2024-01-01T15:00:00+09:00" → "15:00"）
+          const eventStartISO = event.start_time
+          const eventStartMatch = eventStartISO.match(/T(\d{2}):(\d{2})/)
+          if (eventStartMatch) {
+            const [, eventHourStr, eventMinStr] = eventStartMatch
+            const eventHour = parseInt(eventHourStr, 10)
+            const eventMin = parseInt(eventMinStr, 10)
+            const eventMinutes = eventHour * 60 + eventMin
+            
+            if (eventMinutes > startMinutes) {
+              const durationFromEvent = (eventMinutes - startMinutes) / 60
+              maxDurationFromBookings = Math.min(maxDurationFromBookings, durationFromEvent)
+              break // 最初のイベントが最も近い
+            }
+          }
+        }
+      }
+
+      // 営業時間終了と既存予約の開始時刻の両方を考慮して最小値を返す
+      return Math.min(maxDurationFromCloseTime, maxDurationFromBookings)
+    } catch (err) {
+      console.error('Max duration calculation error:', err)
+      return 6 // エラー時は最大6時間を返す
+    }
+  }
+
   // 開始時刻の分を選択（0分または30分）
-  const handleMinuteSelect = (minutes: number) => {
-    if (!selectedHour) return
+  const handleMinuteSelect = async (minutes: number) => {
+    if (!selectedHour || !formData.bookingDate) return
     
     const startTime = `${selectedHour}:${String(minutes).padStart(2, '0')}`
+    
+    // 利用可能な最大時間を計算
+    const maxDuration = await calculateMaxAvailableDuration(formData.bookingDate, startTime)
+    setMaxAvailableDuration(maxDuration)
+    
+    // 現在の利用時間が最大時間を超えている場合は調整
+    const adjustedDuration = Math.min(formData.durationHours, maxDuration)
+    
     setFormData({
       ...formData,
       startTime: startTime,
+      durationHours: adjustedDuration,
     })
     setSelectedHour(null) // 選択完了したらリセット
     setAvailableMinutes(null) // 利用可能性の状態もリセット
@@ -487,7 +575,10 @@ export function BookingForm({
             required
             min={today}
             value={formData.bookingDate}
-            onChange={(e) => setFormData({ ...formData, bookingDate: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, bookingDate: e.target.value, startTime: '' })
+              setMaxAvailableDuration(null) // 日付が変更されたら最大時間もリセット
+            }}
             className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
           />
         </div>
@@ -565,7 +656,7 @@ export function BookingForm({
             }}
             className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
           >
-            {durationOptions.map((hours) => (
+            {availableDurationOptions.map((hours) => (
               <option key={hours} value={hours}>
                 {formatDuration(hours)}
               </option>
