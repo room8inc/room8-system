@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getGoogleCalendarClient } from '@/lib/utils/google-calendar'
+import { getGoogleCalendarClientFromOAuth } from '@/lib/utils/google-calendar'
 
 export const runtime = 'nodejs'
 
 /**
- * Googleカレンダーへの接続テスト（OAuth優先、なければService Account）
+ * Googleカレンダーへの接続テスト（OAuth認証）
  */
 export async function GET(request: NextRequest) {
   try {
-    // 接続テスト: カレンダーリストを取得してみる
+    // 接続テスト: カレンダーリストを取得してみる（カレンダーIDは不要）
     try {
-      const { calendar } = await getGoogleCalendarClient()
+      const { calendar } = await getGoogleCalendarClientFromOAuth()
 
       // カレンダーリストを取得（接続テスト）
       await calendar.calendarList.list({
@@ -34,11 +34,6 @@ export async function GET(request: NextRequest) {
         if (settings) {
           calendarId = settings.calendar_id
         }
-      }
-
-      // データベースに設定がない場合は環境変数から取得（後方互換性）
-      if (!calendarId) {
-        calendarId = process.env.GOOGLE_CALENDAR_ID
       }
 
       return NextResponse.json({
