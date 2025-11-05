@@ -36,15 +36,27 @@
 | `GOOGLE_OAUTH_REDIRECT_URI` | OAuth認証のリダイレクトURI（推奨） | 本番環境のURLを明示的に設定（例: `https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback`）<br>**設定しない場合は自動設定されるが、プレビュー環境のURLになる可能性があるため、明示的に設定することを推奨** |
 | `NEXT_PUBLIC_SITE_URL` | 本番環境のURL（オプション） | 本番環境のドメインを設定（例: `https://room8-system.vercel.app`）<br>**GOOGLE_OAUTH_REDIRECT_URIが設定されていない場合に使用される** |
 
-**設定手順:**
+**設定手順（順番通りに実行）:**
 1. Google Cloud Consoleでプロジェクトを作成
 2. Google Calendar APIを有効化
 3. OAuth 2.0クライアントIDを作成（Webアプリケーション）
    - **承認済みのJavaScript生成元**: 空欄のまま（サーバーサイド認証のため不要）
-   - **承認済みのリダイレクトURI**: `https://your-domain.com/api/admin/google-calendar/oauth/callback`
-     - （`your-domain.com`を実際のVercelドメインに置き換える。例: `https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback`）
-4. クライアントIDとシークレットをコピーして環境変数に設定
-5. 管理画面（`/admin/google-calendar`）で「Googleアカウントで接続」ボタンをクリック
+   - **承認済みのリダイレクトURI**: まだ設定しない（次のステップで環境変数を設定してから）
+4. Vercel Dashboard > Settings > Environment Variables で以下を設定:
+   ```
+   GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
+   GOOGLE_OAUTH_REDIRECT_URI=https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback
+   ```
+   （`room8-system.vercel.app`を実際のドメインに置き換える）
+5. 再デプロイ（環境変数を変更した場合は必須）
+6. Google Cloud Console > APIとサービス > 認証情報 > OAuth 2.0クライアントIDを編集
+   - **承認済みのリダイレクトURI**に、環境変数で設定したURIを追加:
+     ```
+     https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback
+     ```
+   - **保存**をクリック
+7. 管理画面（`/admin/google-calendar`）で「Googleアカウントで接続」ボタンをクリック
 
 **詳細な設定手順は** `docs/GOOGLE_OAUTH_SETUP.md` を参照してください。
 
