@@ -602,19 +602,44 @@ export function BookingForm({
               <h4 className="text-sm font-medium text-room-charcoal mb-2">
                 キャンセルポリシー
               </h4>
-              <ul className="text-xs text-room-charcoal-light space-y-1">
-                <li>• 予約日の前日17:00まで：キャンセル料無料</li>
-                <li>• 予約日の前日17:00以降：キャンセル料100%</li>
-                <li>• 当日キャンセル：キャンセル料100%</li>
-                <li>• 無断キャンセル：キャンセル料100%</li>
-              </ul>
+              {memberType === 'regular' ? (
+                // 定額会員（会員）向けのキャンセルポリシー
+                <ul className="text-xs text-room-charcoal-light space-y-1">
+                  <li>• 予約日の前日17:00まで：キャンセル料無料</li>
+                  <li>• 予約日の前日17:00以降：キャンセル料100%</li>
+                  <li>• 当日キャンセル：キャンセル料100%</li>
+                  <li>• 無断キャンセル：キャンセル料100%</li>
+                  <li className="mt-2 pt-2 border-t border-room-base-dark">
+                    <span className="text-room-main font-medium">※ 定額会員様</span>：キャンセル料は月末の請求に含まれます
+                  </li>
+                </ul>
+              ) : (
+                // 非会員（ドロップイン会員・ゲスト）向けのキャンセルポリシー
+                <ul className="text-xs text-room-charcoal-light space-y-1">
+                  <li>• 予約日の前日17:00まで：キャンセル料無料</li>
+                  <li>• 予約日の前日17:00以降：キャンセル料100%</li>
+                  <li>• 当日キャンセル：キャンセル料100%</li>
+                  <li>• 無断キャンセル：キャンセル料100%</li>
+                  <li className="mt-2 pt-2 border-t border-room-base-dark">
+                    <span className="text-room-main font-medium">※ 非会員様</span>：キャンセル料は即座に請求されます
+                  </li>
+                </ul>
+              )}
             </div>
 
             {/* 注意事項 */}
             <div className="mb-6 p-4 bg-room-wood bg-opacity-10 rounded-md border border-room-wood">
-              <p className="text-xs text-room-charcoal-light">
-                ※ 予約を確定すると、上記のキャンセルポリシーが適用されます。
-              </p>
+              {memberType === 'regular' ? (
+                <div className="space-y-2 text-xs text-room-charcoal-light">
+                  <p>※ 予約を確定すると、上記のキャンセルポリシーが適用されます。</p>
+                  <p>※ 定額会員様は、予約料金とキャンセル料は月末にまとめて請求されます。</p>
+                </div>
+              ) : (
+                <div className="space-y-2 text-xs text-room-charcoal-light">
+                  <p>※ 予約を確定すると、上記のキャンセルポリシーが適用されます。</p>
+                  <p>※ 非会員様は、予約料金を即座に決済していただきます。</p>
+                </div>
+              )}
             </div>
 
             {/* ボタン */}
