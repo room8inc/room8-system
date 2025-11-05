@@ -237,7 +237,7 @@ export function AvailabilityCalendar({
             const hasOverlap = calendarEvents?.some((event: any) => {
               if (!event.start_time || !event.end_time) return false
 
-              // イベントの日付をJSTで取得
+              // イベントの開始時刻と終了時刻をDateオブジェクトに変換（UTC）
               const eventStart = new Date(event.start_time)
               const eventEnd = new Date(event.end_time)
               
@@ -258,11 +258,13 @@ export function AvailabilityCalendar({
               const requestEnd = new Date(`${status.date}T${endTime}:00+09:00`)
 
               // 時間の重複チェック: 開始時刻が予約終了時刻より前で、終了時刻が予約開始時刻より後
+              // eventStartとeventEndはUTC、requestStartとrequestEndはJSTだが、getTime()でミリ秒に変換するため正しく比較できる
               const overlaps = requestStart.getTime() < eventEnd.getTime() && requestEnd.getTime() > eventStart.getTime()
               
-              if (overlaps) {
-                console.log(`Googleカレンダー予約と重複: ${status.date} ${status.timeSlot}-${endTime} vs ${event.start_time}-${event.end_time}`)
-              }
+              // デバッグログは削除（必要に応じて開発環境でのみ有効化）
+              // if (overlaps && process.env.NODE_ENV === 'development') {
+              //   console.log(`Googleカレンダー予約と重複: ${status.date} ${status.timeSlot}-${endTime} vs ${event.start_time}-${event.end_time}`)
+              // }
               
               return overlaps
             })
