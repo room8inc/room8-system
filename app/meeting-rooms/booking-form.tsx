@@ -405,6 +405,156 @@ export function BookingForm({
     }
   }
 
+  // 0分と30分の利用可能性をチェック
+  const checkMinuteAvailability = async (date: string, hour: string): Promise<{ '0': boolean; '30': boolean }> => {
+    setCheckingAvailability(true)
+    const result: { '0': boolean; '30': boolean } = { '0': true, '30': true }
+
+    try {
+      // 選択された日付の予約を取得
+      const { data: existingBookings, error: checkError } = await supabase
+        .from('meeting_room_bookings')
+        .select('*')
+        .eq('meeting_room_id', meetingRoomId)
+        .eq('booking_date', date)
+        .in('status', ['reserved', 'confirmed', 'in_use'])
+
+      if (checkError) {
+        console.error('Availability check error:', checkError)
+        return result // エラー時は両方とも利用可能として扱う
+      }
+
+      // Googleカレンダーのイベントを取得
+      const dayStart = new Date(`${date}T00:00:00+09:00`)
+      const dayEnd = new Date(`${date}T23:59:59+09:00`)
+      
+      const { data: calendarEvents, error: calendarError } = await supabase
+        .from('google_calendar_events_cache')
+        .select('*')
+        .gte('start_time', dayStart.toISOString())
+        .lte('end_time', dayEnd.toISOString())
+
+      if (calendarError) {
+        console.error('Googleカレンダーイベント取得エラー:', calendarError)
+      }
+
+      // 0分と30分の両方をチェック
+      for (const minutes of [0, 30] as const) {
+        const startTime = `${hour}:${String(minutes).padStart(2, '0')}`
+        const endTime = calculateEndTime(startTime, formData.durationHours)
+
+        // データベースの予約と重複チェック
+        if (existingBookings) {
+          const hasOverlap = existingBookings.some((booking) => {
+            const bookingStart = booking.start_time
+            const bookingEnd = booking.end_time
+            return startTime < bookingEnd && endTime > bookingStart
+          })
+
+          if (hasOverlap) {
+            result[String(minutes) as '0' | '30'] = false
+            continue
+          }
+        }
+
+        // Googleカレンダーのイベントと重複チェック
+        if (calendarEvents) {
+          const hasOverlap = calendarEvents.some((event: any) => {
+            const eventStart = new Date(event.start_time)
+            const eventEnd = new Date(event.end_time)
+            const requestStart = new Date(`${date}T${startTime}:00+09:00`)
+            const requestEnd = new Date(`${date}T${endTime}:00+09:00`)
+
+            return requestStart.getTime() < eventEnd.getTime() && requestEnd.getTime() > eventStart.getTime()
+          })
+
+          if (hasOverlap) {
+            result[String(minutes) as '0' | '30'] = false
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Minute availability check error:', err)
+    } finally {
+      setCheckingAvailability(false)
+    }
+
+    return result
+  }
+
+  const checkAvailability = async () => {
+    if (!formData.bookingDate || !formData.startTime || !formData.durationHours) {
+      return { available: false, reason: '日時が選択されていません' }
+    }
+
+    const endTime = calculateEndTime(formData.startTime, formData.durationHours)
+
+    try {
+      // 1. データベース内の既存予約をチェック
+      const { data: existingBookings, error: checkError } = await supabase
+        .from('meeting_room_bookings')
+        .select('*')
+        .eq('meeting_room_id', meetingRoomId)
+        .eq('booking_date', formData.bookingDate)
+        .in('status', ['reserved', 'confirmed', 'in_use'])
+
+      if (checkError) {
+        console.error('Availability check error:', checkError)
+        return { available: false, reason: '空き状況の確認に失敗しました' }
+      }
+
+      // クライアント側で時間の重複をチェック
+      if (existingBookings) {
+        const requestStart = formData.startTime
+        const requestEnd = endTime
+
+        const hasOverlap = existingBookings.some((booking) => {
+          const bookingStart = booking.start_time
+          const bookingEnd = booking.end_time
+          // 時間が重複しているかチェック
+          return requestStart < bookingEnd && requestEnd > bookingStart
+        })
+
+        if (hasOverlap) {
+          return { available: false, reason: 'この時間帯は既に予約されています' }
+        }
+      }
+
+      // 2. Googleカレンダーをチェック（DBキャッシュから）
+      const { data: calendarEvents, error: calendarError } = await supabase
+        .from('google_calendar_events_cache')
+        .select('*')
+        .gte('start_time', new Date(`${formData.bookingDate}T${formData.startTime}:00+09:00`).toISOString())
+        .lte('end_time', new Date(`${formData.bookingDate}T${endTime}:00+09:00`).toISOString())
+
+      if (calendarError) {
+        console.error('Googleカレンダーイベント取得エラー:', calendarError)
+        return { available: false, reason: 'Googleカレンダーの確認に失敗しました' }
+      }
+
+      if (calendarEvents && calendarEvents.length > 0) {
+        // イベントとの重複をチェック
+        const hasOverlap = calendarEvents.some((event: any) => {
+          const eventStart = new Date(event.start_time)
+          const eventEnd = new Date(event.end_time)
+          const requestStart = new Date(`${formData.bookingDate}T${formData.startTime}:00+09:00`)
+          const requestEnd = new Date(`${formData.bookingDate}T${endTime}:00+09:00`)
+
+          return requestStart.getTime() < eventEnd.getTime() && requestEnd.getTime() > eventStart.getTime()
+        })
+
+        if (hasOverlap) {
+          return { available: false, reason: 'Googleカレンダーに予定あり' }
+        }
+      }
+
+      return { available: true }
+    } catch (err) {
+      console.error('Availability check error:', err)
+      return { available: false, reason: '空き状況の確認中にエラーが発生しました' }
+    }
+  }
+
   // カレンダーで日時を選択されたときのハンドラー
   const handleSlotSelect = async (date: string, startTime: string) => {
     // 時間部分を抽出（例: "10:00" → "10"）
