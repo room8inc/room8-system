@@ -181,6 +181,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ registered: false })
     }
 
+    // Webhook URLを構築
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000'
+
+    const webhookUrl = `${baseUrl}/api/calendar/webhook`
+
     // チャンネル情報を取得
     const { data: channels } = await supabase
       .from('google_calendar_watch_channels')
@@ -201,6 +208,7 @@ export async function GET(request: NextRequest) {
       channelId: channels.channel_id,
       expiration: channels.expiration,
       isExpired,
+      webhookUrl, // Webhook URLを追加
     })
   } catch (error: any) {
     console.error('チャンネル状態取得エラー:', error)

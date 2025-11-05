@@ -39,6 +39,7 @@ interface WatchChannelStatus {
   channelId?: string
   expiration?: string
   isExpired?: boolean
+  webhookUrl?: string
 }
 
 export function GoogleCalendarSettings() {
@@ -138,6 +139,9 @@ export function GoogleCalendarSettings() {
         if (data.syncResult.errors > 0) {
           message += `\n（${data.syncResult.errors}件のエラーが発生しました）`
         }
+      }
+      if (data.webhookUrl) {
+        message += `\n\nWebhook URL: ${data.webhookUrl}`
       }
       alert(message)
       await loadWatchChannelStatus()
@@ -489,6 +493,12 @@ export function GoogleCalendarSettings() {
                     <p className="text-xs text-room-charcoal-light">
                       有効期限: {new Date(watchChannelStatus.expiration).toLocaleString('ja-JP')}
                     </p>
+                  )}
+                  {watchChannelStatus.webhookUrl && (
+                    <div className="text-xs text-room-charcoal-light bg-room-base-dark p-2 rounded break-all">
+                      <p className="font-medium mb-1">Webhook URL:</p>
+                      <code className="text-xs">{watchChannelStatus.webhookUrl}</code>
+                    </div>
                   )}
                   {watchChannelStatus.isExpired && (
                     <p className="text-xs text-red-700">
