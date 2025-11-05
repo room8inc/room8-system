@@ -631,20 +631,39 @@ export function BookingForm({
           {selectedHour ? (
             // 時間が選択された場合は、0分と30分の2つのボタンを表示
             <div className="flex gap-2 mt-1">
-              <button
-                type="button"
-                onClick={() => handleMinuteSelect(0)}
-                className="flex-1 rounded-md border border-room-base-dark bg-room-base px-3 py-2 text-sm hover:bg-room-base-dark focus:outline-none focus:ring-2 focus:ring-room-main"
-              >
-                {selectedHour}:00
-              </button>
-              <button
-                type="button"
-                onClick={() => handleMinuteSelect(30)}
-                className="flex-1 rounded-md border border-room-base-dark bg-room-base px-3 py-2 text-sm hover:bg-room-base-dark focus:outline-none focus:ring-2 focus:ring-room-main"
-              >
-                {selectedHour}:30
-              </button>
+              {availableMinutes?.['0'] !== false && (
+                <button
+                  type="button"
+                  onClick={() => handleMinuteSelect(0)}
+                  disabled={checkingAvailability || availableMinutes?.['0'] === false}
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main ${
+                    availableMinutes?.['0'] === false
+                      ? 'border-room-base-dark bg-room-base-dark text-room-charcoal-light cursor-not-allowed opacity-50'
+                      : 'border-room-base-dark bg-room-base hover:bg-room-base-dark text-room-charcoal'
+                  }`}
+                >
+                  {checkingAvailability ? '確認中...' : `${selectedHour}:00`}
+                </button>
+              )}
+              {availableMinutes?.['30'] !== false && (
+                <button
+                  type="button"
+                  onClick={() => handleMinuteSelect(30)}
+                  disabled={checkingAvailability || availableMinutes?.['30'] === false}
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main ${
+                    availableMinutes?.['30'] === false
+                      ? 'border-room-base-dark bg-room-base-dark text-room-charcoal-light cursor-not-allowed opacity-50'
+                      : 'border-room-base-dark bg-room-base hover:bg-room-base-dark text-room-charcoal'
+                  }`}
+                >
+                  {checkingAvailability ? '確認中...' : `${selectedHour}:30`}
+                </button>
+              )}
+              {availableMinutes && availableMinutes['0'] === false && availableMinutes['30'] === false && (
+                <div className="flex-1 rounded-md border border-room-base-dark bg-room-base px-3 py-2 text-sm text-room-charcoal-light">
+                  この時間帯は予約できません
+                </div>
+              )}
             </div>
           ) : formData.startTime ? (
             // 既に開始時刻が設定されている場合は表示のみ
