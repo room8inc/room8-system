@@ -132,7 +132,14 @@ export function GoogleCalendarSettings() {
         throw new Error(data.error || 'Watchチャンネルの登録に失敗しました')
       }
 
-      alert(`Watchチャンネルを登録しました！\n有効期限: ${new Date(data.expiration).toLocaleString('ja-JP')}`)
+      let message = `Watchチャンネルを登録しました！\n有効期限: ${new Date(data.expiration).toLocaleString('ja-JP')}`
+      if (data.syncResult) {
+        message += `\n\n初回同期: ${data.syncResult.synced}件のイベントを同期しました`
+        if (data.syncResult.errors > 0) {
+          message += `\n（${data.syncResult.errors}件のエラーが発生しました）`
+        }
+      }
+      alert(message)
       await loadWatchChannelStatus()
     } catch (error: any) {
       alert(`Watchチャンネルの登録に失敗しました: ${error.message}`)
