@@ -23,6 +23,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 })
     }
 
+    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
+
     // リダイレクトURIを決定
     // 優先順位: 1. 環境変数 > 2. NEXT_PUBLIC_SITE_URL > 3. VERCEL_URL > 4. リクエストから取得
     let redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI

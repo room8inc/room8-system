@@ -100,16 +100,24 @@ export function GoogleCalendarSettings() {
         if (data.missingEnvVars && data.missingEnvVars.length > 0) {
           errorMessage += `\n\n未設定の環境変数:\n${data.missingEnvVars.map((v: string) => `• ${v}`).join('\n')}`
         }
+        if (data.debug?.redirectUri) {
+          errorMessage += `\n\n実際に使用されているリダイレクトURI:\n${data.debug.redirectUri}\n\nこのURIをGoogle Cloud Consoleの「承認済みのリダイレクトURI」に設定してください。`
+        }
         alert(errorMessage)
         setLoadingOAuth(false)
         return
       }
 
       if (data.authUrl) {
-        // デバッグ用: リダイレクトURIを表示
+        // リダイレクトURIをアラートで表示（デバッグ用）
         if (data.redirectUri) {
-          console.log('リダイレクトURI:', data.redirectUri)
-          console.log('このURIがGoogle Cloud Consoleの「承認済みのリダイレクトURI」に設定されているか確認してください')
+          const confirmed = confirm(
+            `リダイレクトURIを確認してください:\n\n${data.redirectUri}\n\nこのURIがGoogle Cloud Consoleの「承認済みのリダイレクトURI」に設定されているか確認してください。\n\n「OK」をクリックするとGoogle認証画面に移動します。`
+          )
+          if (!confirmed) {
+            setLoadingOAuth(false)
+            return
+          }
         }
         // OAuth認証URLにリダイレクト
         window.location.href = data.authUrl
