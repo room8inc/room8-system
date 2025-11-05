@@ -187,76 +187,109 @@ export function AvailabilityCalendar({
             continue
           }
 
-          // Googleカレンダーをチェック（非同期で実行）
+          // まずはtrueとして設定、後でGoogleカレンダーで確認
           availabilityMap.set(key, {
             date: dateStr,
             timeSlot,
-            available: true, // まずはtrueとして設定、後でGoogleカレンダーで確認
+            available: true,
           })
         }
       }
 
-      // Googleカレンダーのチェック（バッチ処理）
-      const checkPromises: Promise<void>[] = []
-      availabilityMap.forEach((status, key) => {
-        if (status.available) {
-          checkPromises.push(
-            fetch('/api/calendar/check-availability', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                date: status.date,
-                startTime: status.timeSlot,
-                endTime: (() => {
-                  const [hours, mins] = status.timeSlot.split(':').map(Number)
-                  const endMinutes = hours * 60 + mins + minDurationHours * 60
-                  const endHours = Math.floor(endMinutes / 60) % 24
-                  const endMins = endMinutes % 60
-                  return `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`
-                })(),
-              }),
-            })
-              .then(async (res) => {
-                if (res.ok) {
-                  const result = await res.json()
-                  if (!result.available) {
-                    console.log(`Googleカレンダーで予約不可: ${status.date} ${status.timeSlot} - ${result.reason}`)
-                    availabilityMap.set(key, {
-                      ...status,
-                      available: false,
-                      reason: result.reason || 'Googleカレンダーに予定あり',
-                    })
-                  } else {
-                    console.log(`Googleカレンダーで予約可能: ${status.date} ${status.timeSlot}`)
-                  }
-                } else {
-                  const errorText = await res.text()
-                  console.error(`Googleカレンダーチェック失敗: ${status.date} ${status.timeSlot} - ${res.status} ${errorText}`)
-                  // Googleカレンダーのチェックが失敗した場合は安全側に倒す
-                  availabilityMap.set(key, {
-                    ...status,
-                    available: false,
-                    reason: 'Googleカレンダーの確認に失敗',
-                  })
-                }
-              })
-              .catch((err) => {
-                console.error(`Googleカレンダーチェックエラー: ${status.date} ${status.timeSlot}`, err)
-                // エラー時は安全側に倒す
-                availabilityMap.set(key, {
-                  ...status,
-                  available: false,
-                  reason: 'Googleカレンダーの確認エラー',
-                })
-              })
-          )
-        }
-      })
+      // Googleカレンダーから週全体のイベントを一度に取得
+      try {
+        const calendarResponse = await fetch('/api/calendar/week-events', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            startDate: weekStartDate,
+            endDate: weekEndDate,
+          }),
+        })
 
-      // すべてのGoogleカレンダーチェックが完了するまで待機
-      await Promise.all(checkPromises)
+        if (calendarResponse.ok) {
+          const { events } = await calendarResponse.json()
+          
+          // 各時間帯のGoogleカレンダーイベントとの重複をチェック
+          availabilityMap.forEach((status, key) => {
+            if (!status.available) return // 既に予約不可の場合はスキップ
+
+            const [startHours, startMins] = status.timeSlot.split(':').map(Number)
+            const endMinutes = startHours * 60 + startMins + minDurationHours * 60
+            const endHours = Math.floor(endMinutes / 60) % 24
+            const endMins = endMinutes % 60
+            const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`
+
+            // イベントと重複があるかチェック
+            const hasOverlap = events.some((event: any) => {
+              if (!event.start || !event.end) return false
+
+              // イベントの日付をJSTで取得
+              const eventStart = new Date(event.start)
+              const eventEnd = new Date(event.end)
+              
+              // イベントの日付文字列をJSTで取得
+              const eventDateStr = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Tokyo',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+              }).format(eventStart)
+
+              // 日付が一致するかチェック
+              if (eventDateStr !== status.date) return false
+
+              // 時刻の重複チェック
+              // リクエストの開始時刻と終了時刻（JST）
+              const requestStart = new Date(`${status.date}T${status.timeSlot}:00+09:00`)
+              const requestEnd = new Date(`${status.date}T${endTime}:00+09:00`)
+
+              // 時間の重複チェック: 開始時刻が予約終了時刻より前で、終了時刻が予約開始時刻より後
+              const overlaps = requestStart.getTime() < eventEnd.getTime() && requestEnd.getTime() > eventStart.getTime()
+              
+              if (overlaps) {
+                console.log(`Googleカレンダー予約と重複: ${status.date} ${status.timeSlot}-${endTime} vs ${event.start}-${event.end}`)
+              }
+              
+              return overlaps
+            })
+
+            if (hasOverlap) {
+              availabilityMap.set(key, {
+                ...status,
+                available: false,
+                reason: 'Googleカレンダーに予定あり',
+              })
+            }
+          })
+        } else {
+          console.error('Googleカレンダーの取得に失敗しました')
+          // エラー時は安全側に倒す（すべて予約不可にする）
+          availabilityMap.forEach((status, key) => {
+            if (status.available) {
+              availabilityMap.set(key, {
+                ...status,
+                available: false,
+                reason: 'Googleカレンダーの確認に失敗',
+              })
+            }
+          })
+        }
+      } catch (err) {
+        console.error('Googleカレンダーの取得エラー:', err)
+        // エラー時は安全側に倒す
+        availabilityMap.forEach((status, key) => {
+          if (status.available) {
+            availabilityMap.set(key, {
+              ...status,
+              available: false,
+              reason: 'Googleカレンダーの確認エラー',
+            })
+          }
+        })
+      }
 
       setAvailability(availabilityMap)
     } catch (err) {
