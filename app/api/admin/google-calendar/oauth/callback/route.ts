@@ -37,13 +37,17 @@ export async function GET(request: NextRequest) {
 
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
-    const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || 
-      `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/admin/google-calendar/oauth/callback`
+    
+    // 実際のリクエストURLからリダイレクトURIを構築（クエリパラメータを除く）
+    // これにより、GoogleがリダイレクトしたURLと完全に一致する
+    const requestUrl = new URL(request.url)
+    const redirectUri = `${requestUrl.protocol}//${requestUrl.host}${requestUrl.pathname}`
 
     console.log('OAuth callback:', {
       hasClientId: !!clientId,
       hasClientSecret: !!clientSecret,
       redirectUri,
+      requestUrl: request.url,
       code: code ? `${code.substring(0, 20)}...` : null,
     })
 
