@@ -106,6 +106,11 @@ export function GoogleCalendarSettings() {
       }
 
       if (data.authUrl) {
+        // デバッグ用: リダイレクトURIを表示
+        if (data.redirectUri) {
+          console.log('リダイレクトURI:', data.redirectUri)
+          console.log('このURIがGoogle Cloud Consoleの「承認済みのリダイレクトURI」に設定されているか確認してください')
+        }
         // OAuth認証URLにリダイレクト
         window.location.href = data.authUrl
       } else {

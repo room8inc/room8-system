@@ -23,9 +23,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 })
     }
 
-    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
-    
     // リダイレクトURIを決定
     // 優先順位: 1. 環境変数 > 2. NEXT_PUBLIC_SITE_URL > 3. VERCEL_URL > 4. リクエストから取得
     let redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI
@@ -45,13 +42,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // デバッグ用: リダイレクトURIをログに出力
+    console.log('OAuth redirect URI:', redirectUri)
+    console.log('Environment variables:', {
+      GOOGLE_OAUTH_REDIRECT_URI: process.env.GOOGLE_OAUTH_REDIRECT_URI,
+      NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+      VERCEL_URL: process.env.VERCEL_URL,
+      host: request.headers.get('host'),
+      'x-forwarded-proto': request.headers.get('x-forwarded-proto'),
+    })
+
     // 環境変数の設定状況をチェック
     if (!clientId) {
       return NextResponse.json(
         { 
           error: 'GOOGLE_OAUTH_CLIENT_ID環境変数が設定されていません',
           details: 'Vercel Dashboard > Settings > Environment Variables で設定してください。',
-          missingEnvVars: ['GOOGLE_OAUTH_CLIENT_ID']
+          missingEnvVars: ['GOOGLE_OAUTH_CLIENT_ID'],
+          debug: {
+            redirectUri: redirectUri,
+          },
         },
         { status: 500 }
       )
@@ -62,7 +72,10 @@ export async function GET(request: NextRequest) {
         { 
           error: 'GOOGLE_OAUTH_CLIENT_SECRET環境変数が設定されていません',
           details: 'Vercel Dashboard > Settings > Environment Variables で設定してください。',
-          missingEnvVars: ['GOOGLE_OAUTH_CLIENT_SECRET']
+          missingEnvVars: ['GOOGLE_OAUTH_CLIENT_SECRET'],
+          debug: {
+            redirectUri: redirectUri,
+          },
         },
         { status: 500 }
       )
@@ -77,7 +90,10 @@ export async function GET(request: NextRequest) {
     authUrl.searchParams.set('access_type', 'offline') // リフレッシュトークンを取得するため
     authUrl.searchParams.set('prompt', 'consent') // 常に同意画面を表示（リフレッシュトークンを確実に取得）
 
-    return NextResponse.json({ authUrl: authUrl.toString() })
+    return NextResponse.json({ 
+      authUrl: authUrl.toString(),
+      redirectUri: redirectUri, // デバッグ用
+    })
   } catch (error: any) {
     console.error('Google OAuth auth URL generation error:', error)
     return NextResponse.json(
