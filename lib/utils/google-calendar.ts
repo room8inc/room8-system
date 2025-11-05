@@ -273,12 +273,15 @@ export async function checkGoogleCalendarAvailability(
 
       if (!eventStart || !eventEnd) continue
 
-      // イベントの日付を日本時間で取得（UTC時刻から日本時間（UTC+9）の日付を計算）
-      // eventStartはUTCで返されるので、日本時間（UTC+9）に変換
-      const eventStartJST = new Date(eventStart.getTime() + (9 * 60 * 60 * 1000)) // UTC+9時間
-      const eventDateStr = eventStartJST.getUTCFullYear() + '-' + 
-        String(eventStartJST.getUTCMonth() + 1).padStart(2, '0') + '-' + 
-        String(eventStartJST.getUTCDate()).padStart(2, '0')
+      // イベントの日付を日本時間で取得（Intl.DateTimeFormatを使用）
+      // eventStartはUTCで返されるので、日本時間（Asia/Tokyo）での日付を取得
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+      const eventDateStr = formatter.format(eventStart) // YYYY-MM-DD形式で返される
 
       console.log(`イベント確認: チェック日付=${date}, イベントUTC=${eventStart.toISOString()}, イベントJST日付=${eventDateStr}`)
 
