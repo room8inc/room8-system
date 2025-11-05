@@ -489,7 +489,7 @@ export function BookingForm({
                 <button
                   type="button"
                   onClick={() => handleMinuteSelect(0)}
-                  disabled={checkingAvailability || (!!availableMinutes && availableMinutes['0'] === false)}
+                  disabled={checkingAvailability || Boolean(availableMinutes && availableMinutes['0'] === false)}
                   className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main ${
                     !!availableMinutes && availableMinutes['0'] === false
                       ? 'border-room-base-dark bg-room-base-dark text-room-charcoal-light cursor-not-allowed opacity-50'
@@ -503,7 +503,7 @@ export function BookingForm({
                 <button
                   type="button"
                   onClick={() => handleMinuteSelect(30)}
-                  disabled={checkingAvailability || (!!availableMinutes && availableMinutes['30'] === false)}
+                  disabled={checkingAvailability || Boolean(availableMinutes && availableMinutes['30'] === false)}
                   className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main ${
                     !!availableMinutes && availableMinutes['30'] === false
                       ? 'border-room-base-dark bg-room-base-dark text-room-charcoal-light cursor-not-allowed opacity-50'
