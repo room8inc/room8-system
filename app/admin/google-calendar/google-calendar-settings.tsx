@@ -418,37 +418,22 @@ export function GoogleCalendarSettings() {
           </div>
 
           {/* 設定方法の説明 */}
-          {!status.connected && (
+          {!status.connected && !oauthStatus?.connected && (
             <div className="rounded-md bg-room-wood bg-opacity-10 border border-room-wood p-4">
               <p className="text-sm font-medium text-room-wood-dark mb-2">
-                設定方法（2つの方法から選択）:
+                設定方法:
               </p>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium text-room-wood-dark mb-1">
-                    方法1: Googleアカウントで接続（推奨・簡単）
-                  </p>
-                  <ol className="text-xs text-room-wood-dark space-y-1 list-decimal list-inside ml-2">
-                    <li>Google Cloud Consoleでプロジェクトを作成</li>
-                    <li>Google Calendar APIを有効化</li>
-                    <li>OAuth 2.0クライアントIDを作成（Webアプリケーション）</li>
-                    <li>環境変数（GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET）を設定</li>
-                    <li>上記の「Googleアカウントで接続」ボタンをクリック</li>
-                  </ol>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-room-wood-dark mb-1">
-                    方法2: Service Accountを使用
-                  </p>
-                  <ol className="text-xs text-room-wood-dark space-y-1 list-decimal list-inside ml-2">
-                    <li>Google Cloud Consoleでプロジェクトを作成</li>
-                    <li>Google Calendar APIを有効化</li>
-                    <li>Service Accountを作成し、JSONキーをダウンロード</li>
-                    <li>Service Accountのメールアドレスをカレンダーに共有（編集権限を付与）</li>
-                    <li>環境変数（GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY）を設定</li>
-                    <li>接続テストが成功したら、使用するカレンダーを選択</li>
-                  </ol>
-                </div>
+              <div>
+                <p className="text-sm font-medium text-room-wood-dark mb-1">
+                  Googleアカウントで接続（推奨・簡単）
+                </p>
+                <ol className="text-xs text-room-wood-dark space-y-1 list-decimal list-inside ml-2">
+                  <li>Google Cloud Consoleでプロジェクトを作成</li>
+                  <li>Google Calendar APIを有効化</li>
+                  <li>OAuth 2.0クライアントIDを作成（Webアプリケーション）</li>
+                  <li>環境変数（GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET）を設定</li>
+                  <li>上記の「Googleアカウントで接続」ボタンをクリック</li>
+                </ol>
               </div>
               <p className="text-xs text-room-charcoal-light mt-2">
                 詳細は <code className="bg-room-base-dark px-1 rounded">ENV_VARIABLES.md</code> を参照してください。
