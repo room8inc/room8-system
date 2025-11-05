@@ -119,57 +119,31 @@ export default async function MeetingRoomsPage() {
   const rateInfo = calculateRate()
 
   // ユーザーの予約一覧を取得（最新順）
-  // 利用者ユーザーの場合も考慮（user_idまたはstaff_member_idで検索）
-  let userBookings: any[] = []
-  
+  // ダッシュボードと同じ方法で取得
+  let userBookingsQuery = supabase
+    .from('meeting_room_bookings')
+    .select('*, google_calendar_event_id')
+    .neq('status', 'cancelled')
+    .order('booking_date', { ascending: false })
+    .order('start_time', { ascending: false })
+    .limit(20)
+
   if (userData?.is_staff === true && staffMemberId) {
-    // 利用者ユーザーの場合、user_idとstaff_member_idの両方で検索してマージ
-    const [userBookingsResult, staffBookingsResult] = await Promise.all([
-      supabase
-        .from('meeting_room_bookings')
-        .select('*, google_calendar_event_id')
-        .eq('user_id', user.id)
-        .neq('status', 'cancelled')
-        .order('booking_date', { ascending: false })
-        .order('start_time', { ascending: false })
-        .limit(20),
-      supabase
-        .from('meeting_room_bookings')
-        .select('*, google_calendar_event_id')
-        .eq('staff_member_id', staffMemberId)
-        .neq('status', 'cancelled')
-        .order('booking_date', { ascending: false })
-        .order('start_time', { ascending: false })
-        .limit(20)
-    ])
-    
-    // 結果をマージして重複を除去
-    const allBookings = [
-      ...(userBookingsResult.data || []),
-      ...(staffBookingsResult.data || [])
-    ]
-    const uniqueBookings = allBookings.filter((booking, index, self) =>
-      index === self.findIndex((b) => b.id === booking.id)
-    )
-    // 日付順にソート
-    uniqueBookings.sort((a, b) => {
-      const dateCompare = new Date(b.booking_date).getTime() - new Date(a.booking_date).getTime()
-      if (dateCompare !== 0) return dateCompare
-      return b.start_time.localeCompare(a.start_time)
-    })
-    userBookings = uniqueBookings.slice(0, 20)
+    // 利用者ユーザーの場合、user_idまたはstaff_member_idでフィルタ
+    // ダッシュボードと同じ方法を使用
+    userBookingsQuery = userBookingsQuery.or(`user_id.eq.${user.id},staff_member_id.eq.${staffMemberId}`)
   } else {
     // 通常ユーザーの場合、user_idでフィルタ
-    const { data } = await supabase
-      .from('meeting_room_bookings')
-      .select('*, google_calendar_event_id')
-      .eq('user_id', user.id)
-      .neq('status', 'cancelled')
-      .order('booking_date', { ascending: false })
-      .order('start_time', { ascending: false })
-      .limit(20)
-    userBookings = data || []
+    userBookingsQuery = userBookingsQuery.eq('user_id', user.id)
   }
+
+  const { data: userBookings, error: bookingsError } = await userBookingsQuery
+  
+  if (bookingsError) {
+    console.error('Booking fetch error:', bookingsError)
+  }
+  
+  console.log('Bookings count:', userBookings?.length || 0)
 
   return (
     <div className="min-h-screen bg-room-base">
