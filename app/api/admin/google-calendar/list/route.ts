@@ -11,17 +11,22 @@ export async function GET(request: NextRequest) {
     // OAuth認証を使用（カレンダーIDは不要）
     const { calendar } = await getGoogleCalendarClientFromOAuth()
 
-    // カレンダーリストを取得
+    // カレンダーリストを取得（すべてのカレンダーを取得）
     const response = await calendar.calendarList.list({
-      minAccessRole: 'writer', // 編集権限があるカレンダーのみ
+      // minAccessRoleを指定しないことで、すべてのカレンダーを取得
     })
 
-    const calendars = (response.data.items || []).map((cal: any) => ({
-      id: cal.id,
-      name: cal.summary || cal.id,
-      description: cal.description || '',
-      accessRole: cal.accessRole,
-    }))
+    const calendars = (response.data.items || [])
+      .filter((cal: any) => {
+        // ownerまたはwriter権限があるカレンダーのみを表示
+        return cal.accessRole === 'owner' || cal.accessRole === 'writer'
+      })
+      .map((cal: any) => ({
+        id: cal.id,
+        name: cal.summary || cal.id,
+        description: cal.description || '',
+        accessRole: cal.accessRole,
+      }))
 
     return NextResponse.json({ calendars })
   } catch (error: any) {
