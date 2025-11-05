@@ -289,8 +289,8 @@ export async function checkGoogleCalendarAvailability(
       }
 
       // 時間の重複チェック: 開始時刻が予定終了時刻より前で、終了時刻が予定開始時刻より後
-      // 両方とも日本時間で比較
-      const overlaps = startDateTime < eventEnd && endDateTime > eventStart
+      // 両方ともUTC時刻で比較（Dateオブジェクトは内部でUTC時刻を保持している）
+      const overlaps = startDateTime.getTime() < eventEnd.getTime() && endDateTime.getTime() > eventStart.getTime()
 
       if (overlaps) {
         console.log(`Googleカレンダーの予定と重複: ${date} ${startTime}-${endTime} vs ${eventStart.toISOString()}(${eventDateStr}) - ${eventEnd.toISOString()}`)
