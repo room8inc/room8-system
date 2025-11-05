@@ -10,10 +10,9 @@ CREATE TABLE IF NOT EXISTS google_oauth_tokens (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
--- アクティブなトークンは1つだけ
-CREATE UNIQUE INDEX IF NOT EXISTS idx_google_oauth_tokens_active 
-  ON google_oauth_tokens(expires_at) 
-  WHERE expires_at IS NULL OR expires_at > NOW();
+-- 注意: アクティブなトークンは1つだけという制約は、
+-- アプリケーションレベル（コールバック処理）で実装されています
+-- NOW()はIMMUTABLEではないため、インデックスの述語では使用できません
 
 COMMENT ON TABLE google_oauth_tokens IS 'Google OAuth認証トークン（管理者のGoogleアカウント連携用）';
 COMMENT ON COLUMN google_oauth_tokens.access_token IS 'アクセストークン（暗号化推奨）';
