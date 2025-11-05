@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       minAccessRole: 'writer', // 編集権限があるカレンダーのみ
     })
 
-    const calendars = (response.data.items || []).map((cal) => ({
+    const calendars = (response.data.items || []).map((cal: any) => ({
       id: cal.id,
       name: cal.summary || cal.id,
       description: cal.description || '',
