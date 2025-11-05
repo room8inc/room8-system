@@ -41,6 +41,9 @@ export function BookingForm({
     notes: '',
   })
 
+  // 選択された時刻（時間のみ、分は未選択）
+  const [selectedHour, setSelectedHour] = useState<string | null>(null)
+
   // 今日以降の日付のみ選択可能
   const today = new Date().toISOString().split('T')[0]
 
@@ -331,11 +334,26 @@ export function BookingForm({
 
   // カレンダーで日時を選択されたときのハンドラー
   const handleSlotSelect = (date: string, startTime: string) => {
+    // 時間部分を抽出（例: "10:00" → "10"）
+    const hour = startTime.split(':')[0]
+    setSelectedHour(hour)
     setFormData({
       ...formData,
       bookingDate: date,
+      startTime: '', // まだ完全な時刻は設定しない（0分か30分を選択させる）
+    })
+  }
+
+  // 開始時刻の分を選択（0分または30分）
+  const handleMinuteSelect = (minutes: number) => {
+    if (!selectedHour) return
+    
+    const startTime = `${selectedHour}:${String(minutes).padStart(2, '0')}`
+    setFormData({
+      ...formData,
       startTime: startTime,
     })
+    setSelectedHour(null) // 選択完了したらリセット
   }
 
   return (
@@ -382,15 +400,35 @@ export function BookingForm({
           <label htmlFor="startTime" className="block text-sm font-medium text-room-charcoal mb-1">
             開始時刻 <span className="text-room-main-dark">*</span>
           </label>
-          <input
-            id="startTime"
-            type="time"
-            required
-            step="1800"
-            value={formData.startTime}
-            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-            className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
-          />
+          {selectedHour ? (
+            // 時間が選択された場合は、0分と30分の2つのボタンを表示
+            <div className="flex gap-2 mt-1">
+              <button
+                type="button"
+                onClick={() => handleMinuteSelect(0)}
+                className="flex-1 rounded-md border border-room-base-dark bg-room-base px-3 py-2 text-sm hover:bg-room-base-dark focus:outline-none focus:ring-2 focus:ring-room-main"
+              >
+                {selectedHour}:00
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMinuteSelect(30)}
+                className="flex-1 rounded-md border border-room-base-dark bg-room-base px-3 py-2 text-sm hover:bg-room-base-dark focus:outline-none focus:ring-2 focus:ring-room-main"
+              >
+                {selectedHour}:30
+              </button>
+            </div>
+          ) : formData.startTime ? (
+            // 既に開始時刻が設定されている場合は表示のみ
+            <div className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm text-room-charcoal">
+              {formData.startTime}
+            </div>
+          ) : (
+            // まだ選択されていない場合は、カレンダーから選択するよう促す
+            <div className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm text-room-charcoal-light text-sm">
+              上のカレンダーから時刻を選択してください
+            </div>
+          )}
         </div>
 
         {/* 利用時間 */}
