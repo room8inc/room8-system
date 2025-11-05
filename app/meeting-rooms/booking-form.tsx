@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { AvailabilityCalendar } from './availability-calendar'
 
 interface BookingFormProps {
   userId: string
@@ -328,15 +329,38 @@ export function BookingForm({
 
   const amount = calculateAmount()
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="rounded-md bg-room-main bg-opacity-10 border border-room-main p-3">
-          <p className="text-sm text-room-main-dark">{error}</p>
-        </div>
-      )}
+  // カレンダーで日時を選択されたときのハンドラー
+  const handleSlotSelect = (date: string, startTime: string) => {
+    setFormData({
+      ...formData,
+      bookingDate: date,
+      startTime: startTime,
+    })
+  }
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+  return (
+    <div className="space-y-6">
+      {/* 空き状況カレンダー */}
+      <div className="rounded-lg bg-room-base-light p-4 shadow border border-room-base-dark">
+        <h3 className="text-lg font-semibold text-room-charcoal mb-4">
+          ご利用開始日時を選択してください
+        </h3>
+        <AvailabilityCalendar
+          meetingRoomId={meetingRoomId}
+          minDurationHours={formData.durationHours}
+          onSelectSlot={handleSlotSelect}
+        />
+      </div>
+
+      {/* 予約フォーム */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="rounded-md bg-room-main bg-opacity-10 border border-room-main p-3">
+            <p className="text-sm text-room-main-dark">{error}</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* 予約日 */}
         <div>
           <label htmlFor="bookingDate" className="block text-sm font-medium text-room-charcoal mb-1">
@@ -373,12 +397,18 @@ export function BookingForm({
         <div className="md:col-span-2">
           <label htmlFor="durationHours" className="block text-sm font-medium text-room-charcoal mb-1">
             利用時間 <span className="text-room-main-dark">*</span>
+            <span className="text-xs text-room-charcoal-light ml-2">
+              （空き状況カレンダーはこの時間でフィルタリングされます）
+            </span>
           </label>
           <select
             id="durationHours"
             required
             value={formData.durationHours}
-            onChange={(e) => setFormData({ ...formData, durationHours: parseFloat(e.target.value) })}
+            onChange={(e) => {
+              setFormData({ ...formData, durationHours: parseFloat(e.target.value) })
+              // 利用時間が変更されたらカレンダーも再読み込みされる（useEffectで自動）
+            }}
             className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
           >
             {durationOptions.map((hours) => (
@@ -444,6 +474,7 @@ export function BookingForm({
         {loading ? '予約中...' : '予約する'}
       </button>
     </form>
+    </div>
   )
 }
 
