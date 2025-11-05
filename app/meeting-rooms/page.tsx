@@ -121,7 +121,7 @@ export default async function MeetingRoomsPage() {
   // ユーザーの予約一覧を取得（最新順）
   const { data: userBookings } = await supabase
     .from('meeting_room_bookings')
-    .select('*')
+    .select('*, google_calendar_event_id')
     .eq('user_id', user.id)
     .neq('status', 'cancelled')
     .order('booking_date', { ascending: false })

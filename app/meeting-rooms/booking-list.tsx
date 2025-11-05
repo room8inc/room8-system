@@ -15,6 +15,7 @@ interface Booking {
   total_amount: number
   free_hours_used: number
   notes: string | null
+  google_calendar_event_id: string | null
 }
 
 interface BookingListProps {
@@ -27,23 +28,47 @@ export function BookingList({ bookings, userId }: BookingListProps) {
   const supabase = createClient()
   const [cancelling, setCancelling] = useState<string | null>(null)
 
-  const handleCancel = async (bookingId: string) => {
+  const handleCancel = async (bookingId: string, googleCalendarEventId: string | null) => {
     if (!confirm('この予約をキャンセルしますか？')) {
       return
     }
 
     setCancelling(bookingId)
     try {
-      const { error } = await supabase
+      // まず予約をキャンセル状態に更新
+      const { error, data } = await supabase
         .from('meeting_room_bookings')
         .update({ status: 'cancelled' })
         .eq('id', bookingId)
         .eq('user_id', userId)
+        .select('google_calendar_event_id')
+        .single()
 
       if (error) {
         console.error('Cancel error:', error)
         alert(`キャンセルに失敗しました: ${error.message}`)
         return
+      }
+
+      // GoogleカレンダーのイベントIDがある場合は削除
+      const eventIdToDelete = googleCalendarEventId || data?.google_calendar_event_id
+      if (eventIdToDelete) {
+        try {
+          const deleteResponse = await fetch('/api/calendar/delete-event', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ eventId: eventIdToDelete }),
+          })
+
+          if (!deleteResponse.ok) {
+            console.warn('Googleカレンダーからの予定削除に失敗しましたが、予約はキャンセルされました')
+          }
+        } catch (calendarErr) {
+          console.error('Google Calendar event deletion error:', calendarErr)
+          // Googleカレンダーからの削除が失敗しても、予約自体はキャンセルされているので続行
+        }
       }
 
       router.refresh()
@@ -145,7 +170,7 @@ export function BookingList({ bookings, userId }: BookingListProps) {
                 </div>
                 {canCancel && (
                   <button
-                    onClick={() => handleCancel(booking.id)}
+                    onClick={() => handleCancel(booking.id, booking.google_calendar_event_id)}
                     disabled={cancelling === booking.id}
                     className="rounded-md bg-room-charcoal px-3 py-1.5 text-xs text-white hover:bg-room-charcoal-light disabled:opacity-50"
                   >
