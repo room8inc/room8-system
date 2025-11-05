@@ -43,6 +43,7 @@ export function BookingForm({
 
   // 選択された時刻（時間のみ、分は未選択）
   const [selectedHour, setSelectedHour] = useState<string | null>(null)
+  const [selectedMinute, setSelectedMinute] = useState<number | null>(null) // 選択された分（0または30）
   const [checkingAvailability, setCheckingAvailability] = useState(false)
   const [availableMinutes, setAvailableMinutes] = useState<{ '0': boolean; '30': boolean } | null>(null)
   const [maxAvailableDuration, setMaxAvailableDuration] = useState<number | null>(null) // 選択時刻から利用可能な最大時間
@@ -435,6 +436,7 @@ export function BookingForm({
     // 時間部分を抽出（例: "10:00" → "10"）
     const hour = startTime.split(':')[0]
     setSelectedHour(hour)
+    setSelectedMinute(null) // 新しい時間を選択したら分の選択をリセット
     setFormData({
       ...formData,
       bookingDate: date,
@@ -537,8 +539,9 @@ export function BookingForm({
       startTime: startTime,
       durationHours: adjustedDuration,
     })
-    setSelectedHour(null) // 選択完了したらリセット
-    setAvailableMinutes(null) // 利用可能性の状態もリセット
+    setSelectedMinute(minutes) // 選択された分を保存（ボタンのアクティブ表示用）
+    // setSelectedHour(null) は削除：ボタンを表示し続けるため
+    // setAvailableMinutes(null) は削除：利用可能性の状態を保持するため
   }
 
   return (
@@ -577,6 +580,8 @@ export function BookingForm({
             value={formData.bookingDate}
             onChange={(e) => {
               setFormData({ ...formData, bookingDate: e.target.value, startTime: '' })
+              setSelectedHour(null) // 日付が変更されたら選択をリセット
+              setSelectedMinute(null) // 日付が変更されたら選択をリセット
               setMaxAvailableDuration(null) // 日付が変更されたら最大時間もリセット
             }}
             className="mt-1 block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
@@ -589,16 +594,18 @@ export function BookingForm({
             開始時刻 <span className="text-room-main-dark">*</span>
           </label>
           {selectedHour ? (
-            // 時間が選択された場合は、0分と30分の2つのボタンを表示
+            // 時間が選択された場合は、0分と30分の2つのボタンを表示（常に両方表示）
             <div className="flex gap-2 mt-1">
               {showMinute0 && (
                 <button
                   type="button"
                   onClick={() => handleMinuteSelect(0)}
                   disabled={disableMinute0}
-                  className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main ${
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main transition-colors ${
                     disableMinute0
                       ? 'border-room-base-dark bg-room-base-dark text-room-charcoal-light cursor-not-allowed opacity-50'
+                      : selectedMinute === 0
+                      ? 'border-room-main bg-room-main bg-opacity-20 text-room-main font-medium'
                       : 'border-room-base-dark bg-room-base hover:bg-room-base-dark text-room-charcoal'
                   }`}
                 >
@@ -610,9 +617,11 @@ export function BookingForm({
                   type="button"
                   onClick={() => handleMinuteSelect(30)}
                   disabled={disableMinute30}
-                  className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main ${
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main transition-colors ${
                     disableMinute30
                       ? 'border-room-base-dark bg-room-base-dark text-room-charcoal-light cursor-not-allowed opacity-50'
+                      : selectedMinute === 30
+                      ? 'border-room-main bg-room-main bg-opacity-20 text-room-main font-medium'
                       : 'border-room-base-dark bg-room-base hover:bg-room-base-dark text-room-charcoal'
                   }`}
                 >
