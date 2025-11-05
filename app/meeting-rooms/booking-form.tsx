@@ -332,6 +332,12 @@ export function BookingForm({
 
   const amount = calculateAmount()
 
+  // 分ボタンの表示/無効化をbooleanに正規化
+  const showMinute0 = availableMinutes ? availableMinutes['0'] !== false : true
+  const showMinute30 = availableMinutes ? availableMinutes['30'] !== false : true
+  const disableMinute0 = checkingAvailability || (availableMinutes ? availableMinutes['0'] === false : false)
+  const disableMinute30 = checkingAvailability || (availableMinutes ? availableMinutes['30'] === false : false)
+
   // 0分と30分の利用可能性をチェック
   const checkMinuteAvailability = async (date: string, hour: string): Promise<{ '0': boolean; '30': boolean }> => {
     setCheckingAvailability(true)
@@ -485,13 +491,13 @@ export function BookingForm({
           {selectedHour ? (
             // 時間が選択された場合は、0分と30分の2つのボタンを表示
             <div className="flex gap-2 mt-1">
-              {availableMinutes?.['0'] !== false && (
+              {showMinute0 && (
                 <button
                   type="button"
                   onClick={() => handleMinuteSelect(0)}
-                  disabled={checkingAvailability || Boolean(availableMinutes && availableMinutes['0'] === false)}
+                  disabled={disableMinute0}
                   className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main ${
-                    !!availableMinutes && availableMinutes['0'] === false
+                    disableMinute0
                       ? 'border-room-base-dark bg-room-base-dark text-room-charcoal-light cursor-not-allowed opacity-50'
                       : 'border-room-base-dark bg-room-base hover:bg-room-base-dark text-room-charcoal'
                   }`}
@@ -499,13 +505,13 @@ export function BookingForm({
                   {checkingAvailability ? '確認中...' : `${selectedHour}:00`}
                 </button>
               )}
-              {availableMinutes?.['30'] !== false && (
+              {showMinute30 && (
                 <button
                   type="button"
                   onClick={() => handleMinuteSelect(30)}
-                  disabled={checkingAvailability || Boolean(availableMinutes && availableMinutes['30'] === false)}
+                  disabled={disableMinute30}
                   className={`flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-room-main ${
-                    !!availableMinutes && availableMinutes['30'] === false
+                    disableMinute30
                       ? 'border-room-base-dark bg-room-base-dark text-room-charcoal-light cursor-not-allowed opacity-50'
                       : 'border-room-base-dark bg-room-base hover:bg-room-base-dark text-room-charcoal'
                   }`}
