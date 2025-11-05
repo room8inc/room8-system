@@ -248,15 +248,21 @@ export async function checkGoogleCalendarAvailability(
   try {
     const { calendar, calendarId } = await getGoogleCalendarClient()
 
-    // 日時をISO形式に変換
+    // 日時をISO形式に変換（日本時間）
     const startDateTime = new Date(`${date}T${startTime}:00+09:00`)
     const endDateTime = new Date(`${date}T${endTime}:00+09:00`)
 
-    // Googleカレンダーから予定を取得
+    // Googleカレンダーから予定を取得（範囲を広めに取得して重複をチェック）
+    // 開始時刻の1日前から終了時刻の1日後まで取得して、重複をチェック
+    const searchStart = new Date(startDateTime)
+    searchStart.setDate(searchStart.getDate() - 1)
+    const searchEnd = new Date(endDateTime)
+    searchEnd.setDate(searchEnd.getDate() + 1)
+
     const response = await calendar.events.list({
       calendarId: calendarId,
-      timeMin: startDateTime.toISOString(),
-      timeMax: endDateTime.toISOString(),
+      timeMin: searchStart.toISOString(),
+      timeMax: searchEnd.toISOString(),
       singleEvents: true,
       orderBy: 'startTime',
     })
@@ -264,10 +270,21 @@ export async function checkGoogleCalendarAvailability(
     const events = response.data.items || []
 
     // 時間が重複している予定があるかチェック
-    if (events.length > 0) {
-      return {
-        available: false,
-        reason: 'この時間帯はGoogleカレンダーに予定が入っています',
+    for (const event of events) {
+      const eventStart = event.start?.dateTime ? new Date(event.start.dateTime) : null
+      const eventEnd = event.end?.dateTime ? new Date(event.end.dateTime) : null
+
+      if (!eventStart || !eventEnd) continue
+
+      // 時間の重複チェック: 開始時刻が予定終了時刻より前で、終了時刻が予定開始時刻より後
+      const overlaps = startDateTime < eventEnd && endDateTime > eventStart
+
+      if (overlaps) {
+        console.log(`Googleカレンダーの予定と重複: ${date} ${startTime}-${endTime} vs ${eventStart.toISOString()}-${eventEnd.toISOString()}`)
+        return {
+          available: false,
+          reason: `この時間帯はGoogleカレンダーに予定が入っています（${event.summary || '予定あり'}）`,
+        }
       }
     }
 

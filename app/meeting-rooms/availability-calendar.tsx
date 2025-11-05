@@ -165,7 +165,12 @@ export function AvailabilityCalendar({
             if (booking.booking_date !== dateStr) return false
             const bookingStart = booking.start_time
             const bookingEnd = booking.end_time
-            return timeSlot < bookingEnd && endTime > bookingStart
+            // 時間の重複チェック: 開始時刻が予約終了時刻より前で、終了時刻が予約開始時刻より後
+            const overlaps = timeSlot < bookingEnd && endTime > bookingStart
+            if (overlaps) {
+              console.log(`データベース予約と重複: ${dateStr} ${timeSlot}-${endTime} vs ${bookingStart}-${bookingEnd}`)
+            }
+            return overlaps
           })
 
           if (hasOverlap) {
@@ -213,27 +218,33 @@ export function AvailabilityCalendar({
                 if (res.ok) {
                   const result = await res.json()
                   if (!result.available) {
+                    console.log(`Googleカレンダーで予約不可: ${status.date} ${status.timeSlot} - ${result.reason}`)
                     availabilityMap.set(key, {
                       ...status,
                       available: false,
                       reason: result.reason || 'Googleカレンダーに予定あり',
                     })
+                  } else {
+                    console.log(`Googleカレンダーで予約可能: ${status.date} ${status.timeSlot}`)
                   }
                 } else {
+                  const errorText = await res.text()
+                  console.error(`Googleカレンダーチェック失敗: ${status.date} ${status.timeSlot} - ${res.status} ${errorText}`)
                   // Googleカレンダーのチェックが失敗した場合は安全側に倒す
                   availabilityMap.set(key, {
                     ...status,
                     available: false,
-                    reason: '確認中...',
+                    reason: 'Googleカレンダーの確認に失敗',
                   })
                 }
               })
-              .catch(() => {
+              .catch((err) => {
+                console.error(`Googleカレンダーチェックエラー: ${status.date} ${status.timeSlot}`, err)
                 // エラー時は安全側に倒す
                 availabilityMap.set(key, {
                   ...status,
                   available: false,
-                  reason: '確認中...',
+                  reason: 'Googleカレンダーの確認エラー',
                 })
               })
           )
