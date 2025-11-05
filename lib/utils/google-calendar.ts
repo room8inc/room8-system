@@ -273,20 +273,23 @@ export async function checkGoogleCalendarAvailability(
 
       if (!eventStart || !eventEnd) continue
 
-      // イベントの日付を日本時間で取得（日付が一致するか確認）
-      // eventStartはUTCで返される可能性があるので、日本時間に変換
-      const eventDateJST = new Date(eventStart.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }))
-      const eventDateStr = eventDateJST.getFullYear() + '-' + 
-        String(eventDateJST.getMonth() + 1).padStart(2, '0') + '-' + 
-        String(eventDateJST.getDate()).padStart(2, '0')
+      // イベントの日付を日本時間で取得（UTC時刻から日本時間（UTC+9）の日付を計算）
+      // eventStartはUTCで返されるので、日本時間（UTC+9）に変換
+      const eventStartJST = new Date(eventStart.getTime() + (9 * 60 * 60 * 1000)) // UTC+9時間
+      const eventDateStr = eventStartJST.getUTCFullYear() + '-' + 
+        String(eventStartJST.getUTCMonth() + 1).padStart(2, '0') + '-' + 
+        String(eventStartJST.getUTCDate()).padStart(2, '0')
+
+      console.log(`イベント確認: チェック日付=${date}, イベントUTC=${eventStart.toISOString()}, イベントJST日付=${eventDateStr}`)
 
       // 日付が一致しない場合はスキップ
       if (eventDateStr !== date) {
-        console.log(`日付不一致: チェック日付=${date}, イベント日付=${eventDateStr} (${eventStart.toISOString()})`)
+        console.log(`日付不一致: スキップ - チェック日付=${date}, イベント日付=${eventDateStr}`)
         continue
       }
 
       // 時間の重複チェック: 開始時刻が予定終了時刻より前で、終了時刻が予定開始時刻より後
+      // 両方とも日本時間で比較
       const overlaps = startDateTime < eventEnd && endDateTime > eventStart
 
       if (overlaps) {
