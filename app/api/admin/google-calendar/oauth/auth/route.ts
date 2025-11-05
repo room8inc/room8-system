@@ -27,20 +27,21 @@ export async function GET(request: NextRequest) {
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
 
     // リダイレクトURIを決定
-    // 優先順位: 1. 環境変数 > 2. NEXT_PUBLIC_SITE_URL > 3. VERCEL_URL > 4. リクエストから取得
+    // 優先順位: 1. 環境変数 GOOGLE_OAUTH_REDIRECT_URI > 2. NEXT_PUBLIC_SITE_URL > 3. リクエストから取得
+    // 注意: VERCEL_URLはプレビュー環境のURLになる可能性があるため、使用しない
     let redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI
     
     if (!redirectUri) {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
       
       if (siteUrl) {
-        // VERCEL_URLは既に https:// を含む場合があるので、適切に処理
+        // NEXT_PUBLIC_SITE_URLは既に https:// を含む場合があるので、適切に処理
         const baseUrl = siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`
         redirectUri = `${baseUrl}/api/admin/google-calendar/oauth/callback`
       } else {
-        // リクエストから取得（開発環境やローカル環境）
-        const protocol = request.headers.get('x-forwarded-proto') || 'http'
-        const host = request.headers.get('host') || 'localhost:3000'
+        // リクエストから取得（fallback）
+        const protocol = request.headers.get('x-forwarded-proto') || 'https'
+        const host = request.headers.get('host') || 'room8-system.vercel.app'
         redirectUri = `${protocol}://${host}/api/admin/google-calendar/oauth/callback`
       }
     }

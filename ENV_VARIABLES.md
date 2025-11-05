@@ -33,7 +33,8 @@
 |-----------|------|---------|
 | `GOOGLE_OAUTH_CLIENT_ID` | OAuth 2.0クライアントID | Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs > 作成 > Webアプリケーション<br>**クライアントIDをコピー** |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | OAuth 2.0クライアントシークレット | Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs > 作成したクライアントID > 編集<br>**クライアントシークレットをコピー** |
-| `GOOGLE_OAUTH_REDIRECT_URI` | OAuth認証のリダイレクトURI（オプション） | 通常は自動設定（`https://your-domain.com/api/admin/google-calendar/oauth/callback`）<br>**Google Cloud Consoleで設定したリダイレクトURIと一致させる必要がある** |
+| `GOOGLE_OAUTH_REDIRECT_URI` | OAuth認証のリダイレクトURI（推奨） | 本番環境のURLを明示的に設定（例: `https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback`）<br>**設定しない場合は自動設定されるが、プレビュー環境のURLになる可能性があるため、明示的に設定することを推奨** |
+| `NEXT_PUBLIC_SITE_URL` | 本番環境のURL（オプション） | 本番環境のドメインを設定（例: `https://room8-system.vercel.app`）<br>**GOOGLE_OAUTH_REDIRECT_URIが設定されていない場合に使用される** |
 
 **設定手順:**
 1. Google Cloud Consoleでプロジェクトを作成

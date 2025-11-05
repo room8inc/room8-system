@@ -83,6 +83,20 @@ GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
 ```
 
+**重要**: リダイレクトURIを明示的に設定することを推奨します:
+
+```
+GOOGLE_OAUTH_REDIRECT_URI=https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback
+```
+
+または、本番環境のURLを設定:
+
+```
+NEXT_PUBLIC_SITE_URL=https://room8-system.vercel.app
+```
+
+**注意**: `VERCEL_URL`環境変数は使用しないでください。プレビュー環境のURLになる可能性があります。
+
 ### 6. 管理画面で接続
 
 1. `/admin/google-calendar` にアクセス
