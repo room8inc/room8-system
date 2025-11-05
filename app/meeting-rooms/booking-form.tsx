@@ -333,10 +333,10 @@ export function BookingForm({
   const amount = calculateAmount()
 
   // 分ボタンの表示/無効化をbooleanに正規化
-  const showMinute0 = availableMinutes ? availableMinutes['0'] !== false : true
-  const showMinute30 = availableMinutes ? availableMinutes['30'] !== false : true
-  const disableMinute0 = checkingAvailability || (availableMinutes ? availableMinutes['0'] === false : false)
-  const disableMinute30 = checkingAvailability || (availableMinutes ? availableMinutes['30'] === false : false)
+  const showMinute0 = availableMinutes?.['0'] !== false
+  const showMinute30 = availableMinutes?.['30'] !== false
+  const disableMinute0 = checkingAvailability || availableMinutes?.['0'] === false
+  const disableMinute30 = checkingAvailability || availableMinutes?.['30'] === false
 
   // 0分と30分の利用可能性をチェック
   const checkMinuteAvailability = async (date: string, hour: string): Promise<{ '0': boolean; '30': boolean }> => {
@@ -519,7 +519,7 @@ export function BookingForm({
                   {checkingAvailability ? '確認中...' : `${selectedHour}:30`}
                 </button>
               )}
-              {!!availableMinutes && availableMinutes['0'] === false && availableMinutes['30'] === false && (
+              {availableMinutes?.['0'] === false && availableMinutes?.['30'] === false && (
                 <div className="flex-1 rounded-md border border-room-base-dark bg-room-base px-3 py-2 text-sm text-room-charcoal-light">
                   この時間帯は予約できません
                 </div>
