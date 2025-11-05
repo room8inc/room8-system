@@ -36,11 +36,11 @@ export function BookingList({ bookings, userId }: BookingListProps) {
     setCancelling(bookingId)
     try {
       // まず予約をキャンセル状態に更新
+      // RLSポリシーでアクセス権限をチェックするため、user_idの条件は不要
       const { error, data } = await supabase
         .from('meeting_room_bookings')
         .update({ status: 'cancelled' })
         .eq('id', bookingId)
-        .eq('user_id', userId)
         .select('google_calendar_event_id')
         .single()
 
