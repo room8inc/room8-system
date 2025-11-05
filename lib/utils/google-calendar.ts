@@ -274,13 +274,15 @@ export async function checkGoogleCalendarAvailability(
       if (!eventStart || !eventEnd) continue
 
       // イベントの日付を日本時間で取得（日付が一致するか確認）
-      const eventDateJST = new Date(eventStart.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))
-      const checkDateJST = new Date(startDateTime.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))
-      const eventDateStr = eventDateJST.toISOString().split('T')[0]
-      const checkDateStr = checkDateJST.toISOString().split('T')[0]
+      // eventStartはUTCで返される可能性があるので、日本時間に変換
+      const eventDateJST = new Date(eventStart.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }))
+      const eventDateStr = eventDateJST.getFullYear() + '-' + 
+        String(eventDateJST.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(eventDateJST.getDate()).padStart(2, '0')
 
       // 日付が一致しない場合はスキップ
-      if (eventDateStr !== checkDateStr) {
+      if (eventDateStr !== date) {
+        console.log(`日付不一致: チェック日付=${date}, イベント日付=${eventDateStr} (${eventStart.toISOString()})`)
         continue
       }
 
