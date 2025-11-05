@@ -66,6 +66,12 @@ export async function POST(request: NextRequest) {
       success: true,
       synced: syncResult.synced,
       errors: syncResult.errors,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
     })
   } catch (error: any) {
     console.error('Webhook処理エラー:', error)
