@@ -71,9 +71,20 @@ export async function POST(request: NextRequest) {
       .eq('calendar_id', targetCalendarId)
 
     // Webhook URLを構築
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000'
+    // NEXT_PUBLIC_SITE_URLを優先（本番環境のURL）
+    let baseUrl = process.env.NEXT_PUBLIC_SITE_URL
+    
+    if (!baseUrl) {
+      // フォールバック: 本番環境のURLを推測
+      if (process.env.VERCEL_URL && !process.env.VERCEL_URL.includes('vercel.app')) {
+        // カスタムドメインの場合
+        baseUrl = `https://${process.env.VERCEL_URL}`
+      } else {
+        // プレビュー環境の場合は警告を出す
+        console.warn('NEXT_PUBLIC_SITE_URLが設定されていません。プレビュー環境のURLが使用されます。')
+        baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
+      }
+    }
 
     const webhookUrl = `${baseUrl}/api/calendar/webhook`
 
@@ -182,9 +193,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Webhook URLを構築
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000'
+    // NEXT_PUBLIC_SITE_URLを優先（本番環境のURL）
+    let baseUrl = process.env.NEXT_PUBLIC_SITE_URL
+    
+    if (!baseUrl) {
+      // フォールバック: 本番環境のURLを推測
+      if (process.env.VERCEL_URL && !process.env.VERCEL_URL.includes('vercel.app')) {
+        // カスタムドメインの場合
+        baseUrl = `https://${process.env.VERCEL_URL}`
+      } else {
+        // プレビュー環境の場合は警告を出す
+        console.warn('NEXT_PUBLIC_SITE_URLが設定されていません。プレビュー環境のURLが使用されます。')
+        baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
+      }
+    }
 
     const webhookUrl = `${baseUrl}/api/calendar/webhook`
 
