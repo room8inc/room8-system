@@ -3,7 +3,250 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { AvailabilityCalendar } from './availability-calendar'
+
+// Stripe公開キーを読み込み
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
+
+// 決済フォームコンポーネント
+function PaymentForm({
+  clientSecret,
+  paymentIntentId,
+  bookingId,
+  amount,
+  onSuccess,
+  onError,
+}: {
+  clientSecret: string
+  paymentIntentId: string | null
+  bookingId: string | undefined
+  amount: number
+  onSuccess: () => void
+  onError: (errorMessage: string) => void
+}) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!stripe || !elements || processing) {
+      return
+    }
+
+    setProcessing(true)
+    setError(null)
+
+    try {
+      const cardNumberElement = elements.getElement(CardNumberElement)
+      const cardExpiryElement = elements.getElement(CardExpiryElement)
+      const cardCvcElement = elements.getElement(CardCvcElement)
+
+      if (!cardNumberElement || !cardExpiryElement || !cardCvcElement) {
+        setError('カード情報が見つかりません')
+        setProcessing(false)
+        return
+      }
+
+      // 決済を実行
+      const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardNumberElement,
+          billing_details: {
+            // 必要に応じて請求先情報を追加
+          },
+        },
+      })
+
+      if (confirmError) {
+        setError(confirmError.message || '決済に失敗しました')
+        onError(confirmError.message || '決済に失敗しました')
+        setProcessing(false)
+        return
+      }
+
+      if (paymentIntent?.status === 'succeeded') {
+        // 決済成功後、予約の決済状態を更新
+        const supabase = createClient()
+        const { error: updateError } = await supabase
+          .from('meeting_room_bookings')
+          .update({
+            payment_status: 'paid',
+            payment_date: new Date().toISOString(),
+          })
+          .eq('id', bookingId)
+
+        if (updateError) {
+          console.error('Payment status update error:', updateError)
+          // 決済は成功しているが、状態更新に失敗した場合は警告
+          alert('決済は完了しましたが、予約状態の更新に失敗しました。管理者にお問い合わせください。')
+          setError('決済は完了しましたが、予約状態の更新に失敗しました。管理者にお問い合わせください。')
+          setProcessing(false)
+          return
+        }
+
+        // 決済成功後、Googleカレンダーにイベントを追加
+        try {
+          const bookingResponse = await supabase
+            .from('meeting_room_bookings')
+            .select('booking_date, start_time, end_time, notes, user_id')
+            .eq('id', bookingId)
+            .single()
+
+          if (bookingResponse.data) {
+            const booking = bookingResponse.data
+            const userData = await supabase
+              .from('users')
+              .select('name, email')
+              .eq('id', booking.user_id)
+              .single()
+
+            const userName = userData.data?.name || '会員'
+            const eventTitle = `会議室予約 - ${userName}`
+            const eventDescription = `会員: ${userName}\n予約日: ${booking.booking_date}\n利用時間: ${booking.start_time} - ${booking.end_time}\n備考: ${booking.notes || 'なし'}`
+
+            const calendarEventResponse = await fetch('/api/calendar/create-event', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                date: booking.booking_date,
+                startTime: booking.start_time,
+                endTime: booking.end_time,
+                title: eventTitle,
+                description: eventDescription,
+              }),
+            })
+
+            if (calendarEventResponse.ok) {
+              const calendarResult = await calendarEventResponse.json()
+              // GoogleカレンダーのイベントIDを保存
+              await supabase
+                .from('meeting_room_bookings')
+                .update({ google_calendar_event_id: calendarResult.eventId })
+                .eq('id', bookingId)
+            }
+          }
+        } catch (calendarError) {
+          console.error('Google Calendar event creation error:', calendarError)
+          // Googleカレンダーへの追加が失敗しても、決済は成功しているので続行
+        }
+
+        onSuccess()
+      }
+    } catch (err: any) {
+      console.error('Payment error:', err)
+      const errorMessage = err.message || '決済中にエラーが発生しました'
+      setError(errorMessage)
+      onError(errorMessage)
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="rounded-md bg-room-main bg-opacity-10 border border-room-main p-3">
+          <p className="text-sm text-room-main-dark">{error}</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm font-medium text-room-charcoal mb-2">
+            カード番号
+          </label>
+          <div className="rounded-md border border-room-base-dark bg-room-base px-3 py-2">
+            <CardNumberElement
+              options={{
+                style: {
+                  base: {
+                    fontSize: '16px',
+                    color: '#424770',
+                    '::placeholder': {
+                      color: '#aab7c4',
+                    },
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-room-charcoal mb-2">
+              有効期限
+            </label>
+            <div className="rounded-md border border-room-base-dark bg-room-base px-3 py-2">
+              <CardExpiryElement
+                options={{
+                  style: {
+                    base: {
+                      fontSize: '16px',
+                      color: '#424770',
+                      '::placeholder': {
+                        color: '#aab7c4',
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-room-charcoal mb-2">
+              CVC
+            </label>
+            <div className="rounded-md border border-room-base-dark bg-room-base px-3 py-2">
+              <CardCvcElement
+                options={{
+                  style: {
+                    base: {
+                      fontSize: '16px',
+                      color: '#424770',
+                      '::placeholder': {
+                        color: '#aab7c4',
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-3 justify-end pt-4 border-t border-room-base-dark">
+        <button
+          type="button"
+          onClick={() => {
+            setError(null)
+            onError('決済をキャンセルしました')
+          }}
+          disabled={processing}
+          className="px-4 py-2 text-sm rounded-md border border-room-base-dark text-room-charcoal hover:bg-room-base disabled:opacity-50"
+        >
+          キャンセル
+        </button>
+        <button
+          type="submit"
+          disabled={!stripe || processing}
+          className="px-4 py-2 text-sm rounded-md bg-room-main text-white hover:bg-room-main-light disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {processing ? '決済中...' : `¥${amount.toLocaleString()}を支払う`}
+        </button>
+      </div>
+    </form>
+  )
+}
 
 interface BookingFormProps {
   userId: string
@@ -34,6 +277,9 @@ export function BookingForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [clientSecret, setClientSecret] = useState<string | null>(null) // Stripe決済用
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null) // Stripe決済用
+  const [pendingBooking, setPendingBooking] = useState<any>(null) // 決済待ちの予約情報
 
   const [formData, setFormData] = useState({
     bookingDate: '',
@@ -192,7 +438,8 @@ export function BookingForm({
   }
 
   const handleConfirmBooking = async () => {
-    setShowConfirmModal(false)
+    // 非会員の場合は決済フォームを表示するため、モーダルは開いたままにする
+    // setShowConfirmModal(false) は削除
     setError(null)
     setLoading(true)
 
@@ -252,6 +499,13 @@ export function BookingForm({
         }
       }
 
+      // 決済状態とbilling_monthを設定
+      const isMember = memberType === 'regular'
+      const now = new Date()
+      const billingMonth = isMember 
+        ? new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] // 今月の1日
+        : null
+
       // 予約を作成
       const { data: booking, error: insertError } = await supabase
         .from('meeting_room_bookings')
@@ -273,6 +527,8 @@ export function BookingForm({
           total_amount: actualAmount,
           free_hours_used: actualFreeHoursUsed,
           notes: formData.notes || null,
+          payment_status: isMember ? 'pending' : 'pending', // 会員も非会員も最初はpending
+          billing_month: billingMonth, // 会員の場合は今月の1日を設定
         })
         .select()
         .single()
@@ -284,6 +540,64 @@ export function BookingForm({
         return
       }
 
+      // 非会員の場合：即時決済を実行
+      if (!isMember && actualAmount > 0) {
+        console.log('=== Starting payment process for non-member ===')
+        console.log('Booking details:', {
+          bookingId: booking.id,
+          amount: actualAmount,
+          billingUserId: billingUserId || userId,
+          isMember,
+          actualAmount
+        })
+
+        // Payment Intentを作成
+        console.log('Calling /api/meeting-rooms/create-payment-intent')
+        const paymentResponse = await fetch('/api/meeting-rooms/create-payment-intent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            bookingId: booking.id,
+            amount: actualAmount,
+            billingUserId: billingUserId || userId,
+          }),
+        })
+
+        console.log('Payment response status:', paymentResponse.status, paymentResponse.statusText)
+
+        if (!paymentResponse.ok) {
+          const errorData = await paymentResponse.json()
+          console.error('Payment Intent creation error:', errorData)
+          setError(`決済の準備に失敗しました: ${errorData.error || '不明なエラー'}`)
+          setLoading(false)
+          return
+        }
+
+        const paymentData = await paymentResponse.json()
+        console.log('Payment Intent created successfully:', {
+          hasClientSecret: !!paymentData.clientSecret,
+          paymentIntentId: paymentData.paymentIntentId
+        })
+        
+        console.log('Setting state variables...')
+        setClientSecret(paymentData.clientSecret)
+        setPaymentIntentId(paymentData.paymentIntentId)
+        setPendingBooking(booking)
+        setLoading(false)
+        
+        console.log('=== Payment form should be displayed now ===')
+        console.log('Current state:', {
+          clientSecret: !!paymentData.clientSecret,
+          paymentIntentId: paymentData.paymentIntentId,
+          pendingBookingId: booking.id,
+          showConfirmModal: true // モーダルは開いたまま
+        })
+        return
+      }
+
+      // 会員の場合は予約完了処理を続行（Googleカレンダーへの追加など）
       // Googleカレンダーにイベントを追加
       try {
         const userData = await supabase
@@ -647,25 +961,64 @@ export function BookingForm({
               )}
             </div>
 
-            {/* ボタン */}
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => setShowConfirmModal(false)}
-                disabled={loading}
-                className="px-4 py-2 text-sm rounded-md border border-room-base-dark text-room-charcoal hover:bg-room-base disabled:opacity-50"
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmBooking}
-                disabled={loading}
-                className="px-4 py-2 text-sm rounded-md bg-room-main text-white hover:bg-room-main-light disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? '予約中...' : '確定'}
-              </button>
-            </div>
+            {/* 非会員で決済が必要な場合：決済フォームを表示 */}
+            {(() => {
+              const shouldShowPaymentForm = clientSecret && memberType !== 'regular' && amount > 0
+              console.log('Payment form display check:', {
+                clientSecret: !!clientSecret,
+                clientSecretValue: clientSecret,
+                memberType,
+                amount,
+                shouldShowPaymentForm,
+                pendingBookingId: pendingBooking?.id,
+                showConfirmModal
+              })
+              return shouldShowPaymentForm
+            })() ? (
+              <Elements stripe={stripePromise} options={{ clientSecret }}>
+                <PaymentForm
+                  clientSecret={clientSecret}
+                  paymentIntentId={paymentIntentId}
+                  bookingId={pendingBooking?.id}
+                  amount={amount}
+                  onSuccess={() => {
+                    setShowConfirmModal(false)
+                    setClientSecret(null)
+                    setPaymentIntentId(null)
+                    setPendingBooking(null)
+                    router.refresh()
+                  }}
+                  onError={(errorMessage) => {
+                    setError(errorMessage)
+                  }}
+                />
+              </Elements>
+            ) : (
+              /* ボタン */
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowConfirmModal(false)
+                    setClientSecret(null)
+                    setPaymentIntentId(null)
+                    setPendingBooking(null)
+                  }}
+                  disabled={loading}
+                  className="px-4 py-2 text-sm rounded-md border border-room-base-dark text-room-charcoal hover:bg-room-base disabled:opacity-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmBooking}
+                  disabled={loading}
+                  className="px-4 py-2 text-sm rounded-md bg-room-main text-white hover:bg-room-main-light disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? '予約中...' : '確定'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
