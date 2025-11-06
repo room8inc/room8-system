@@ -977,7 +977,7 @@ export function BookingForm({
             })() ? (
               <Elements stripe={stripePromise} options={{ clientSecret: clientSecret || undefined }}>
                 <PaymentForm
-                  clientSecret={clientSecret}
+                  clientSecret={clientSecret!}
                   paymentIntentId={paymentIntentId}
                   bookingId={pendingBooking?.id}
                   amount={amount}
