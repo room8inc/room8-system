@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
 
         // 顧客のデフォルトPayment Methodをチェック
         const customer = await stripe.customers.retrieve(customerId)
-        if (typeof customer !== 'deleted' && customer.invoice_settings?.default_payment_method) {
+        if (!customer.deleted && customer.invoice_settings?.default_payment_method) {
           defaultPaymentMethodId = customer.invoice_settings.default_payment_method as string
         } else if (paymentMethods.data.length > 0) {
           // デフォルトがなければ、最初のPayment Methodを使用
