@@ -169,7 +169,8 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
       // member_typeはチェックイン時に変更しない（プラン契約の有無で判定）
       const memberTypeAtCheckin = activePlan ? 'regular' : (userData.member_type || 'dropin')
 
-      const { error: insertError } = await supabase
+      // チェックインを作成
+      const { data: checkinData, error: insertError } = await supabase
         .from('checkins')
         .insert({
           user_id: user.id,
@@ -178,9 +179,48 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
           member_type_at_checkin: memberTypeAtCheckin,
           ...(planIdAtCheckin && { plan_id_at_checkin: planIdAtCheckin }),
         })
+        .select('id')
+        .single()
 
-      if (insertError) {
-        throw new Error(`チェックインに失敗しました: ${insertError.message}`)
+      if (insertError || !checkinData) {
+        throw new Error(`チェックインに失敗しました: ${insertError?.message || '不明なエラー'}`)
+      }
+
+      // ドロップイン会員の場合は事前決済を実行
+      if (memberTypeAtCheckin === 'dropin') {
+        setMessage('決済処理中...')
+        
+        try {
+          const paymentResponse = await fetch('/api/checkin/create-payment-intent', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              checkinId: checkinData.id,
+            }),
+          })
+
+          const paymentData = await paymentResponse.json()
+
+          if (!paymentResponse.ok) {
+            // 決済に失敗した場合、チェックインを削除
+            await supabase
+              .from('checkins')
+              .delete()
+              .eq('id', checkinData.id)
+            
+            throw new Error(paymentData.error || '決済処理に失敗しました')
+          }
+        } catch (paymentError) {
+          // 決済エラーの場合、チェックインを削除
+          await supabase
+            .from('checkins')
+            .delete()
+            .eq('id', checkinData.id)
+          
+          throw paymentError
+        }
       }
 
       setStatus('success')
@@ -210,7 +250,7 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
 
       const { data: checkinData, error: fetchError } = await supabase
         .from('checkins')
-        .select('checkin_at')
+        .select('checkin_at, member_type_at_checkin')
         .eq('id', checkinId)
         .single()
 
@@ -222,6 +262,7 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
       const checkoutAt = new Date()
       const durationMinutes = Math.floor((checkoutAt.getTime() - checkinAt.getTime()) / (1000 * 60))
 
+      // チェックアウト情報を更新
       const { error: updateError } = await supabase
         .from('checkins')
         .update({
@@ -234,8 +275,44 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
         throw new Error(`チェックアウトに失敗しました: ${updateError.message}`)
       }
 
-      setStatus('success')
-      setMessage(`チェックアウトしました！（滞在時間: ${durationMinutes}分）`)
+      // ドロップイン会員の場合は料金計算と返金処理を実行
+      if (checkinData.member_type_at_checkin === 'dropin') {
+        setMessage('料金計算中...')
+        
+        try {
+          const refundResponse = await fetch('/api/checkout/calculate-and-refund', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              checkinId: checkinId,
+            }),
+          })
+
+          const refundData = await refundResponse.json()
+
+          if (!refundResponse.ok) {
+            throw new Error(refundData.error || '料金計算に失敗しました')
+          }
+
+          // 返金メッセージを表示
+          const refundMessage = refundData.refundAmount > 0
+            ? `チェックアウトしました！（滞在時間: ${durationMinutes}分、返金: ${refundData.refundAmount}円）`
+            : `チェックアウトしました！（滞在時間: ${durationMinutes}分、料金: ${refundData.actualFee}円）`
+
+          setStatus('success')
+          setMessage(refundMessage)
+        } catch (refundError) {
+          // 返金エラーでもチェックアウトは完了しているので、警告メッセージを表示
+          console.error('Refund error:', refundError)
+          setStatus('success')
+          setMessage(`チェックアウトしました！（滞在時間: ${durationMinutes}分）※返金処理でエラーが発生しました。管理者にお問い合わせください。`)
+        }
+      } else {
+        setStatus('success')
+        setMessage(`チェックアウトしました！（滞在時間: ${durationMinutes}分）`)
+      }
 
       setTimeout(() => {
         onSuccess()
