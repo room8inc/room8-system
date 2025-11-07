@@ -27,11 +27,19 @@ export async function GET(request: NextRequest) {
     }
 
     // ユーザー情報を取得
-    const { data: userData } = await supabase
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .select('stripe_customer_id, member_type')
       .eq('id', user.id)
       .single()
+
+    if (userError) {
+      console.error('User data fetch error:', userError)
+      return NextResponse.json(
+        { error: 'ユーザー情報の取得に失敗しました' },
+        { status: 500 }
+      )
+    }
 
     // プラン契約があるかチェック
     const { data: activePlan } = await supabase
