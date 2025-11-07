@@ -3,9 +3,9 @@ import Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
 
 function getStripeClient(): Stripe {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY_TEST
   if (!stripeSecretKey) {
-    throw new Error('STRIPE_SECRET_KEY is not set')
+    throw new Error('STRIPE_SECRET_KEY_TEST環境変数が設定されていません')
   }
   return new Stripe(stripeSecretKey, { apiVersion: '2025-10-29.clover' })
 }
