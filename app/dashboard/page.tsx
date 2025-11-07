@@ -18,51 +18,76 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  // 現在のチェックイン状態を取得
-  // .maybeSingle()を使用して、結果が0件でもエラーにならないようにする
-  const { data: currentCheckin, error: checkinError } = await supabase
-    .from('checkins')
-    .select('*')
-    .eq('user_id', user.id)
-    .is('checkout_at', null)
-    .maybeSingle()
-  
-  if (checkinError) {
-    console.error('Dashboard: Error fetching current checkin:', checkinError)
-  }
-
-  // 今日のチェックイン履歴を取得
+  // 今日の日付を計算
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const todayStart = today.toISOString()
+  const todayStr = today.toISOString().split('T')[0]
 
-  const { data: todayCheckins } = await supabase
-    .from('checkins')
-    .select('*')
-    .eq('user_id', user.id)
-    .gte('checkin_at', todayStart)
-    .order('checkin_at', { ascending: false })
-    .limit(10)
+  // 🚀 並列化: 独立したクエリを同時実行
+  const [
+    currentCheckinResult,
+    todayCheckinsResult,
+    checkinHistoryResult,
+    userDataResult,
+    currentPlanResult,
+    adminResult,
+  ] = await Promise.all([
+    // 現在のチェックイン状態を取得
+    supabase
+      .from('checkins')
+      .select('*')
+      .eq('user_id', user.id)
+      .is('checkout_at', null)
+      .maybeSingle(),
+    // 今日のチェックイン履歴を取得
+    supabase
+      .from('checkins')
+      .select('*')
+      .eq('user_id', user.id)
+      .gte('checkin_at', todayStart)
+      .order('checkin_at', { ascending: false })
+      .limit(10),
+    // 利用履歴を取得（最新30件）
+    supabase
+      .from('checkins')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('checkin_at', { ascending: false })
+      .limit(30),
+    // ユーザー情報を取得
+    supabase
+      .from('users')
+      .select('member_type, name, is_staff')
+      .eq('id', user.id)
+      .single(),
+    // 現在のプラン情報を取得
+    supabase
+      .from('user_plans')
+      .select('*, plans(*)')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .is('ended_at', null)
+      .single(),
+    // 管理者チェック
+    isAdmin(),
+  ])
 
-  // 利用履歴を取得（最新30件）
-  const { data: checkinHistory } = await supabase
-    .from('checkins')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('checkin_at', { ascending: false })
-    .limit(30)
+  const { data: currentCheckin, error: checkinError } = currentCheckinResult
+  const { data: todayCheckins } = todayCheckinsResult
+  const { data: checkinHistory } = checkinHistoryResult
+  const { data: userData } = userDataResult
+  const { data: currentPlan } = currentPlanResult
+  const admin = adminResult
+
+  if (checkinError) {
+    console.error('Dashboard: Error fetching current checkin:', checkinError)
+  }
 
   // 今日の総利用時間を計算（チェックアウト済みのみ）
   const todayDuration = todayCheckins
     ?.filter((c) => c.checkout_at && c.duration_minutes)
     .reduce((sum, c) => sum + (c.duration_minutes || 0), 0) || 0
-
-  // ユーザー情報を取得
-  const { data: userData } = await supabase
-    .from('users')
-    .select('member_type, name, is_staff')
-    .eq('id', user.id)
-    .single()
 
   // 利用者ユーザーの場合、staff_member_idを取得
   let staffMemberId = null
@@ -75,18 +100,7 @@ export default async function DashboardPage() {
     staffMemberId = staffMember?.id || null
   }
 
-  // 現在のプラン情報を取得
-  const { data: currentPlan } = await supabase
-    .from('user_plans')
-    .select('*, plans(*)')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .is('ended_at', null)
-    .single()
-
   // 会議室予約一覧を取得（今後の予約のみ、最新5件）
-  const todayStr = today.toISOString().split('T')[0]
-
   let upcomingBookingsQuery = supabase
     .from('meeting_room_bookings')
     .select('*')
@@ -107,7 +121,6 @@ export default async function DashboardPage() {
   const { data: upcomingBookings } = await upcomingBookingsQuery
 
   const isCheckedIn = !!currentCheckin
-  const admin = await isAdmin()
 
   return (
     <div className="min-h-screen bg-room-base">

@@ -15,21 +15,26 @@ export default async function MemberCardPage() {
     redirect('/login')
   }
 
-  // ユーザー情報を取得
-  const { data: userData } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  // 🚀 並列化: 独立したクエリを同時実行
+  const [userDataResult, currentPlanResult] = await Promise.all([
+    // ユーザー情報を取得
+    supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single(),
+    // 現在のプラン情報を取得（定期会員の場合）
+    supabase
+      .from('user_plans')
+      .select('*, plans(*)')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .is('ended_at', null)
+      .single(),
+  ])
 
-  // 現在のプラン情報を取得（定期会員の場合）
-  const { data: currentPlan } = await supabase
-    .from('user_plans')
-    .select('*, plans(*)')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .is('ended_at', null)
-    .single()
+  const { data: userData } = userDataResult
+  const { data: currentPlan } = currentPlanResult
 
   // 会員番号を生成（ユーザーIDの最初の8文字を使用）
   const memberNumber = user.id.substring(0, 8).toUpperCase()

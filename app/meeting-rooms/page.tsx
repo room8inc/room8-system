@@ -15,12 +15,24 @@ export default async function MeetingRoomsPage() {
     redirect('/login')
   }
 
-  // ユーザー情報を取得
-  const { data: userData } = await supabase
-    .from('users')
-    .select('member_type, is_staff')
-    .eq('id', user.id)
-    .single()
+  // 🚀 並列化: 独立したクエリを同時実行
+  const [userDataResult, meetingRoomResult] = await Promise.all([
+    // ユーザー情報を取得
+    supabase
+      .from('users')
+      .select('member_type, is_staff')
+      .eq('id', user.id)
+      .single(),
+    // 会議室情報を取得
+    supabase
+      .from('meeting_rooms')
+      .select('*')
+      .eq('code', 'room8-meeting-room-001')
+      .single(),
+  ])
+
+  const { data: userData } = userDataResult
+  const { data: meetingRoom } = meetingRoomResult
 
   // 利用者ユーザーの場合、法人ユーザーのプラン情報を取得
   let currentPlan = null
@@ -62,13 +74,6 @@ export default async function MeetingRoomsPage() {
     
     currentPlan = plan
   }
-
-  // 会議室情報を取得
-  const { data: meetingRoom } = await supabase
-    .from('meeting_rooms')
-    .select('*')
-    .eq('code', 'room8-meeting-room-001')
-    .single()
 
   if (!meetingRoom) {
     // 会議室が存在しない場合はエラー（マイグレーションが実行されていない可能性）
