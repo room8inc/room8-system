@@ -156,7 +156,9 @@ export default async function DashboardPage() {
         </div>
 
         {/* 未決済警告（ドロップイン会員向け） */}
-        <UnpaidCheckoutsWarning />
+        <Suspense fallback={null}>
+          <UnpaidCheckoutsWarning />
+        </Suspense>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {/* カード1: 現在の状態 */}

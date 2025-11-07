@@ -16,24 +16,42 @@ export function UnpaidCheckoutsWarning() {
   const router = useRouter()
   const [unpaidCheckouts, setUnpaidCheckouts] = useState<UnpaidCheckout[]>([])
   const [totalAmount, setTotalAmount] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchUnpaidCheckouts()
+    // クライアント側でのみ実行
+    if (typeof window !== 'undefined') {
+      fetchUnpaidCheckouts()
+    }
   }, [])
 
   const fetchUnpaidCheckouts = async () => {
     try {
+      setLoading(true)
+      setError(null)
+      
       const response = await fetch('/api/checkout/get-unpaid')
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
       const data = await response.json()
 
-      if (response.ok) {
+      if (data.unpaidCheckouts) {
         setUnpaidCheckouts(data.unpaidCheckouts || [])
         setTotalAmount(data.totalAmount || 0)
       }
     } catch (error) {
       console.error('Failed to fetch unpaid checkouts:', error)
+      setError('未決済情報の取得に失敗しました')
+      // エラーが発生してもページは表示し続ける
+      setUnpaidCheckouts([])
+      setTotalAmount(0)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -77,6 +95,12 @@ export function UnpaidCheckoutsWarning() {
     }
   }
 
+  // ローディング中またはエラー時は何も表示しない（エラーはコンソールに記録済み）
+  if (loading || error) {
+    return null
+  }
+
+  // 未決済がない場合は表示しない
   if (unpaidCheckouts.length === 0) {
     return null
   }
