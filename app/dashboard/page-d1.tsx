@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
@@ -6,28 +5,27 @@ import { LogoutButton } from './logout-button'
 import { QRScannerButton } from './qr-scanner-button'
 import { formatJapaneseName } from '@/lib/utils/name'
 import { RealtimeCheckinInfo } from './realtime-checkin-info'
-import { isAdmin } from '@/lib/utils/admin'
 import { CheckinHistory } from './checkin-history'
 import { UpcomingBookings } from './upcoming-bookings'
-import { getCached, cacheKey } from '@/lib/cache/vercel-kv'
+import { getD1Client } from '@/lib/db/d1-http-client'
+import { cookies } from 'next/headers'
 
-// 💡 キャッシュ最適化: 20秒ごとに再検証（さらに高速化）
-export const revalidate = 20
-
-// 💡 Dynamic rendering optimization
-export const dynamic = 'force-dynamic'
-export const fetchCache = 'force-no-store'
+// 💡 キャッシュ最適化: 30秒ごとに再検証（リアルタイム性とパフォーマンスのバランス）
+export const revalidate = 30
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
+  const db = getD1Client()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  // セッションからユーザーIDを取得（簡易実装）
+  const cookieStore = await cookies()
+  const sessionCookie = cookieStore.get('session')
+  
+  if (!sessionCookie) {
     redirect('/login')
   }
+
+  // TODO: セッション検証を実装
+  const userId = sessionCookie.value // 簡易実装、後で改善
 
   // 今日の日付を計算
   const today = new Date()
@@ -39,77 +37,78 @@ export default async function DashboardPage() {
   // 💡 最適化: 必要なカラムだけ取得してデータ転送量を削減
   // 💡 Streaming: 重い履歴データは後から読み込む
   const [
-    currentCheckinResult,
-    todayCheckinsResult,
-    userDataResult,
-    currentPlanResult,
-    adminResult,
+    currentCheckin,
+    todayCheckins,
+    userData,
+    currentPlan,
   ] = await Promise.all([
     // 現在のチェックイン状態を取得
-    supabase
-      .from('checkins')
-      .select('id, checkin_at, checkout_at, duration_minutes')
-      .eq('user_id', user.id)
-      .is('checkout_at', null)
-      .maybeSingle(),
+    db.queryOne<any>(
+      `SELECT id, checkin_at, checkout_at, duration_minutes
+       FROM checkins
+       WHERE user_id = ? AND checkout_at IS NULL
+       LIMIT 1`,
+      [userId]
+    ),
     // 今日のチェックイン履歴を取得
-    supabase
-      .from('checkins')
-      .select('id, checkin_at, checkout_at, duration_minutes')
-      .eq('user_id', user.id)
-      .gte('checkin_at', todayStart)
-      .order('checkin_at', { ascending: false })
-      .limit(10),
+    db.query<any>(
+      `SELECT id, checkin_at, checkout_at, duration_minutes
+       FROM checkins
+       WHERE user_id = ? AND checkin_at >= ?
+       ORDER BY checkin_at DESC
+       LIMIT 10`,
+      [userId, todayStart]
+    ),
     // ユーザー情報を取得
-    supabase
-      .from('users')
-      .select('member_type, name, is_staff')
-      .eq('id', user.id)
-      .single(),
-    // 現在のプラン情報を取得（必要なカラムのみ）
-    supabase
-      .from('user_plans')
-      .select('started_at, plans(id, name, start_time, end_time, available_days)')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .is('ended_at', null)
-      .single(),
-    // 管理者チェック
-    isAdmin(),
+    db.queryOne<any>(
+      `SELECT member_type, name, is_staff, is_admin
+       FROM users
+       WHERE id = ?`,
+      [userId]
+    ),
+    // 現在のプラン情報を取得
+    db.queryOne<any>(
+      `SELECT up.started_at, 
+              p.id as plan_id, p.name as plan_name, 
+              p.start_time, p.end_time, p.available_days
+       FROM user_plans up
+       JOIN plans p ON up.plan_id = p.id
+       WHERE up.user_id = ? AND up.status = 'active' AND up.ended_at IS NULL
+       LIMIT 1`,
+      [userId]
+    ),
   ])
 
-  const { data: currentCheckin, error: checkinError } = currentCheckinResult
-  const { data: todayCheckins } = todayCheckinsResult
-  const { data: userData } = userDataResult
-  const { data: currentPlan } = currentPlanResult
-  const admin = adminResult
-
-  if (checkinError) {
-    console.error('Dashboard: Error fetching current checkin:', checkinError)
+  if (!userData) {
+    redirect('/login')
   }
-
-  // 💡 Supabaseのネストされたクエリは配列を返すことがあるので、正規化
-  const planData = currentPlan?.plans 
-    ? (Array.isArray(currentPlan.plans) ? currentPlan.plans[0] : currentPlan.plans)
-    : null
 
   // 今日の総利用時間を計算（チェックアウト済みのみ）
   const todayDuration = todayCheckins
     ?.filter((c) => c.checkout_at && c.duration_minutes)
     .reduce((sum, c) => sum + (c.duration_minutes || 0), 0) || 0
 
+  // プランデータの正規化
+  const planData = currentPlan ? {
+    id: currentPlan.plan_id,
+    name: currentPlan.plan_name,
+    start_time: currentPlan.start_time,
+    end_time: currentPlan.end_time,
+    available_days: currentPlan.available_days ? JSON.parse(currentPlan.available_days) : null,
+  } : null
+
   // 利用者ユーザーの場合、staff_member_idを取得
   let staffMemberId = null
-  if (userData?.is_staff === true) {
-    const { data: staffMember } = await supabase
-      .from('staff_members')
-      .select('id')
-      .eq('auth_user_id', user.id)
-      .single()
+  if (userData?.is_staff) {
+    const staffMember = await db.queryOne<any>(
+      `SELECT id FROM staff_members WHERE auth_user_id = ? LIMIT 1`,
+      [userId]
+    )
     staffMemberId = staffMember?.id || null
   }
 
   const isCheckedIn = !!currentCheckin
+  const admin = userData?.is_admin || false
 
   return (
     <div className="min-h-screen bg-room-base">
@@ -120,7 +119,7 @@ export default async function DashboardPage() {
               ダッシュボード
             </h1>
             <p className="mt-2 text-sm text-room-charcoal-light">
-              ようこそ、{formatJapaneseName(userData?.name) || user.email} さん
+              ようこそ、{formatJapaneseName(userData?.name) || 'ゲスト'} さん
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -239,11 +238,11 @@ export default async function DashboardPage() {
 
         {/* 💡 Streaming: 会議室予約と利用履歴を非同期で読み込み */}
         <Suspense fallback={<div className="mt-8 rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark animate-pulse h-32"></div>}>
-          <UpcomingBookings userId={user.id} staffMemberId={staffMemberId} isStaff={userData?.is_staff === true} />
+          <UpcomingBookings userId={userId} staffMemberId={staffMemberId} isStaff={userData?.is_staff === 1} />
         </Suspense>
 
         <Suspense fallback={<div className="mt-8 rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark animate-pulse h-64"></div>}>
-          <CheckinHistory userId={user.id} />
+          <CheckinHistory userId={userId} />
         </Suspense>
       </div>
     </div>

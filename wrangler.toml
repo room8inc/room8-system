@@ -1,0 +1,23 @@
+name = "room8-system"
+compatibility_date = "2024-11-07"
+pages_build_output_dir = ".vercel/output/static"
+
+# D1データベースのバインディング
+[[d1_databases]]
+binding = "DB"
+database_name = "room8-production"
+database_id = "023145ea-2342-470e-b7e6-18e791d549eb"
+
+# 環境変数（本番環境）
+[env.production]
+vars = { ENVIRONMENT = "production" }
+
+# 環境変数（プレビュー環境）
+[env.preview]
+vars = { ENVIRONMENT = "preview" }
+
+# KV for sessions (optional - Auth.jsのセッションストレージ用)
+# [[kv_namespaces]]
+# binding = "KV"
+# id = "YOUR_KV_NAMESPACE_ID"
+
