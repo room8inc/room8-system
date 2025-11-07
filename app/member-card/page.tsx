@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { LogoutButton } from '@/app/dashboard/logout-button'
 import { formatJapaneseName } from '@/lib/utils/name'
 import { getCached, cacheKey } from '@/lib/cache/vercel-kv'
+import { PlanChangeButton } from './plan-change-button'
+import { CancellationButton } from './cancellation-button'
 
 // 💡 キャッシュ最適化: 300秒（5分）ごとに再検証（変更頻度が低いため）
 export const revalidate = 300
@@ -41,7 +43,7 @@ export default async function MemberCardPage() {
       async () => {
         const { data } = await supabase
           .from('user_plans')
-          .select('started_at, plans(name)')
+          .select('id, started_at, contract_term, payment_method, plans(name, price)')
           .eq('user_id', user.id)
           .eq('status', 'active')
           .is('ended_at', null)
@@ -325,6 +327,30 @@ export default async function MemberCardPage() {
               </div>
             </div>
           </div>
+
+          {/* 退会・プラン変更（会員の場合のみ表示） */}
+          {currentPlan && (
+            <>
+              {/* プラン変更 */}
+              <PlanChangeButton
+                userPlanId={currentPlan.id}
+                currentPlanName={planData?.name || 'プラン名不明'}
+                contractTerm={currentPlan.contract_term || 'monthly'}
+                paymentMethod={currentPlan.payment_method || 'monthly'}
+                planPrice={planData?.price || 0}
+              />
+
+              {/* 退会 */}
+              <CancellationButton
+                userPlanId={currentPlan.id}
+                currentPlanName={planData?.name || 'プラン名不明'}
+                contractTerm={currentPlan.contract_term || 'monthly'}
+                paymentMethod={currentPlan.payment_method || 'monthly'}
+                planPrice={planData?.price || 0}
+                startedAt={currentPlan.started_at}
+              />
+            </>
+          )}
 
           {/* ログアウト */}
           <div className="mt-6 flex justify-center">
