@@ -138,9 +138,9 @@ export default async function MeetingRoomsPage() {
 
       // 料金を計算
       const calculateRate = () => {
-        // プラン契約がない場合は定額会員以外として扱う
+        // プラン契約がない場合はRoom8会員以外として扱う
         if (!currentPlan) {
-          // 定額会員以外：1時間2,200円
+          // Room8会員以外：1時間2,200円
           return {
             rate: meetingRoom.hourly_rate_non_regular || 2200,
             freeHours: 0,
@@ -160,7 +160,7 @@ export default async function MeetingRoomsPage() {
       }
     }
 
-    // 定額会員（一般）：1時間1,100円
+    // Room8会員（一般）：1時間1,100円
     return {
       rate: meetingRoom.hourly_rate_regular || 1100,
       freeHours: 0,
@@ -301,7 +301,7 @@ export default async function MeetingRoomsPage() {
           <div className="space-y-4">
             <div className="border-l-4 border-room-main pl-4">
               <p className="font-medium text-room-charcoal">
-                定額会員（シェアオフィスプラン）
+                Room8会員（シェアオフィスプラン）
               </p>
               <p className="text-sm text-room-charcoal-light mt-1">
                 月4時間まで無料、超過分：¥1,100/時間
@@ -309,7 +309,7 @@ export default async function MeetingRoomsPage() {
             </div>
             <div className="border-l-4 border-room-wood pl-4">
               <p className="font-medium text-room-charcoal">
-                定額会員（一般）
+                Room8会員（一般）
               </p>
               <p className="text-sm text-room-charcoal-light mt-1">
                 ¥1,100/時間
