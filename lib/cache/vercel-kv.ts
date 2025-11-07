@@ -71,10 +71,17 @@ export async function getCached<T>(
   // キャッシュをチェック
   const cached = await cache.get<T>(key)
   if (cached !== null) {
+    // 💡 本番環境ではデバッグログを削減（必要に応じて有効化）
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Cache HIT] ${key}`)
+    }
     return cached
   }
 
   // キャッシュミス: データを取得
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[Cache MISS] ${key}`)
+  }
   const data = await fetcher()
   
   // キャッシュに保存
