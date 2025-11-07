@@ -9,6 +9,7 @@ import { RealtimeCheckinInfo } from './realtime-checkin-info'
 import { isAdmin } from '@/lib/utils/admin'
 import { CheckinHistory } from './checkin-history'
 import { UpcomingBookings } from './upcoming-bookings'
+import { UnpaidCheckoutsWarning } from './unpaid-checkouts-warning'
 import { getCached, cacheKey } from '@/lib/cache/vercel-kv'
 
 // 💡 キャッシュ最適化: 20秒ごとに再検証（さらに高速化）
@@ -153,6 +154,9 @@ export default async function DashboardPage() {
             <LogoutButton />
           </div>
         </div>
+
+        {/* 未決済警告（ドロップイン会員向け） */}
+        <UnpaidCheckoutsWarning />
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {/* カード1: 現在の状態 */}

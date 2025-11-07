@@ -11,8 +11,9 @@ function getStripeClient(): Stripe {
 }
 
 /**
- * ドロップイン会員のチェックアウト時の料金計算と返金処理
- * 実際の利用時間に応じた料金を計算し、差額を返金する
+ * ドロップイン会員のチェックアウト時の料金計算と決済処理
+ * 実際の利用時間に応じた料金を計算し、決済を実行する
+ * 決済失敗時は未決済として記録（後日支払い可能）
  */
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     // チェックイン情報を取得
     const { data: checkin, error: checkinError } = await supabase
       .from('checkins')
-      .select('id, user_id, checkin_at, checkout_at, duration_minutes, member_type_at_checkin, stripe_payment_intent_id, payment_status, dropin_fee')
+      .select('id, user_id, checkin_at, checkout_at, duration_minutes, member_type_at_checkin, payment_status, dropin_fee')
       .eq('id', checkinId)
       .single()
 
@@ -59,14 +60,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'チェックアウトが完了していません' }, { status: 400 })
     }
 
-    // 既に返金済みの場合はエラー
-    if (checkin.payment_status === 'refunded') {
-      return NextResponse.json({ error: '既に返金処理が完了しています' }, { status: 400 })
-    }
-
-    // Payment Intent IDが存在しない場合はエラー
-    if (!checkin.stripe_payment_intent_id) {
-      return NextResponse.json({ error: '決済情報が見つかりません' }, { status: 400 })
+    // 既に決済済みの場合はエラー
+    if (checkin.payment_status === 'paid') {
+      return NextResponse.json({ error: '既に決済済みです' }, { status: 400 })
     }
 
     // 料金計算（1時間400円、最大2,000円）
@@ -76,67 +72,120 @@ export async function POST(request: NextRequest) {
     const durationHours = Math.ceil(checkin.duration_minutes / 60) // 切り上げ
     const actualFee = Math.min(durationHours * HOURLY_RATE, MAX_FEE)
 
-    // 既に決済済みの金額（最大2,000円）
-    const paidAmount = checkin.dropin_fee || MAX_FEE
+    // ユーザー情報を取得
+    const { data: userData } = await supabase
+      .from('users')
+      .select('stripe_customer_id, name, company_name, is_individual')
+      .eq('id', user.id)
+      .single()
 
-    // 返金額を計算
-    const refundAmount = paidAmount - actualFee
+    let customerId = userData?.stripe_customer_id
 
-    // Payment Intentを取得
-    const paymentIntent = await stripe.paymentIntents.retrieve(checkin.stripe_payment_intent_id)
+    // Stripe Customer IDが存在しない場合はエラー（本来はチェックイン時に確認済み）
+    if (!customerId) {
+      return NextResponse.json({ error: 'Stripe顧客情報が見つかりません' }, { status: 400 })
+    }
 
-    // 返金処理（差額がある場合のみ）
-    if (refundAmount > 0) {
-      // Refundを作成
-      const refund = await stripe.refunds.create({
-        payment_intent: checkin.stripe_payment_intent_id,
-        amount: refundAmount,
+    // Stripe CustomerのPayment Methodを確認
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: 'card',
+    })
+
+    // デフォルトのPayment Methodを取得
+    let defaultPaymentMethodId: string | null = null
+
+    const customer = await stripe.customers.retrieve(customerId)
+    if (!customer.deleted && customer.invoice_settings?.default_payment_method) {
+      defaultPaymentMethodId = customer.invoice_settings.default_payment_method as string
+    } else if (paymentMethods.data.length > 0) {
+      defaultPaymentMethodId = paymentMethods.data[0].id
+    }
+
+    // Payment Methodが登録されていない場合はエラー
+    if (!defaultPaymentMethodId) {
+      // 未決済として記録
+      await supabase
+        .from('checkins')
+        .update({
+          dropin_fee: actualFee,
+          payment_status: 'pending',
+        })
+        .eq('id', checkinId)
+
+      return NextResponse.json({
+        success: false,
+        error: 'カード情報が登録されていません',
+        actualFee,
+        paymentStatus: 'pending',
+      })
+    }
+
+    // 実際の料金を決済
+    try {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: actualFee,
+        currency: 'jpy',
+        customer: customerId,
+        payment_method: defaultPaymentMethodId,
+        off_session: true, // オフセッション決済
+        confirm: true, // 即座に決済を確定
         metadata: {
           user_id: user.id,
           checkin_id: checkinId,
           type: 'dropin_checkout',
-          actual_fee: actualFee.toString(),
-          refund_amount: refundAmount.toString(),
         },
       })
 
-      // checkinsテーブルを更新
+      // 決済成功
       await supabase
         .from('checkins')
         .update({
           dropin_fee: actualFee,
-          refund_amount: refundAmount,
-          payment_status: 'refunded',
-        })
-        .eq('id', checkinId)
-
-      return NextResponse.json({
-        success: true,
-        actualFee,
-        refundAmount,
-        refundId: refund.id,
-        message: `料金計算完了: ${actualFee}円（返金: ${refundAmount}円）`,
-      })
-    } else {
-      // 返金不要（最大料金まで利用した場合）
-      await supabase
-        .from('checkins')
-        .update({
-          dropin_fee: actualFee,
-          refund_amount: 0,
+          stripe_payment_intent_id: paymentIntent.id,
           payment_status: 'paid',
+          payment_date: new Date().toISOString(),
         })
         .eq('id', checkinId)
 
       return NextResponse.json({
         success: true,
         actualFee,
-        refundAmount: 0,
-        message: `料金計算完了: ${actualFee}円（返金なし）`,
+        paymentIntentId: paymentIntent.id,
+        message: `決済完了: ${actualFee}円`,
+      })
+    } catch (paymentError: any) {
+      // 決済失敗（残高不足など）
+      console.error('Payment error:', paymentError)
+
+      // 未決済として記録
+      await supabase
+        .from('checkins')
+        .update({
+          dropin_fee: actualFee,
+          payment_status: 'pending',
+        })
+        .eq('id', checkinId)
+
+      // エラーメッセージを返す
+      let errorMessage = '決済に失敗しました'
+      if (paymentError.code === 'card_declined') {
+        errorMessage = 'カードが拒否されました。残高不足の可能性があります。後日支払いが可能です。'
+      } else if (paymentError.code === 'insufficient_funds') {
+        errorMessage = '残高不足です。後日支払いが可能です。'
+      } else if (paymentError.message) {
+        errorMessage = paymentError.message
+      }
+
+      return NextResponse.json({
+        success: false,
+        error: errorMessage,
+        actualFee,
+        paymentStatus: 'pending',
       })
     }
   } catch (error: any) {
-    console.error('Drop-in checkout calculation error:', error)
+    console.error('Drop-in checkout payment error:', error)
     return NextResponse.json(
       { error: error.message || '料金計算に失敗しました' },
       { status: 500 }
