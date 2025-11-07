@@ -7,7 +7,7 @@ function getStripeClient(): Stripe {
   if (!stripeSecretKey) {
     throw new Error('STRIPE_SECRET_KEY is not set')
   }
-  return new Stripe(stripeSecretKey, { apiVersion: '2024-12-18.acacia' })
+  return new Stripe(stripeSecretKey, { apiVersion: '2025-10-29.clover' })
 }
 
 /**
