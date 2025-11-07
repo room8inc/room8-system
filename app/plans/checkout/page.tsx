@@ -517,60 +517,40 @@ function CheckoutPageContent() {
 
       const { clientSecret, paymentIntentId, error: apiError } = await response.json()
 
-      if (apiError || !clientSecret || !paymentIntentId) {
+      if (apiError || !paymentIntentId) {
         setError(apiError || '決済の準備に失敗しました')
         setLoading(false)
         return
       }
 
-      // 登録済みのPayment Methodで決済を確認
-      const stripe = await stripePromise
-      if (!stripe) {
-        setError('Stripeの読み込みに失敗しました')
-        setLoading(false)
-        return
-      }
+      // 登録済みのPayment Methodを使用する場合、既にconfirm: trueで作成されているので
+      // complete-contract APIでPayment Intentのステータスを確認して契約を完了
+      const completeResponse = await fetch('/api/plans/complete-contract', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentIntentId: paymentIntentId,
+          planId: planId!,
+          contractTerm: contractTerm!,
+          paymentMethod: paymentMethod!,
+          options: contractData.options,
+          startDate,
+          campaignId,
+          entryFee: contractData.entryFee,
+          firstMonthFee: contractData.firstMonthFee,
+          optionPrice: contractData.optionPrice,
+          totalPrice: contractData.totalPrice,
+        }),
+      })
 
-      const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(clientSecret)
+      const completeData = await completeResponse.json()
 
-      if (confirmError) {
-        setError(confirmError.message || '決済に失敗しました')
-        setLoading(false)
-        return
-      }
-
-      if (paymentIntent?.status === 'succeeded') {
-        // 契約を完了
-        const completeResponse = await fetch('/api/plans/complete-contract', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            paymentIntentId: paymentIntent.id,
-            planId: planId!,
-            contractTerm: contractTerm!,
-            paymentMethod: paymentMethod!,
-            options: contractData.options,
-            startDate,
-            campaignId,
-            entryFee: contractData.entryFee,
-            firstMonthFee: contractData.firstMonthFee,
-            optionPrice: contractData.optionPrice,
-            totalPrice: contractData.totalPrice,
-          }),
-        })
-
-        const completeData = await completeResponse.json()
-
-        if (completeResponse.ok && completeData.success) {
-          router.push('/plans/contract-complete')
-        } else {
-          setError(completeData.error || '契約の完了に失敗しました')
-          setLoading(false)
-        }
+      if (completeResponse.ok && completeData.success) {
+        router.push('/plans/contract-complete')
       } else {
-        setError('決済が完了していません')
+        setError(completeData.error || '契約の完了に失敗しました')
         setLoading(false)
       }
     } catch (err) {
