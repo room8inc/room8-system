@@ -57,25 +57,39 @@ export default async function MeetingRoomsPage() {
   let staffMemberId = null
 
   if (userData?.is_staff === true) {
-    // 利用者の場合、staff_membersテーブルから法人ユーザーIDを取得
-    const { data: staffMember } = await supabase
-      .from('staff_members')
-      .select('id, company_user_id')
-      .eq('auth_user_id', user.id)
-      .single()
+    // 利用者の場合、staff_membersテーブルから法人ユーザーIDを取得（💎 キャッシュ: 10分間）
+    const staffMember = await getCached(
+      cacheKey('staff_member', user.id),
+      async () => {
+        const { data } = await supabase
+          .from('staff_members')
+          .select('id, company_user_id')
+          .eq('auth_user_id', user.id)
+          .single()
+        return data
+      },
+      600 // 10分
+    )
 
     if (staffMember) {
       staffMemberId = staffMember.id
       billingUserId = staffMember.company_user_id // 決済は法人ユーザー
       
-      // 法人ユーザーのプラン情報を取得（必要なカラムのみ）
-      const { data: companyPlan } = await supabase
-        .from('user_plans')
-        .select('id, plans(id, name, features)')
-        .eq('user_id', billingUserId)
-        .eq('status', 'active')
-        .is('ended_at', null)
-        .single()
+      // 法人ユーザーのプラン情報を取得（💎 キャッシュ: 5分間）
+      const companyPlan = await getCached(
+        cacheKey('user_plan', billingUserId),
+        async () => {
+          const { data } = await supabase
+            .from('user_plans')
+            .select('id, plans(id, name, features)')
+            .eq('user_id', billingUserId)
+            .eq('status', 'active')
+            .is('ended_at', null)
+            .single()
+          return data
+        },
+        300 // 5分
+      )
       
       currentPlan = companyPlan
       // 💡 Supabaseのネストされたクエリは配列を返すことがあるので、正規化
@@ -84,14 +98,21 @@ export default async function MeetingRoomsPage() {
         : null
     }
   } else {
-    // 通常ユーザーの場合、自分のプラン情報を取得（必要なカラムのみ）
-    const { data: plan } = await supabase
-      .from('user_plans')
-      .select('id, plans(id, name, features)')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .is('ended_at', null)
-      .single()
+    // 通常ユーザーの場合、自分のプラン情報を取得（💎 キャッシュ: 5分間）
+    const plan = await getCached(
+      cacheKey('user_plan', user.id),
+      async () => {
+        const { data } = await supabase
+          .from('user_plans')
+          .select('id, plans(id, name, features)')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .is('ended_at', null)
+          .single()
+        return data
+      },
+      300 // 5分
+    )
     
     currentPlan = plan
     // 💡 Supabaseのネストされたクエリは配列を返すことがあるので、正規化
@@ -149,28 +170,45 @@ export default async function MeetingRoomsPage() {
   const rateInfo = calculateRate()
 
   // ユーザーの予約一覧を取得（最新順）
-  // 💡 最適化: 必要なカラムだけ取得
-  let userBookingsQuery = supabase
-    .from('meeting_room_bookings')
-    .select('id, booking_date, start_time, end_time, duration_hours, total_amount, status, google_calendar_event_id, user_id, staff_member_id')
-    .neq('status', 'cancelled')
-    .order('booking_date', { ascending: false })
-    .order('start_time', { ascending: false })
-    .limit(20)
+  // 💡 最適化: 必要なカラムだけ取得 + 💎 キャッシュ: 30秒（リアルタイム性を保ちつつ高速化）
+  const cacheKeyForBookings = userData?.is_staff === true && staffMemberId
+    ? cacheKey('bookings', user.id, staffMemberId)
+    : cacheKey('bookings', user.id)
 
-  if (userData?.is_staff === true && staffMemberId) {
-    // 利用者ユーザーの場合、user_idまたはstaff_member_idでフィルタ
-    // ダッシュボードと完全に同じ方法を使用
-    userBookingsQuery = userBookingsQuery.or(`user_id.eq.${user.id},staff_member_id.eq.${staffMemberId}`)
-  } else {
-    // 通常ユーザーの場合、user_idでフィルタ
-    userBookingsQuery = userBookingsQuery.eq('user_id', user.id)
-  }
+  let userBookings: any[] | null = null
+  try {
+    userBookings = await getCached(
+      cacheKeyForBookings,
+      async () => {
+        let userBookingsQuery = supabase
+          .from('meeting_room_bookings')
+          .select('id, booking_date, start_time, end_time, duration_hours, total_amount, status, google_calendar_event_id, user_id, staff_member_id')
+          .neq('status', 'cancelled')
+          .order('booking_date', { ascending: false })
+          .order('start_time', { ascending: false })
+          .limit(20)
 
-  const { data: userBookings, error: bookingsError } = await userBookingsQuery
-  
-  if (bookingsError) {
-    console.error('Booking fetch error:', bookingsError)
+        if (userData?.is_staff === true && staffMemberId) {
+          // 利用者ユーザーの場合、user_idまたはstaff_member_idでフィルタ
+          // ダッシュボードと完全に同じ方法を使用
+          userBookingsQuery = userBookingsQuery.or(`user_id.eq.${user.id},staff_member_id.eq.${staffMemberId}`)
+        } else {
+          // 通常ユーザーの場合、user_idでフィルタ
+          userBookingsQuery = userBookingsQuery.eq('user_id', user.id)
+        }
+
+        const { data, error } = await userBookingsQuery
+        if (error) {
+          console.error('Booking fetch error:', error)
+          return null
+        }
+        return data
+      },
+      30 // 30秒（リアルタイム性を保ちつつ高速化）
+    )
+  } catch (error) {
+    console.error('Booking fetch error:', error)
+    userBookings = null
   }
   
   // 💡 本番環境ではデバッグログを削減
