@@ -1,53 +1,59 @@
 /**
  * Vercel KV Cache Helper
- * Redis互換のキャッシュ層（Vercel KV使用）
+ * Redis互換の本格的なキャッシュ層
  */
 
-// Vercel KVは後でインストール
-// 今は、メモリキャッシュで代替実装
+import { kv } from '@vercel/kv'
 
-interface CacheEntry<T> {
-  value: T
-  expiresAt: number
-}
-
-class MemoryCache {
-  private cache: Map<string, CacheEntry<any>> = new Map()
-
+// 💡 Vercel KVのラッパー
+export const cache = {
   async get<T>(key: string): Promise<T | null> {
-    const entry = this.cache.get(key)
-    
-    if (!entry) {
+    try {
+      // Vercel KVが利用可能な場合
+      if (process.env.KV_REST_API_URL) {
+        return await kv.get<T>(key)
+      }
+      // ローカル開発時はnull（キャッシュなし）
+      return null
+    } catch (error) {
+      console.error('Cache get error:', error)
       return null
     }
-
-    // 期限切れチェック
-    if (Date.now() > entry.expiresAt) {
-      this.cache.delete(key)
-      return null
-    }
-
-    return entry.value as T
-  }
+  },
 
   async set<T>(key: string, value: T, ttlSeconds: number = 60): Promise<void> {
-    const expiresAt = Date.now() + (ttlSeconds * 1000)
-    this.cache.set(key, { value, expiresAt })
-  }
+    try {
+      // Vercel KVが利用可能な場合
+      if (process.env.KV_REST_API_URL) {
+        await kv.set(key, value, { ex: ttlSeconds })
+      }
+      // ローカル開発時は何もしない
+    } catch (error) {
+      console.error('Cache set error:', error)
+      // キャッシュエラーは無視（アプリケーションの動作には影響しない）
+    }
+  },
 
   async delete(key: string): Promise<void> {
-    this.cache.delete(key)
-  }
+    try {
+      if (process.env.KV_REST_API_URL) {
+        await kv.del(key)
+      }
+    } catch (error) {
+      console.error('Cache delete error:', error)
+    }
+  },
 
   async clear(): Promise<void> {
-    this.cache.clear()
+    try {
+      if (process.env.KV_REST_API_URL) {
+        await kv.flushall()
+      }
+    } catch (error) {
+      console.error('Cache clear error:', error)
+    }
   }
 }
-
-// シングルトンインスタンス
-const cache = new MemoryCache()
-
-export { cache }
 
 /**
  * キャッシュヘルパー関数

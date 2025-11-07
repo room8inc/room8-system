@@ -35,7 +35,7 @@ export default async function DashboardPage() {
   const todayStart = today.toISOString()
   const todayStr = today.toISOString().split('T')[0]
 
-  // 🚀 並列化: 独立したクエリを同時実行（最重要データのみ）
+  // 🚀 並列化 + 💎 キャッシュ: 独立したクエリを同時実行
   // 💡 最適化: 必要なカラムだけ取得してデータ転送量を削減
   // 💡 Streaming: 重い履歴データは後から読み込む
   const [
@@ -45,14 +45,14 @@ export default async function DashboardPage() {
     currentPlanResult,
     adminResult,
   ] = await Promise.all([
-    // 現在のチェックイン状態を取得
+    // 現在のチェックイン状態を取得（キャッシュしない：リアルタイム性が重要）
     supabase
       .from('checkins')
       .select('id, checkin_at, checkout_at, duration_minutes')
       .eq('user_id', user.id)
       .is('checkout_at', null)
       .maybeSingle(),
-    // 今日のチェックイン履歴を取得
+    // 今日のチェックイン履歴を取得（キャッシュしない：リアルタイム性が重要）
     supabase
       .from('checkins')
       .select('id, checkin_at, checkout_at, duration_minutes')
@@ -60,29 +60,47 @@ export default async function DashboardPage() {
       .gte('checkin_at', todayStart)
       .order('checkin_at', { ascending: false })
       .limit(10),
-    // ユーザー情報を取得
-    supabase
-      .from('users')
-      .select('member_type, name, is_staff')
-      .eq('id', user.id)
-      .single(),
-    // 現在のプラン情報を取得（必要なカラムのみ）
-    supabase
-      .from('user_plans')
-      .select('started_at, plans(id, name, start_time, end_time, available_days)')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .is('ended_at', null)
-      .single(),
-    // 管理者チェック
-    isAdmin(),
+    // ユーザー情報を取得（💎 キャッシュ: 5分間）
+    getCached(
+      cacheKey('user', user.id),
+      async () => {
+        const { data } = await supabase
+          .from('users')
+          .select('member_type, name, is_staff')
+          .eq('id', user.id)
+          .single()
+        return data
+      },
+      300 // 5分
+    ),
+    // 現在のプラン情報を取得（💎 キャッシュ: 5分間）
+    getCached(
+      cacheKey('user_plan', user.id),
+      async () => {
+        const { data } = await supabase
+          .from('user_plans')
+          .select('started_at, plans(id, name, start_time, end_time, available_days)')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .is('ended_at', null)
+          .single()
+        return data
+      },
+      300 // 5分
+    ),
+    // 管理者チェック（💎 キャッシュ: 10分間）
+    getCached(
+      cacheKey('is_admin', user.id),
+      async () => isAdmin(),
+      600 // 10分
+    ),
   ])
 
   const { data: currentCheckin, error: checkinError } = currentCheckinResult
   const { data: todayCheckins } = todayCheckinsResult
-  const { data: userData } = userDataResult
-  const { data: currentPlan } = currentPlanResult
-  const admin = adminResult
+  const userData = userDataResult // キャッシュから直接取得
+  const currentPlan = currentPlanResult // キャッシュから直接取得
+  const admin = adminResult // キャッシュから直接取得
 
   if (checkinError) {
     console.error('Dashboard: Error fetching current checkin:', checkinError)

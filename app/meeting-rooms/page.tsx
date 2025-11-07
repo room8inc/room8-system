@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { BookingForm } from './booking-form'
 import { BookingList } from './booking-list'
+import { getCached, cacheKey } from '@/lib/cache/vercel-kv'
 
 // 💡 キャッシュ最適化: 60秒ごとに再検証
 export const revalidate = 60
@@ -18,25 +19,36 @@ export default async function MeetingRoomsPage() {
     redirect('/login')
   }
 
-  // 🚀 並列化: 独立したクエリを同時実行
+  // 🚀 並列化 + 💎 キャッシュ: 独立したクエリを同時実行
   // 💡 最適化: 必要なカラムだけ取得
-  const [userDataResult, meetingRoomResult] = await Promise.all([
-    // ユーザー情報を取得
-    supabase
-      .from('users')
-      .select('member_type, is_staff')
-      .eq('id', user.id)
-      .single(),
-    // 会議室情報を取得（必要なカラムのみ）
-    supabase
-      .from('meeting_rooms')
-      .select('id, code, name, capacity, hourly_rate_regular, hourly_rate_non_regular')
-      .eq('code', 'room8-meeting-room-001')
-      .single(),
+  const [userData, meetingRoom] = await Promise.all([
+    // ユーザー情報を取得（💎 キャッシュ: 5分間）
+    getCached(
+      cacheKey('user', user.id),
+      async () => {
+        const { data } = await supabase
+          .from('users')
+          .select('member_type, is_staff')
+          .eq('id', user.id)
+          .single()
+        return data
+      },
+      300 // 5分
+    ),
+    // 会議室情報を取得（💎 キャッシュ: 10分間）
+    getCached(
+      cacheKey('meeting_room', 'room8-meeting-room-001'),
+      async () => {
+        const { data } = await supabase
+          .from('meeting_rooms')
+          .select('id, code, name, capacity, hourly_rate_regular, hourly_rate_non_regular')
+          .eq('code', 'room8-meeting-room-001')
+          .single()
+        return data
+      },
+      600 // 10分
+    ),
   ])
-
-  const { data: userData } = userDataResult
-  const { data: meetingRoom } = meetingRoomResult
 
   // 利用者ユーザーの場合、法人ユーザーのプラン情報を取得
   let currentPlan: any = null

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { LogoutButton } from '@/app/dashboard/logout-button'
 import { formatJapaneseName } from '@/lib/utils/name'
+import { getCached, cacheKey } from '@/lib/cache/vercel-kv'
 
 // 💡 キャッシュ最適化: 300秒（5分）ごとに再検証（変更頻度が低いため）
 export const revalidate = 300
@@ -18,27 +19,38 @@ export default async function MemberCardPage() {
     redirect('/login')
   }
 
-  // 🚀 並列化: 独立したクエリを同時実行
+  // 🚀 並列化 + 💎 キャッシュ: 独立したクエリを同時実行
   // 💡 最適化: 必要なカラムだけ取得
-  const [userDataResult, currentPlanResult] = await Promise.all([
-    // ユーザー情報を取得（必要なカラムのみ）
-    supabase
-      .from('users')
-      .select('name, member_type, is_individual, is_staff')
-      .eq('id', user.id)
-      .single(),
-    // 現在のプラン情報を取得（必要なカラムのみ）
-    supabase
-      .from('user_plans')
-      .select('started_at, plans(name)')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .is('ended_at', null)
-      .single(),
+  const [userData, currentPlan] = await Promise.all([
+    // ユーザー情報を取得（💎 キャッシュ: 5分間）
+    getCached(
+      cacheKey('user_full', user.id),
+      async () => {
+        const { data } = await supabase
+          .from('users')
+          .select('name, member_type, is_individual, is_staff')
+          .eq('id', user.id)
+          .single()
+        return data
+      },
+      300 // 5分
+    ),
+    // 現在のプラン情報を取得（💎 キャッシュ: 5分間）
+    getCached(
+      cacheKey('user_plan', user.id),
+      async () => {
+        const { data } = await supabase
+          .from('user_plans')
+          .select('started_at, plans(name)')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .is('ended_at', null)
+          .single()
+        return data
+      },
+      300 // 5分
+    ),
   ])
-
-  const { data: userData } = userDataResult
-  const { data: currentPlan } = currentPlanResult
 
   // 💡 Supabaseのネストされたクエリは配列を返すことがあるので、正規化
   const planData = currentPlan?.plans 
