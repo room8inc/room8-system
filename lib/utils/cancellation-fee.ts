@@ -56,9 +56,13 @@ export function calculateCancellationFee({
   const cancelDate = new Date(cancellationDate)
 
   // 利用月数を計算（開始月から解約月まで）
-  const monthsUsed = Math.ceil(
-    (cancelDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
-  )
+  // より正確な計算：年と月の差分を使用
+  const startYear = startDate.getFullYear()
+  const startMonth = startDate.getMonth()
+  const cancelYear = cancelDate.getFullYear()
+  const cancelMonth = cancelDate.getMonth()
+  
+  const monthsUsed = (cancelYear - startYear) * 12 + (cancelMonth - startMonth) + 1
 
   // 月額割引額を計算
   const discountPerMonth = Math.floor(planPrice * YEARLY_DISCOUNT_RATE)
