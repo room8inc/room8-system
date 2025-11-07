@@ -4,6 +4,9 @@ import Link from 'next/link'
 import { BookingForm } from './booking-form'
 import { BookingList } from './booking-list'
 
+// 💡 キャッシュ最適化: 60秒ごとに再検証
+export const revalidate = 60
+
 export default async function MeetingRoomsPage() {
   const supabase = await createClient()
 
@@ -16,6 +19,7 @@ export default async function MeetingRoomsPage() {
   }
 
   // 🚀 並列化: 独立したクエリを同時実行
+  // 💡 最適化: 必要なカラムだけ取得
   const [userDataResult, meetingRoomResult] = await Promise.all([
     // ユーザー情報を取得
     supabase
@@ -23,10 +27,10 @@ export default async function MeetingRoomsPage() {
       .select('member_type, is_staff')
       .eq('id', user.id)
       .single(),
-    // 会議室情報を取得
+    // 会議室情報を取得（必要なカラムのみ）
     supabase
       .from('meeting_rooms')
-      .select('*')
+      .select('id, code, name, capacity, hourly_rate_regular, hourly_rate_non_regular')
       .eq('code', 'room8-meeting-room-001')
       .single(),
   ])
@@ -51,10 +55,10 @@ export default async function MeetingRoomsPage() {
       staffMemberId = staffMember.id
       billingUserId = staffMember.company_user_id // 決済は法人ユーザー
       
-      // 法人ユーザーのプラン情報を取得
+      // 法人ユーザーのプラン情報を取得（必要なカラムのみ）
       const { data: companyPlan } = await supabase
         .from('user_plans')
-        .select('*, plans(*)')
+        .select('id, plans(id, name, features)')
         .eq('user_id', billingUserId)
         .eq('status', 'active')
         .is('ended_at', null)
@@ -63,10 +67,10 @@ export default async function MeetingRoomsPage() {
       currentPlan = companyPlan
     }
   } else {
-    // 通常ユーザーの場合、自分のプラン情報を取得
+    // 通常ユーザーの場合、自分のプラン情報を取得（必要なカラムのみ）
     const { data: plan } = await supabase
       .from('user_plans')
-      .select('*, plans(*)')
+      .select('id, plans(id, name, features)')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .is('ended_at', null)
@@ -124,10 +128,10 @@ export default async function MeetingRoomsPage() {
   const rateInfo = calculateRate()
 
   // ユーザーの予約一覧を取得（最新順）
-  // ダッシュボードと同じ方法で取得（完全に同じ実装）
+  // 💡 最適化: 必要なカラムだけ取得
   let userBookingsQuery = supabase
     .from('meeting_room_bookings')
-    .select('*')
+    .select('id, booking_date, start_time, end_time, duration_hours, total_amount, status, google_calendar_event_id, user_id, staff_member_id')
     .neq('status', 'cancelled')
     .order('booking_date', { ascending: false })
     .order('start_time', { ascending: false })

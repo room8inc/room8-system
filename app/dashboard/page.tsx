@@ -1,11 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { LogoutButton } from './logout-button'
 import { QRScannerButton } from './qr-scanner-button'
 import { formatJapaneseName } from '@/lib/utils/name'
 import { RealtimeCheckinInfo } from './realtime-checkin-info'
 import { isAdmin } from '@/lib/utils/admin'
+import { CheckinHistory } from './checkin-history'
+import { UpcomingBookings } from './upcoming-bookings'
+
+// 💡 キャッシュ最適化: 30秒ごとに再検証（リアルタイム性とパフォーマンスのバランス）
+export const revalidate = 30
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -24,11 +30,12 @@ export default async function DashboardPage() {
   const todayStart = today.toISOString()
   const todayStr = today.toISOString().split('T')[0]
 
-  // 🚀 並列化: 独立したクエリを同時実行
+  // 🚀 並列化: 独立したクエリを同時実行（最重要データのみ）
+  // 💡 最適化: 必要なカラムだけ取得してデータ転送量を削減
+  // 💡 Streaming: 重い履歴データは後から読み込む
   const [
     currentCheckinResult,
     todayCheckinsResult,
-    checkinHistoryResult,
     userDataResult,
     currentPlanResult,
     adminResult,
@@ -36,35 +43,28 @@ export default async function DashboardPage() {
     // 現在のチェックイン状態を取得
     supabase
       .from('checkins')
-      .select('*')
+      .select('id, checkin_at, checkout_at, duration_minutes')
       .eq('user_id', user.id)
       .is('checkout_at', null)
       .maybeSingle(),
     // 今日のチェックイン履歴を取得
     supabase
       .from('checkins')
-      .select('*')
+      .select('id, checkin_at, checkout_at, duration_minutes')
       .eq('user_id', user.id)
       .gte('checkin_at', todayStart)
       .order('checkin_at', { ascending: false })
       .limit(10),
-    // 利用履歴を取得（最新30件）
-    supabase
-      .from('checkins')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('checkin_at', { ascending: false })
-      .limit(30),
     // ユーザー情報を取得
     supabase
       .from('users')
       .select('member_type, name, is_staff')
       .eq('id', user.id)
       .single(),
-    // 現在のプラン情報を取得
+    // 現在のプラン情報を取得（必要なカラムのみ）
     supabase
       .from('user_plans')
-      .select('*, plans(*)')
+      .select('started_at, plans(id, name, start_time, end_time, available_days)')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .is('ended_at', null)
@@ -75,7 +75,6 @@ export default async function DashboardPage() {
 
   const { data: currentCheckin, error: checkinError } = currentCheckinResult
   const { data: todayCheckins } = todayCheckinsResult
-  const { data: checkinHistory } = checkinHistoryResult
   const { data: userData } = userDataResult
   const { data: currentPlan } = currentPlanResult
   const admin = adminResult
@@ -99,26 +98,6 @@ export default async function DashboardPage() {
       .single()
     staffMemberId = staffMember?.id || null
   }
-
-  // 会議室予約一覧を取得（今後の予約のみ、最新5件）
-  let upcomingBookingsQuery = supabase
-    .from('meeting_room_bookings')
-    .select('*')
-    .in('status', ['reserved', 'confirmed'])
-    .gte('booking_date', todayStr)
-    .order('booking_date', { ascending: true })
-    .order('start_time', { ascending: true })
-    .limit(5)
-
-  if (userData?.is_staff === true && staffMemberId) {
-    // 利用者ユーザーの場合、user_idまたはstaff_member_idでフィルタ
-    upcomingBookingsQuery = upcomingBookingsQuery.or(`user_id.eq.${user.id},staff_member_id.eq.${staffMemberId}`)
-  } else {
-    // 通常ユーザーの場合、user_idでフィルタ
-    upcomingBookingsQuery = upcomingBookingsQuery.eq('user_id', user.id)
-  }
-
-  const { data: upcomingBookings } = await upcomingBookingsQuery
 
   const isCheckedIn = !!currentCheckin
 
@@ -248,143 +227,14 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* 会議室予約状況セクション */}
-        {upcomingBookings && upcomingBookings.length > 0 && (
-          <div className="mt-8">
-            <div className="rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-room-charcoal">今後の会議室予約</h2>
-                <Link
-                  href="/meeting-rooms"
-                  className="text-sm text-room-main hover:text-room-main-light"
-                >
-                  全て見る →
-                </Link>
-              </div>
-              <div className="space-y-3">
-                {upcomingBookings.map((booking) => {
-                  const bookingDate = new Date(booking.booking_date)
-                  const statusMap: Record<string, { label: string; className: string }> = {
-                    reserved: { label: '予約済み', className: 'bg-room-main bg-opacity-20 text-room-main' },
-                    confirmed: { label: '確定', className: 'bg-room-wood bg-opacity-20 text-room-wood' },
-                  }
-                  const statusInfo = statusMap[booking.status] || { label: booking.status, className: 'bg-gray-100 text-gray-800' }
-                  
-                  return (
-                    <div
-                      key={booking.id}
-                      className="rounded-md border border-room-base-dark bg-room-base p-4"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium text-room-charcoal">
-                              {bookingDate.toLocaleDateString('ja-JP', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                                weekday: 'short',
-                              })}
-                            </span>
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusInfo.className}`}>
-                              {statusInfo.label}
-                            </span>
-                          </div>
-                          <div className="text-sm text-room-charcoal-light">
-                            <span className="mr-4">
-                              {booking.start_time.substring(0, 5)} - {booking.end_time.substring(0, 5)}
-                            </span>
-                            <span>
-                              {Math.floor(booking.duration_hours)}時間{Math.round((booking.duration_hours % 1) * 60)}分
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-room-charcoal">
-                            ¥{booking.total_amount.toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        )}
+        {/* 💡 Streaming: 会議室予約と利用履歴を非同期で読み込み */}
+        <Suspense fallback={<div className="mt-8 rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark animate-pulse h-32"></div>}>
+          <UpcomingBookings userId={user.id} staffMemberId={staffMemberId} isStaff={userData?.is_staff === true} />
+        </Suspense>
 
-        {/* 利用履歴セクション */}
-        <div className="mt-8">
-          <div className="rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
-            <h2 className="mb-4 text-lg font-semibold text-room-charcoal">利用履歴</h2>
-            {checkinHistory && checkinHistory.length > 0 ? (
-              <div className="space-y-3">
-                {checkinHistory.map((checkin) => {
-                  const checkinAt = new Date(checkin.checkin_at)
-                  const checkoutAt = checkin.checkout_at ? new Date(checkin.checkout_at) : null
-                  const duration = checkin.duration_minutes || null
-                  
-                  return (
-                    <div
-                      key={checkin.id}
-                      className="rounded-md border border-room-base-dark bg-room-base p-4"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-room-charcoal">
-                              {checkinAt.toLocaleDateString('ja-JP', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                              })}
-                            </span>
-                            {!checkoutAt && (
-                              <span className="rounded-full bg-room-main bg-opacity-20 px-2 py-0.5 text-xs font-medium text-room-main">
-                                チェックイン中
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-1 text-sm text-room-charcoal-light">
-                            <span className="mr-4">
-                              入室: {checkinAt.toLocaleTimeString('ja-JP', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </span>
-                            {checkoutAt && (
-                              <span>
-                                退室: {checkoutAt.toLocaleTimeString('ja-JP', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                             <div className="mt-2 text-right sm:mt-0">
-                               {duration !== null ? (
-                                 <div className="text-sm text-room-charcoal">
-                                   <span className="font-medium">
-                                     {Math.floor(duration / 60)}時間{duration % 60}分
-                                   </span>
-                                 </div>
-                               ) : checkoutAt ? (
-                                 <div className="text-xs text-room-charcoal-light">時間未計算</div>
-                               ) : (
-                                 <div className="text-xs text-room-charcoal-light">利用中</div>
-                               )}
-                             </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-                 ) : (
-                   <p className="text-sm text-room-charcoal-light">利用履歴がありません</p>
-                 )}
-          </div>
-        </div>
+        <Suspense fallback={<div className="mt-8 rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark animate-pulse h-64"></div>}>
+          <CheckinHistory userId={user.id} />
+        </Suspense>
       </div>
     </div>
   )

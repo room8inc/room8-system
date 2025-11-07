@@ -4,6 +4,9 @@ import Link from 'next/link'
 import { LogoutButton } from '@/app/dashboard/logout-button'
 import { formatJapaneseName } from '@/lib/utils/name'
 
+// 💡 キャッシュ最適化: 300秒（5分）ごとに再検証（変更頻度が低いため）
+export const revalidate = 300
+
 export default async function MemberCardPage() {
   const supabase = await createClient()
 
@@ -16,17 +19,18 @@ export default async function MemberCardPage() {
   }
 
   // 🚀 並列化: 独立したクエリを同時実行
+  // 💡 最適化: 必要なカラムだけ取得
   const [userDataResult, currentPlanResult] = await Promise.all([
-    // ユーザー情報を取得
+    // ユーザー情報を取得（必要なカラムのみ）
     supabase
       .from('users')
-      .select('*')
+      .select('name, member_type, is_individual, is_staff')
       .eq('id', user.id)
       .single(),
-    // 現在のプラン情報を取得（定期会員の場合）
+    // 現在のプラン情報を取得（必要なカラムのみ）
     supabase
       .from('user_plans')
-      .select('*, plans(*)')
+      .select('started_at, plans(name)')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .is('ended_at', null)
