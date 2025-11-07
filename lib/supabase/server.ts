@@ -24,6 +24,12 @@ export async function createClient() {
           }
         },
       },
+      // 💡 パフォーマンス最適化: コネクションプール設定
+      global: {
+        headers: {
+          'X-Client-Info': 'room8-system',
+        },
+      },
     }
   )
 }
