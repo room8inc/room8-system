@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     // Payment Methodが登録されていない場合はエラー
     if (!defaultPaymentMethodId) {
-      // 未決済として記録
+      // 未決済として記録（料金は計算済み）
       await supabase
         .from('checkins')
         .update({
@@ -118,6 +118,24 @@ export async function POST(request: NextRequest) {
         error: 'カード情報が登録されていません',
         actualFee,
         paymentStatus: 'pending',
+      })
+    }
+
+    // 料金が0円の場合は決済不要
+    if (actualFee === 0) {
+      await supabase
+        .from('checkins')
+        .update({
+          dropin_fee: 0,
+          payment_status: 'paid',
+          payment_date: new Date().toISOString(),
+        })
+        .eq('id', checkinId)
+
+      return NextResponse.json({
+        success: true,
+        actualFee: 0,
+        message: '料金は0円のため決済不要です',
       })
     }
 
