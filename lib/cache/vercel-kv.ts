@@ -6,11 +6,16 @@
 import { kv } from '@vercel/kv'
 
 // 💡 Vercel KVのラッパー
+// KV_REST_API_URL または KV_REDIS_URL のどちらかがあれば動作
+const isKVAvailable = () => {
+  return !!(process.env.KV_REST_API_URL || process.env.KV_REDIS_URL)
+}
+
 export const cache = {
   async get<T>(key: string): Promise<T | null> {
     try {
       // Vercel KVが利用可能な場合
-      if (process.env.KV_REST_API_URL) {
+      if (isKVAvailable()) {
         return await kv.get<T>(key)
       }
       // ローカル開発時はnull（キャッシュなし）
@@ -24,7 +29,7 @@ export const cache = {
   async set<T>(key: string, value: T, ttlSeconds: number = 60): Promise<void> {
     try {
       // Vercel KVが利用可能な場合
-      if (process.env.KV_REST_API_URL) {
+      if (isKVAvailable()) {
         await kv.set(key, value, { ex: ttlSeconds })
       }
       // ローカル開発時は何もしない
@@ -36,7 +41,7 @@ export const cache = {
 
   async delete(key: string): Promise<void> {
     try {
-      if (process.env.KV_REST_API_URL) {
+      if (isKVAvailable()) {
         await kv.del(key)
       }
     } catch (error) {
@@ -46,7 +51,7 @@ export const cache = {
 
   async clear(): Promise<void> {
     try {
-      if (process.env.KV_REST_API_URL) {
+      if (isKVAvailable()) {
         await kv.flushall()
       }
     } catch (error) {
