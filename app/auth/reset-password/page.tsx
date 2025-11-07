@@ -15,18 +15,27 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
 
   useEffect(() => {
-    // URLパラメータからトークンを確認
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const accessToken = hashParams.get('access_token')
-    const type = hashParams.get('type')
+    // Supabaseがハッシュフラグメントからトークンを処理するのを待つ
+    const initialize = async () => {
+      // ハッシュフラグメントを確認
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const accessToken = hashParams.get('access_token')
+      const type = hashParams.get('type')
 
-    // パスワードリセット用のトークンでない場合はログインページにリダイレクト
-    if (type !== 'recovery' || !accessToken) {
-      router.push('/login')
+      // ハッシュフラグメントがある場合、Supabaseクライアントが自動的に処理するのを待つ
+      if (accessToken && type === 'recovery') {
+        // Supabaseがハッシュフラグメントを処理する時間を与える
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+
+      setIsInitialized(true)
     }
-  }, [router])
+
+    initialize()
+  }, [])
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,6 +78,19 @@ export default function ResetPasswordPage() {
       setError(translateAuthError(err))
       setLoading(false)
     }
+  }
+
+  // 初期化中はローディング表示
+  if (!isInitialized) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-room-base">
+        <div className="w-full max-w-md space-y-8 rounded-lg bg-room-base-light p-8 shadow-md border border-room-base-dark">
+          <div className="text-center">
+            <p className="text-room-charcoal">読み込み中...</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (success) {
