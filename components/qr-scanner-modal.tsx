@@ -192,10 +192,25 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
         
         try {
           const checkResponse = await fetch('/api/checkin/check-payment-method')
-          const checkData = await checkResponse.json()
+          
+          let checkData
+          try {
+            checkData = await checkResponse.json()
+          } catch (jsonError) {
+            console.error('Failed to parse response:', jsonError)
+            await supabase
+              .from('checkins')
+              .delete()
+              .eq('id', checkinData.id)
+            throw new Error('確認に失敗しました（レスポンスの解析エラー）')
+          }
 
           if (!checkResponse.ok) {
-            throw new Error(checkData.error || '確認に失敗しました')
+            await supabase
+              .from('checkins')
+              .delete()
+              .eq('id', checkinData.id)
+            throw new Error(checkData?.error || '確認に失敗しました')
           }
 
           // 未決済のチェックアウトがある場合はチェックインを制限
@@ -217,14 +232,21 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
             
             throw new Error('クレジットカードが登録されていません。プロフィール画面でカード情報を登録してください。')
           }
-        } catch (checkError) {
-          // エラーの場合、チェックインを削除
-          await supabase
-            .from('checkins')
-            .delete()
-            .eq('id', checkinData.id)
+        } catch (checkError: any) {
+          console.error('Check payment method error:', checkError)
           
-          throw checkError
+          // エラーの場合、チェックインを削除
+          try {
+            await supabase
+              .from('checkins')
+              .delete()
+              .eq('id', checkinData.id)
+          } catch (deleteError) {
+            console.error('Failed to delete checkin:', deleteError)
+          }
+          
+          const errorMessage = checkError instanceof Error ? checkError.message : String(checkError) || '確認に失敗しました'
+          throw new Error(errorMessage)
         }
       }
 
