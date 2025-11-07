@@ -40,6 +40,11 @@ export default async function MemberCardPage() {
   const { data: userData } = userDataResult
   const { data: currentPlan } = currentPlanResult
 
+  // 💡 Supabaseのネストされたクエリは配列を返すことがあるので、正規化
+  const planData = currentPlan?.plans 
+    ? (Array.isArray(currentPlan.plans) ? currentPlan.plans[0] : currentPlan.plans)
+    : null
+
   // 会員番号を生成（ユーザーIDの最初の8文字を使用）
   const memberNumber = user.id.substring(0, 8).toUpperCase()
 
@@ -71,7 +76,7 @@ export default async function MemberCardPage() {
             </h2>
             {currentPlan && (
               <p className="mb-1 text-lg font-medium text-room-base-light">
-                {currentPlan.plans?.name || 'プラン名不明'}
+                {planData?.name || 'プラン名不明'}
               </p>
             )}
             <p className="mb-4 text-sm text-room-base-light">{memberTypeDisplay}</p>
@@ -212,7 +217,7 @@ export default async function MemberCardPage() {
                   <h3 className="font-semibold text-room-charcoal">会員契約</h3>
                   <p className="text-sm text-room-charcoal-light">
                     {currentPlan
-                      ? `${currentPlan.plans?.name || 'プラン名不明'} - 契約開始: ${new Date(currentPlan.started_at).toLocaleDateString('ja-JP')}`
+                      ? `${planData?.name || 'プラン名不明'} - 契約開始: ${new Date(currentPlan.started_at).toLocaleDateString('ja-JP')}`
                       : 'プランを選択して契約する'}
                   </p>
                 </div>

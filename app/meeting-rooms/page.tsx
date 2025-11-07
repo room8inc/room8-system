@@ -39,7 +39,8 @@ export default async function MeetingRoomsPage() {
   const { data: meetingRoom } = meetingRoomResult
 
   // 利用者ユーザーの場合、法人ユーザーのプラン情報を取得
-  let currentPlan = null
+  let currentPlan: any = null
+  let planData: any = null
   let billingUserId = user.id // 決済を行うユーザーID（デフォルトは自分）
   let staffMemberId = null
 
@@ -65,6 +66,10 @@ export default async function MeetingRoomsPage() {
         .single()
       
       currentPlan = companyPlan
+      // 💡 Supabaseのネストされたクエリは配列を返すことがあるので、正規化
+      planData = companyPlan?.plans 
+        ? (Array.isArray(companyPlan.plans) ? companyPlan.plans[0] : companyPlan.plans)
+        : null
     }
   } else {
     // 通常ユーザーの場合、自分のプラン情報を取得（必要なカラムのみ）
@@ -77,6 +82,10 @@ export default async function MeetingRoomsPage() {
       .single()
     
     currentPlan = plan
+    // 💡 Supabaseのネストされたクエリは配列を返すことがあるので、正規化
+    planData = plan?.plans 
+      ? (Array.isArray(plan.plans) ? plan.plans[0] : plan.plans)
+      : null
   }
 
   if (!meetingRoom) {
@@ -105,9 +114,9 @@ export default async function MeetingRoomsPage() {
           }
         }
 
-    if (currentPlan?.plans) {
+    if (planData) {
       // シェアオフィスプランのチェック（features.type === 'shared_office'）
-      const features = currentPlan.plans.features as any
+      const features = planData.features as any
       if (features?.type === 'shared_office') {
         // シェアオフィスプラン：月4時間まで無料、超過分1,100円/時間
         return {
@@ -216,9 +225,9 @@ export default async function MeetingRoomsPage() {
             <BookingForm
               userId={user.id}
               memberType={currentPlan ? 'regular' : (userData?.member_type || 'dropin')}
-            planInfo={currentPlan?.plans ? {
-              id: currentPlan.plans.id,
-              features: currentPlan.plans.features,
+            planInfo={planData ? {
+              id: planData.id,
+              features: planData.features,
             } : null}
             hourlyRate={rateInfo.rate}
             freeHours={rateInfo.freeHours}

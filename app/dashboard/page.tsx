@@ -83,6 +83,11 @@ export default async function DashboardPage() {
     console.error('Dashboard: Error fetching current checkin:', checkinError)
   }
 
+  // 💡 Supabaseのネストされたクエリは配列を返すことがあるので、正規化
+  const planData = currentPlan?.plans 
+    ? (Array.isArray(currentPlan.plans) ? currentPlan.plans[0] : currentPlan.plans)
+    : null
+
   // 今日の総利用時間を計算（チェックアウト済みのみ）
   const todayDuration = todayCheckins
     ?.filter((c) => c.checkout_at && c.duration_minutes)
@@ -145,11 +150,11 @@ export default async function DashboardPage() {
                   <RealtimeCheckinInfo
                     checkinAt={currentCheckin.checkin_at}
                     memberType={currentPlan ? 'regular' : (userData?.member_type || 'dropin')}
-                    planInfo={currentPlan?.plans ? {
-                      name: currentPlan.plans.name || '',
-                      startTime: currentPlan.plans.start_time || undefined,
-                      endTime: currentPlan.plans.end_time || undefined,
-                      availableDays: currentPlan.plans.available_days || undefined,
+                    planInfo={planData ? {
+                      name: planData.name || '',
+                      startTime: planData.start_time || undefined,
+                      endTime: planData.end_time || undefined,
+                      availableDays: planData.available_days || undefined,
                     } : null}
                   />
                 )}
@@ -198,7 +203,7 @@ export default async function DashboardPage() {
             {currentPlan ? (
               <>
                 <p className="mt-2 text-sm text-room-charcoal">
-                  {currentPlan.plans?.name || 'プラン名不明'}
+                  {planData?.name || 'プラン名不明'}
                 </p>
                 <p className="mt-1 text-xs text-room-charcoal-light">
                   利用形態: {
