@@ -153,6 +153,56 @@ function CheckoutForm({
     }
   }
 
+  // 登録済みカードがある場合は、カード情報入力フォームをスキップ
+  if (hasPaymentMethod && paymentMethodInfo) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
+          <h2 className="text-lg font-semibold text-room-charcoal mb-4">
+            お支払い情報
+          </h2>
+
+          <div className="space-y-4">
+            <div className="rounded-md border border-room-base-dark bg-room-base p-4">
+              <p className="text-sm font-medium text-room-charcoal mb-2">
+                登録済みのカード
+              </p>
+              <p className="text-sm text-room-charcoal-light">
+                {paymentMethodInfo.card?.brand?.toUpperCase() || 'カード'} •••• {paymentMethodInfo.card?.last4}
+              </p>
+              <p className="text-xs text-room-charcoal-light mt-1">
+                有効期限: {paymentMethodInfo.card?.exp_month}/{paymentMethodInfo.card?.exp_year}
+              </p>
+            </div>
+          </div>
+
+          {error && (
+            <div className="rounded-md bg-room-main bg-opacity-10 border border-room-main p-4 mb-4 mt-4">
+              <p className="text-sm text-room-main-dark">{error}</p>
+            </div>
+          )}
+
+          <div className="flex gap-3 mt-6">
+            <Link
+              href="/plans"
+              className="flex-1 rounded-md bg-room-charcoal-light px-4 py-2 text-sm text-white hover:bg-room-charcoal text-center"
+            >
+              キャンセル
+            </Link>
+            <button
+              type="button"
+              onClick={onPaymentWithSavedCard}
+              disabled={loading || isProcessing}
+              className="flex-1 rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading || isProcessing ? '決済中...' : `¥${totalPrice.toLocaleString()}を支払う`}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
@@ -297,6 +347,30 @@ function CheckoutPageContent() {
   const optionsStr = searchParams.get('options')
 
   const [contractData, setContractData] = useState<any>(null)
+  const [hasPaymentMethod, setHasPaymentMethod] = useState<boolean | null>(null)
+  const [paymentMethodInfo, setPaymentMethodInfo] = useState<any>(null)
+  const [checkingPaymentMethod, setCheckingPaymentMethod] = useState(true)
+
+  // カード情報の確認
+  useEffect(() => {
+    const checkPaymentMethod = async () => {
+      try {
+        const response = await fetch('/api/stripe/check-payment-method')
+        const data = await response.json()
+        
+        if (response.ok) {
+          setHasPaymentMethod(data.hasPaymentMethod)
+          setPaymentMethodInfo(data.paymentMethod)
+        }
+      } catch (error) {
+        console.error('Payment method check error:', error)
+      } finally {
+        setCheckingPaymentMethod(false)
+      }
+    }
+
+    checkPaymentMethod()
+  }, [])
 
   useEffect(() => {
     if (!planId || !contractTerm || !paymentMethod) {
@@ -411,7 +485,102 @@ function CheckoutPageContent() {
     fetchContractData()
   }, [planId, contractTerm, paymentMethod, optionsStr])
 
-  if (loading) {
+  // 登録済みカードで決済する処理
+  const handlePaymentWithSavedCard = async () => {
+    if (!contractData || !paymentMethodInfo) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Payment Intentを作成（登録済みのPayment Methodを使用）
+      const response = await fetch('/api/stripe/create-payment-intent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planId: planId!,
+          contractTerm: contractTerm!,
+          paymentMethod: paymentMethod!,
+          options: contractData.options,
+          startDate,
+          campaignId,
+          entryFee: contractData.entryFee,
+          firstMonthFee: contractData.firstMonthFee,
+          optionPrice: contractData.optionPrice,
+          totalPrice: contractData.totalPrice,
+          useSavedPaymentMethod: true, // 登録済みカードを使用
+          paymentMethodId: paymentMethodInfo.id,
+        }),
+      })
+
+      const { clientSecret, paymentIntentId, error: apiError } = await response.json()
+
+      if (apiError || !clientSecret || !paymentIntentId) {
+        setError(apiError || '決済の準備に失敗しました')
+        setLoading(false)
+        return
+      }
+
+      // 登録済みのPayment Methodで決済を確認
+      const stripe = await stripePromise
+      if (!stripe) {
+        setError('Stripeの読み込みに失敗しました')
+        setLoading(false)
+        return
+      }
+
+      const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(clientSecret)
+
+      if (confirmError) {
+        setError(confirmError.message || '決済に失敗しました')
+        setLoading(false)
+        return
+      }
+
+      if (paymentIntent?.status === 'succeeded') {
+        // 契約を完了
+        const completeResponse = await fetch('/api/plans/complete-contract', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            paymentIntentId: paymentIntent.id,
+            planId: planId!,
+            contractTerm: contractTerm!,
+            paymentMethod: paymentMethod!,
+            options: contractData.options,
+            startDate,
+            campaignId,
+            entryFee: contractData.entryFee,
+            firstMonthFee: contractData.firstMonthFee,
+            optionPrice: contractData.optionPrice,
+            totalPrice: contractData.totalPrice,
+          }),
+        })
+
+        const completeData = await completeResponse.json()
+
+        if (completeResponse.ok && completeData.success) {
+          router.push('/plans/contract-complete')
+        } else {
+          setError(completeData.error || '契約の完了に失敗しました')
+          setLoading(false)
+        }
+      } else {
+        setError('決済が完了していません')
+        setLoading(false)
+      }
+    } catch (err) {
+      console.error('Payment error:', err)
+      setError('決済中にエラーが発生しました')
+      setLoading(false)
+    }
+  }
+
+  if (loading || checkingPaymentMethod) {
     return (
       <div className="min-h-screen bg-room-base flex items-center justify-center">
         <p className="text-room-charcoal">読み込み中...</p>
@@ -511,6 +680,9 @@ function CheckoutPageContent() {
             firstMonthFee={contractData.firstMonthFee}
             optionPrice={contractData.optionPrice}
             totalPrice={contractData.entryFee + contractData.firstMonthFee + contractData.optionPrice}
+            hasPaymentMethod={hasPaymentMethod}
+            paymentMethodInfo={paymentMethodInfo}
+            onPaymentWithSavedCard={handlePaymentWithSavedCard}
           />
         </Elements>
       </div>

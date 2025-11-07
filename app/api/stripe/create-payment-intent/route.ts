@@ -101,7 +101,33 @@ export async function POST(request: NextRequest) {
         .eq('id', user.id)
     }
 
-    // Payment Intentを作成
+    // 登録済みのPayment Methodを使用する場合
+    if (useSavedPaymentMethod && paymentMethodId) {
+      // Payment Intentを作成して即座に決済を確認
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: totalPrice,
+        currency: 'jpy',
+        customer: customerId,
+        payment_method: paymentMethodId,
+        off_session: true, // オフセッション決済
+        confirm: true, // 即座に決済を確定
+        metadata: {
+          user_id: user.id,
+          plan_id: planId,
+          contract_term: contractTerm,
+          payment_method: paymentMethod,
+          start_date: startDate,
+          campaign_id: campaignId || '',
+        },
+      })
+
+      return NextResponse.json({
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+      })
+    }
+
+    // 通常のPayment Intentを作成（カード情報入力が必要）
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalPrice,
       currency: 'jpy',
