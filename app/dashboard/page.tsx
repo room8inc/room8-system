@@ -36,6 +36,10 @@ export default async function DashboardPage() {
   const todayStart = today.toISOString()
   const todayStr = today.toISOString().split('T')[0]
 
+  // 今月の開始日時と終了日時を計算
+  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0)
+  const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59)
+
   // 🚀 並列化 + 💎 キャッシュ: 独立したクエリを同時実行
   // 💡 最適化: 必要なカラムだけ取得してデータ転送量を削減
   // 💡 Streaming: 重い履歴データは後から読み込む
@@ -45,6 +49,7 @@ export default async function DashboardPage() {
     userDataResult,
     currentPlanResult,
     adminResult,
+    monthlyOvertimeResult,
   ] = await Promise.all([
     // 現在のチェックイン状態を取得（キャッシュしない：リアルタイム性が重要）
     supabase
@@ -95,6 +100,24 @@ export default async function DashboardPage() {
       async () => isAdmin(),
       600 // 10分
     ),
+    // 今月の時間外利用を取得（💎 キャッシュ: 1分間）
+    getCached(
+      cacheKey('monthly_overtime', user.id, currentMonthStart.toISOString().split('T')[0]),
+      async () => {
+        const { data } = await supabase
+          .from('checkins')
+          .select('overtime_fee')
+          .eq('user_id', user.id)
+          .eq('member_type_at_checkin', 'regular')
+          .eq('is_overtime', true)
+          .not('checkout_at', 'is', null)
+          .gte('checkout_at', currentMonthStart.toISOString())
+          .lte('checkout_at', currentMonthEnd.toISOString())
+          .eq('overtime_fee_billed', false) // 未請求のもののみ
+        return data
+      },
+      60 // 1分
+    ),
   ])
 
   const { data: currentCheckin, error: checkinError } = currentCheckinResult
@@ -102,6 +125,10 @@ export default async function DashboardPage() {
   const userData = userDataResult // キャッシュから直接取得
   const currentPlan = currentPlanResult // キャッシュから直接取得
   const admin = adminResult // キャッシュから直接取得
+  const monthlyOvertime = monthlyOvertimeResult || []
+
+  // 今月の累計時間外利用料金を計算
+  const monthlyOvertimeFee = monthlyOvertime.reduce((sum, checkin) => sum + (checkin.overtime_fee || 0), 0)
 
   if (checkinError) {
     console.error('Dashboard: Error fetching current checkin:', checkinError)
@@ -226,7 +253,20 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          {/* カード3: プラン情報 */}
+          {/* カード3: 今月の時間外利用料金（会員のみ） */}
+          {planData && monthlyOvertimeFee > 0 && (
+            <div className="rounded-lg bg-room-main bg-opacity-10 border-2 border-room-main p-6 shadow border-room-base-dark">
+              <h2 className="text-lg font-semibold text-room-main-dark">今月の時間外利用料金</h2>
+              <p className="mt-2 text-2xl font-bold text-room-main-dark">
+                {monthlyOvertimeFee.toLocaleString()}円
+              </p>
+              <p className="mt-1 text-xs text-room-charcoal-light">
+                翌月1日に決済されます
+              </p>
+            </div>
+          )}
+
+          {/* カード4: プラン情報 */}
           <div className="rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
             <h2 className="text-lg font-semibold text-room-charcoal">プラン情報</h2>
             {currentPlan ? (

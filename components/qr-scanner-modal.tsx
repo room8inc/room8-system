@@ -277,7 +277,7 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
 
       const { data: checkinData, error: fetchError } = await supabase
         .from('checkins')
-        .select('checkin_at, member_type_at_checkin')
+        .select('checkin_at, member_type_at_checkin, plan_id_at_checkin')
         .eq('id', checkinId)
         .single()
 
@@ -289,12 +289,46 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
       const checkoutAt = new Date()
       const durationMinutes = Math.floor((checkoutAt.getTime() - checkinAt.getTime()) / (1000 * 60))
 
+      // 会員の場合は時間外利用を計算
+      let isOvertime = false
+      let overtimeMinutes = 0
+      let overtimeFee = 0
+
+      if (checkinData.member_type_at_checkin === 'regular' && checkinData.plan_id_at_checkin) {
+        // プラン情報を取得
+        const { data: planData } = await supabase
+          .from('plans')
+          .select('start_time, end_time, available_days')
+          .eq('id', checkinData.plan_id_at_checkin)
+          .single()
+
+        if (planData) {
+          const { calculateOvertime } = await import('@/lib/utils/overtime')
+          const overtimeResult = calculateOvertime(
+            checkinAt,
+            checkoutAt,
+            {
+              startTime: planData.start_time,
+              endTime: planData.end_time,
+              availableDays: planData.available_days,
+            }
+          )
+
+          isOvertime = overtimeResult.isOvertime
+          overtimeMinutes = overtimeResult.overtimeMinutes
+          overtimeFee = overtimeResult.overtimeFee
+        }
+      }
+
       // チェックアウト情報を更新
       const { error: updateError } = await supabase
         .from('checkins')
         .update({
           checkout_at: checkoutAt.toISOString(),
           duration_minutes: durationMinutes,
+          is_overtime: isOvertime,
+          overtime_minutes: isOvertime ? overtimeMinutes : null,
+          overtime_fee: isOvertime ? overtimeFee : 0,
         })
         .eq('id', checkinId)
 
