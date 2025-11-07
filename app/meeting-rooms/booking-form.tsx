@@ -565,7 +565,7 @@ export function BookingForm({
           }),
         })
 
-        console.log('Payment response status:', paymentResponse.status, paymentResponse.statusText)
+        // Payment response handling
 
         if (!paymentResponse.ok) {
           const errorData = await paymentResponse.json()

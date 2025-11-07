@@ -64,12 +64,8 @@ export function BookingList({ bookings, userId }: BookingListProps) {
 
   const handleCancel = async (bookingId: string, googleCalendarEventId: string | null) => {
     try {
-      console.log('Cancelling booking:', bookingId)
-      console.log('Current user from props:', userId)
-      
       // 現在のユーザーIDを取得
       const { data: { user } } = await supabase.auth.getUser()
-      console.log('Auth user ID:', user?.id)
       
       // まず予約をキャンセル状態に更新
       // RLSポリシーでアクセス権限をチェックするため、user_idの条件は不要
@@ -85,8 +81,6 @@ export function BookingList({ bookings, userId }: BookingListProps) {
         alert(`キャンセルに失敗しました: ${error.message}`)
         throw new Error(error.message)
       }
-
-      console.log('Cancel success for booking:', bookingId)
 
       // GoogleカレンダーのイベントIDがある場合は削除
       // google_calendar_event_idカラムが存在しない場合があるため、propsから渡された値を使用
@@ -181,14 +175,6 @@ export function BookingList({ bookings, userId }: BookingListProps) {
         const bookingDate = new Date(booking.booking_date)
         const isPast = bookingDate < new Date() && booking.status !== 'completed' && booking.status !== 'cancelled'
         const canCancel = booking.status === 'reserved' || booking.status === 'confirmed'
-        
-        console.log('Booking render:', {
-          id: booking.id,
-          status: booking.status,
-          canCancel,
-          bookingDate: booking.booking_date,
-          isPast
-        })
 
         return (
           <div
@@ -253,9 +239,6 @@ export function BookingList({ bookings, userId }: BookingListProps) {
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      console.log('Cancel button clicked for booking:', booking.id)
-                      console.log('Booking status:', booking.status)
-                      console.log('Can cancel:', canCancel)
                       handleCancelClick(booking.id, booking.google_calendar_event_id)
                     }}
                     disabled={cancelling === booking.id || showConfirmDialog === booking.id}

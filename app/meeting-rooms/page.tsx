@@ -161,12 +161,7 @@ export default async function MeetingRoomsPage() {
     console.error('Booking fetch error:', bookingsError)
   }
   
-  console.log('Bookings count:', userBookings?.length || 0)
-  console.log('User ID:', user.id)
-  if (userData?.is_staff === true) {
-    console.log('Staff Member ID:', staffMemberId)
-  }
-  
+  // 💡 本番環境ではデバッグログを削減
   // google_calendar_event_idも含めて取得（必要に応じて）
   const bookingsWithCalendarId = userBookings?.map((booking: any) => ({
     ...booking,
