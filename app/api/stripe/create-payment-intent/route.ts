@@ -38,8 +38,6 @@ export async function POST(request: NextRequest) {
       firstMonthFee,
       optionPrice,
       totalPrice,
-      useSavedPaymentMethod = false,
-      paymentMethodId,
     } = body
 
     // プラン情報を取得
@@ -104,6 +102,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 登録済みのPayment Methodを使用する場合
+    const useSavedPaymentMethod = Boolean(body.useSavedPaymentMethod)
+    const paymentMethodId = body.paymentMethodId as string | undefined
+
     if (useSavedPaymentMethod && paymentMethodId) {
       // Payment Intentを作成して即座に決済を確認
       const paymentIntent = await stripe.paymentIntents.create({
