@@ -554,7 +554,7 @@ function CheckoutPageContent() {
       const completeData = await completeResponse.json()
 
       if (completeResponse.ok && completeData.success) {
-        router.push('/plans/contract-complete')
+        router.push('/plans/success')
       } else {
         setError(completeData.error || '契約の完了に失敗しました')
         setLoading(false)
