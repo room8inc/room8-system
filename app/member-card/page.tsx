@@ -7,8 +7,7 @@ import { getCached, cacheKey } from '@/lib/cache/vercel-kv'
 import { PlanChangeButton } from './plan-change-button'
 import { CancellationButton } from './cancellation-button'
 
-// 💡 キャッシュ最適化: 300秒（5分）ごとに再検証（変更頻度が低いため）
-export const revalidate = 300
+export const dynamic = 'force-dynamic'
 
 export default async function MemberCardPage() {
   const supabase = await createClient()
