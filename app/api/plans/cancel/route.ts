@@ -56,23 +56,58 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 即時解約か将来解約かを判定
+    const cancellationDateObj = new Date(cancellationDate)
+    cancellationDateObj.setHours(0, 0, 0, 0)
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+    const isImmediateCancellation = cancellationDateObj.getTime() <= now.getTime()
+
     // 解約予定日を設定
     // 解約料金がある場合は、支払い済みフラグをfalseに設定
-    const { error: updateError } = await supabase
-      .from('user_plans')
-      .update({
-        cancellation_scheduled_date: cancellationDate,
-        cancellation_fee: cancellationFee || 0,
-        cancellation_fee_paid: cancellationFee === 0 || !cancellationFee,
-      })
-      .eq('id', userPlanId)
+    if (isImmediateCancellation) {
+      const todayStr = now.toISOString().split('T')[0]
+      const { error: immediateUpdateError } = await supabase
+        .from('user_plans')
+        .update({
+          status: 'cancelled',
+          ended_at: todayStr,
+          cancellation_scheduled_date: cancellationDate,
+          cancellation_fee: cancellationFee || 0,
+          cancellation_fee_paid: cancellationFee === 0 || !cancellationFee,
+        })
+        .eq('id', userPlanId)
 
-    if (updateError) {
-      console.error('Cancellation update error:', updateError)
-      return NextResponse.json(
-        { error: '退会申請の更新に失敗しました' },
-        { status: 500 }
-      )
+      if (immediateUpdateError) {
+        console.error('Immediate cancellation update error:', immediateUpdateError)
+        return NextResponse.json(
+          { error: '退会情報の更新に失敗しました' },
+          { status: 500 }
+        )
+      }
+
+      // ユーザーの会員区分をドロップインに戻す
+      await supabase
+        .from('users')
+        .update({ member_type: 'dropin' })
+        .eq('id', user.id)
+    } else {
+      const { error: updateError } = await supabase
+        .from('user_plans')
+        .update({
+          cancellation_scheduled_date: cancellationDate,
+          cancellation_fee: cancellationFee || 0,
+          cancellation_fee_paid: cancellationFee === 0 || !cancellationFee,
+        })
+        .eq('id', userPlanId)
+
+      if (updateError) {
+        console.error('Cancellation update error:', updateError)
+        return NextResponse.json(
+          { error: '退会申請の更新に失敗しました' },
+          { status: 500 }
+        )
+      }
     }
 
     // Stripeサブスクリプションを更新
@@ -80,11 +115,8 @@ export async function POST(request: NextRequest) {
       try {
         const stripe = getStripeClient()
         const subscriptionId = currentPlan.stripe_subscription_id
-        const cancellationDateObj = new Date(cancellationDate)
-        cancellationDateObj.setHours(0, 0, 0, 0)
-        const now = new Date()
 
-        if (cancellationDateObj <= now) {
+        if (isImmediateCancellation) {
           // 即時解約
           await stripe.subscriptions.cancel(subscriptionId, {
             invoice_now: false,
