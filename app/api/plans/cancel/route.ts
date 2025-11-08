@@ -133,10 +133,16 @@ export async function POST(request: NextRequest) {
         }
       } catch (stripeError: any) {
         console.error('Stripe subscription cancel error:', stripeError)
-        return NextResponse.json(
-          { error: 'Stripeサブスクリプションの解約に失敗しました' },
-          { status: 500 }
-        )
+        // サブスクリプションが既にキャンセル済み／存在しないなどの場合はエラーにせず進める
+        // Stripeエラーコード参考: https://stripe.com/docs/error-codes
+        if (stripeError?.code === 'resource_missing' || stripeError?.message?.includes('No such subscription')) {
+          console.warn(`Subscription ${subscriptionId} is already canceled or missing. Continuing.`)
+        } else {
+          return NextResponse.json(
+            { error: 'Stripeサブスクリプションの解約に失敗しました' },
+            { status: 500 }
+          )
+        }
       }
     }
 
