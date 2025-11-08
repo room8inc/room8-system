@@ -85,7 +85,7 @@ export default async function DashboardPage() {
       async () => {
         const { data } = await supabase
           .from('user_plans')
-          .select('started_at, plans(id, name, start_time, end_time, available_days)')
+          .select('started_at, plan_id, plans:plan_id(id, name, start_time, end_time, available_days)')
           .eq('user_id', user.id)
           .eq('status', 'active')
           .is('ended_at', null)

@@ -42,7 +42,7 @@ export default async function MemberCardPage() {
       async () => {
         const { data } = await supabase
           .from('user_plans')
-          .select('id, started_at, contract_term, payment_method, plans(name, price)')
+          .select('id, started_at, contract_term, payment_method, plan_id, plans:plan_id(name, price)')
           .eq('user_id', user.id)
           .eq('status', 'active')
           .is('ended_at', null)

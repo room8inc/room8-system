@@ -81,7 +81,7 @@ export default async function MeetingRoomsPage() {
         async () => {
           const { data } = await supabase
             .from('user_plans')
-            .select('id, plans(id, name, features)')
+            .select('id, plan_id, plans:plan_id(id, name, features)')
             .eq('user_id', billingUserId)
             .eq('status', 'active')
             .is('ended_at', null)
@@ -104,7 +104,7 @@ export default async function MeetingRoomsPage() {
       async () => {
         const { data } = await supabase
           .from('user_plans')
-          .select('id, plans(id, name, features)')
+          .select('id, plan_id, plans:plan_id(id, name, features)')
           .eq('user_id', user.id)
           .eq('status', 'active')
           .is('ended_at', null)
