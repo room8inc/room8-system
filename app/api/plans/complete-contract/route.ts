@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { cache, cacheKey } from '@/lib/cache/vercel-kv'
 import Stripe from 'stripe'
 
 export const runtime = 'nodejs'
@@ -389,6 +390,13 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    // キャッシュをクリア（会員情報が更新されたため）
+    await Promise.all([
+      cache.delete(cacheKey('user_plan', user.id)),
+      cache.delete(cacheKey('user_full', user.id)),
+      cache.delete(cacheKey('user', user.id)),
+    ])
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
