@@ -38,6 +38,8 @@ export async function POST(request: NextRequest) {
       firstMonthFee,
       optionPrice,
       totalPrice,
+      useSavedPaymentMethod = false,
+      paymentMethodId,
     } = body
 
     // プラン情報を取得
