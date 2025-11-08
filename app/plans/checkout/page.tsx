@@ -26,6 +26,9 @@ function CheckoutForm({
   firstMonthFee,
   optionPrice,
   totalPrice,
+  hasPaymentMethod,
+  paymentMethodInfo,
+  onPaymentWithSavedCard,
 }: {
   planId: string
   planName: string
@@ -38,6 +41,9 @@ function CheckoutForm({
   firstMonthFee: number
   optionPrice: number
   totalPrice: number
+  hasPaymentMethod: boolean | null
+  paymentMethodInfo: any
+  onPaymentWithSavedCard: () => void
 }) {
   const stripe = useStripe()
   const elements = useElements()
