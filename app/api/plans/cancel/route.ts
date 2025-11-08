@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import Stripe from 'stripe'
+
+function getStripeClient(): Stripe {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY_TEST
+  if (!stripeSecretKey) {
+    throw new Error('STRIPE_SECRET_KEY_TEST環境変数が設定されていません')
+  }
+  return new Stripe(stripeSecretKey, {
+    apiVersion: '2025-10-29.clover',
+  })
+}
 
 /**
  * 退会申請API
@@ -31,7 +42,7 @@ export async function POST(request: NextRequest) {
     // 現在のプランを確認
     const { data: currentPlan, error: planError } = await supabase
       .from('user_plans')
-      .select('id, user_id, status')
+      .select('id, user_id, status, stripe_subscription_id')
       .eq('id', userPlanId)
       .eq('user_id', user.id)
       .eq('status', 'active')
@@ -62,6 +73,39 @@ export async function POST(request: NextRequest) {
         { error: '退会申請の更新に失敗しました' },
         { status: 500 }
       )
+    }
+
+    // Stripeサブスクリプションを更新
+    if (currentPlan.stripe_subscription_id) {
+      try {
+        const stripe = getStripeClient()
+        const subscriptionId = currentPlan.stripe_subscription_id
+        const cancellationDateObj = new Date(cancellationDate)
+        cancellationDateObj.setHours(0, 0, 0, 0)
+        const now = new Date()
+
+        if (cancellationDateObj <= now) {
+          // 即時解約
+          await stripe.subscriptions.cancel(subscriptionId, {
+            invoice_now: false,
+            prorate: false,
+          })
+        } else {
+          // 指定日に解約
+          const cancelAt = Math.floor(cancellationDateObj.getTime() / 1000)
+          await stripe.subscriptions.update(subscriptionId, {
+            cancel_at: cancelAt,
+            cancel_at_period_end: false,
+            proration_behavior: 'none',
+          })
+        }
+      } catch (stripeError: any) {
+        console.error('Stripe subscription cancel error:', stripeError)
+        return NextResponse.json(
+          { error: 'Stripeサブスクリプションの解約に失敗しました' },
+          { status: 500 }
+        )
+      }
     }
 
     return NextResponse.json({
