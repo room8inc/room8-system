@@ -116,20 +116,41 @@ export async function POST(request: NextRequest) {
         const stripe = getStripeClient()
         const subscriptionId = currentPlan.stripe_subscription_id
 
-        if (isImmediateCancellation) {
-          // 即時解約
-          await stripe.subscriptions.cancel(subscriptionId, {
-            invoice_now: false,
-            prorate: false,
-          })
-        } else {
-          // 指定日に解約
-          const cancelAt = Math.floor(cancellationDateObj.getTime() / 1000)
-          await stripe.subscriptions.update(subscriptionId, {
-            cancel_at: cancelAt,
-            cancel_at_period_end: false,
-            proration_behavior: 'none',
-          })
+        let subscription
+        try {
+          subscription = await stripe.subscriptions.retrieve(subscriptionId)
+        } catch (retrieveError: any) {
+          if (retrieveError?.code === 'resource_missing' || retrieveError?.message?.includes('No such subscription')) {
+            console.warn(
+              `Subscription ${subscriptionId} is already canceled or missing when retrieving. Continuing.`
+            )
+          } else {
+            throw retrieveError
+          }
+        }
+
+        if (subscription) {
+          if (subscription.status === 'canceled') {
+            console.warn(`Subscription ${subscriptionId} is already canceled. Skipping Stripe cancellation.`)
+          } else if (isImmediateCancellation) {
+            // 即時解約
+            await stripe.subscriptions.cancel(subscriptionId, {
+              invoice_now: false,
+              prorate: false,
+            })
+          } else {
+            const cancelAt = Math.floor(cancellationDateObj.getTime() / 1000)
+            // すでに同じ日時でスケジュールされている場合は更新不要
+            if (subscription.cancel_at && subscription.cancel_at === cancelAt) {
+              console.warn(`Subscription ${subscriptionId} is already scheduled to cancel at ${cancelAt}.`)
+            } else {
+              await stripe.subscriptions.update(subscriptionId, {
+                cancel_at: cancelAt,
+                cancel_at_period_end: false,
+                proration_behavior: 'none',
+              })
+            }
+          }
         }
       } catch (stripeError: any) {
         console.error('Stripe subscription cancel error:', stripeError)
