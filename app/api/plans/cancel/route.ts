@@ -136,7 +136,9 @@ export async function POST(request: NextRequest) {
         // サブスクリプションが既にキャンセル済み／存在しないなどの場合はエラーにせず進める
         // Stripeエラーコード参考: https://stripe.com/docs/error-codes
         if (stripeError?.code === 'resource_missing' || stripeError?.message?.includes('No such subscription')) {
-          console.warn(`Subscription ${subscriptionId} is already canceled or missing. Continuing.`)
+          console.warn(
+            `Subscription ${currentPlan.stripe_subscription_id} is already canceled or missing. Continuing.`
+          )
         } else {
           return NextResponse.json(
             { error: 'Stripeサブスクリプションの解約に失敗しました' },
