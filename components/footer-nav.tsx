@@ -19,12 +19,16 @@ export default function FooterNav() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data: currentCheckin } = await supabase
+      const { data: currentCheckin, error } = await supabase
         .from('checkins')
         .select('*')
         .eq('user_id', user.id)
         .is('checkout_at', null)
-        .single()
+        .maybeSingle()
+
+      if (error) {
+        console.error('FooterNav: 現在のチェックイン取得に失敗しました', error)
+      }
 
       // チェックイン中ならチェックアウトモード、そうでなければチェックインモード
       setCheckinMode(currentCheckin ? 'checkout' : 'checkin')
@@ -45,12 +49,16 @@ export default function FooterNav() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data: currentCheckin } = await supabase
+      const { data: currentCheckin, error } = await supabase
         .from('checkins')
         .select('*')
         .eq('user_id', user.id)
         .is('checkout_at', null)
-        .single()
+        .maybeSingle()
+
+      if (error) {
+        console.error('FooterNav: 現在のチェックイン取得に失敗しました (再取得)', error)
+      }
 
       setCheckinMode(currentCheckin ? 'checkout' : 'checkin')
     }, 500)

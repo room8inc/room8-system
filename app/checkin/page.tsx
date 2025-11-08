@@ -106,7 +106,9 @@ export default function CheckInPage() {
       .select('*')
       .eq('user_id', user.id)
       .is('checkout_at', null)
-      .single()
+      .order('checkin_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
     if (checkinError && checkinError.code !== 'PGRST116') {
       // PGRST116は「結果が見つからない」エラー（チェックインしていない状態）

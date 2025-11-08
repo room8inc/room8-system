@@ -3,12 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 
 function getStripeClient(): Stripe {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY_TEST
+  const stripeSecretKey =
+    process.env.STRIPE_SECRET_KEY ??
+    process.env.STRIPE_SECRET_KEY_TEST
   if (!stripeSecretKey) {
-    throw new Error('STRIPE_SECRET_KEY_TEST環境変数が設定されていません')
+    throw new Error('Stripeのシークレットキーが設定されていません')
   }
   return new Stripe(stripeSecretKey, {
-    apiVersion: '2025-10-29.clover',
+    apiVersion: '2023-10-16',
   })
 }
 
@@ -31,6 +33,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { userPlanId, cancellationDate, cancellationFee } = body
+
+    let effectiveCancellationDate = cancellationDate
 
     if (!userPlanId || !cancellationDate) {
       return NextResponse.json(
@@ -91,6 +95,8 @@ export async function POST(request: NextRequest) {
         .from('users')
         .update({ member_type: 'dropin' })
         .eq('id', user.id)
+
+      effectiveCancellationDate = todayStr
     } else {
       const { error: updateError } = await supabase
         .from('user_plans')
@@ -139,16 +145,31 @@ export async function POST(request: NextRequest) {
               prorate: false,
             })
           } else {
-            const cancelAt = Math.floor(cancellationDateObj.getTime() / 1000)
+            const requestedCancelAt = Math.floor(cancellationDateObj.getTime() / 1000)
+            const currentPeriodEnd = subscription.current_period_end || requestedCancelAt
+            const normalizedCancelAt = Math.max(requestedCancelAt, currentPeriodEnd)
+
             // すでに同じ日時でスケジュールされている場合は更新不要
-            if (subscription.cancel_at && subscription.cancel_at === cancelAt) {
-              console.warn(`Subscription ${subscriptionId} is already scheduled to cancel at ${cancelAt}.`)
+            if (subscription.cancel_at && subscription.cancel_at === normalizedCancelAt) {
+              console.warn(`Subscription ${subscriptionId} is already scheduled to cancel at ${normalizedCancelAt}.`)
+            } else if (subscription.cancel_at_period_end && normalizedCancelAt === currentPeriodEnd) {
+              console.warn(`Subscription ${subscriptionId} is already set to cancel at period end ${currentPeriodEnd}.`)
             } else {
               await stripe.subscriptions.update(subscriptionId, {
-                cancel_at: cancelAt,
-                cancel_at_period_end: false,
+                cancel_at: normalizedCancelAt,
                 proration_behavior: 'none',
               })
+            }
+
+            const actualCancellationDate = new Date(normalizedCancelAt * 1000).toISOString().split('T')[0]
+            if (actualCancellationDate !== cancellationDate) {
+              await supabase
+                .from('user_plans')
+                .update({
+                  cancellation_scheduled_date: actualCancellationDate,
+                })
+                .eq('id', userPlanId)
+              effectiveCancellationDate = actualCancellationDate
             }
           }
         }
@@ -172,7 +193,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: '退会申請が完了しました',
-      cancellationDate,
+      cancellationDate: effectiveCancellationDate,
       cancellationFee: cancellationFee || 0,
     })
   } catch (error: any) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { calculateCancellationFee } from '@/lib/utils/cancellation-fee'
 
@@ -29,16 +29,16 @@ export function CancellationButton({
 
   // 今日の日付を取得
   const today = new Date()
-  const todayStr = today.toISOString().split('T')[0]
-
   // 翌月1日を計算（デフォルト値）
   const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1)
   const nextMonthStr = nextMonth.toISOString().split('T')[0]
 
   // 初期値を設定
-  if (!cancellationDate) {
-    setCancellationDate(nextMonthStr)
-  }
+  useEffect(() => {
+    if (!cancellationDate) {
+      setCancellationDate(nextMonthStr)
+    }
+  }, [cancellationDate, nextMonthStr])
 
   // 解約料金を計算
   const feeResult = calculateCancellationFee({
