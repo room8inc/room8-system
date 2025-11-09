@@ -155,6 +155,16 @@ export async function POST(request: NextRequest) {
             } else if (subscription.cancel_at_period_end && normalizedCancelAt === currentPeriodEnd) {
               console.warn(`Subscription ${subscriptionId} is already set to cancel at period end ${currentPeriodEnd}.`)
             } else {
+              if (subscription.cancel_at_period_end) {
+                console.warn(
+                  `Subscription ${subscriptionId} has cancel_at_period_end=true. Resetting before scheduling cancel_at ${normalizedCancelAt}.`
+                )
+                await stripe.subscriptions.update(subscriptionId, {
+                  cancel_at_period_end: false,
+                })
+                subscription.cancel_at_period_end = false
+              }
+
               await stripe.subscriptions.update(subscriptionId, {
                 cancel_at: normalizedCancelAt,
                 proration_behavior: 'none',
