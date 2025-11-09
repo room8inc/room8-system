@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 
+type StripeSubscriptionWithPeriod = Stripe.Subscription & {
+  current_period_end?: number | null
+}
+
 function getStripeClient(): Stripe {
   const stripeSecretKey =
     process.env.STRIPE_SECRET_KEY ??
@@ -12,12 +16,6 @@ function getStripeClient(): Stripe {
   return new Stripe(stripeSecretKey, {
     apiVersion: '2023-10-16' as Stripe.LatestApiVersion,
   })
-}
-
-function isActiveStripeSubscription(
-  subscription: Stripe.Subscription | Stripe.DeletedSubscription | null
-): subscription is Stripe.Subscription {
-  return Boolean(subscription) && !('deleted' in subscription)
 }
 
 /**
@@ -128,10 +126,10 @@ export async function POST(request: NextRequest) {
         const stripe = getStripeClient()
         const subscriptionId = currentPlan.stripe_subscription_id
 
-        let subscription: Stripe.Subscription | Stripe.DeletedSubscription | null = null
+        let subscription: StripeSubscriptionWithPeriod | null = null
         try {
           const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId)
-          subscription = subscriptionResponse as Stripe.Subscription
+          subscription = subscriptionResponse as StripeSubscriptionWithPeriod
         } catch (retrieveError: any) {
           if (retrieveError?.code === 'resource_missing' || retrieveError?.message?.includes('No such subscription')) {
             console.warn(
@@ -142,7 +140,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        if (isActiveStripeSubscription(subscription)) {
+        if (subscription) {
           if (subscription.status === 'canceled') {
             console.warn(`Subscription ${subscriptionId} is already canceled. Skipping Stripe cancellation.`)
           } else if (isImmediateCancellation) {
@@ -207,8 +205,6 @@ export async function POST(request: NextRequest) {
               effectiveCancellationDate = actualCancellationDate
             }
           }
-        } else if (subscription) {
-          console.warn(`Subscription ${subscriptionId} is marked as deleted. Skipping Stripe cancellation.`)
         }
       } catch (stripeError: any) {
         console.error('Stripe subscription cancel error:', {
