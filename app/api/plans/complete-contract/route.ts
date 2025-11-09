@@ -304,7 +304,6 @@ export async function POST(request: NextRequest) {
                 price: priceId,
               },
             ],
-            billing_cycle_anchor: subscriptionStartDate,
             trial_end: subscriptionStartDate,
             proration_behavior: 'none', // 初回支払い時の比例計算を無効化
             metadata: {
