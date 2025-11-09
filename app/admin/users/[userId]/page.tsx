@@ -5,6 +5,7 @@ import { isAdmin } from '@/lib/utils/admin'
 import { formatJapaneseName } from '@/lib/utils/name'
 import { UserPlanManagement } from './user-plan-management'
 import { DeleteUserButton } from './delete-user-button'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export default async function UserDetailPage({
   params,
@@ -30,8 +31,22 @@ export default async function UserDetailPage({
   // paramsを解決
   const { userId } = await params
 
+  const supabaseAdminUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAdminKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseAdminUrl || !supabaseAdminKey) {
+    throw new Error('Supabase管理者クライアントの環境変数が設定されていません')
+  }
+
+  const adminClient = createAdminClient(supabaseAdminUrl, supabaseAdminKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
+
   // ユーザー情報を取得
-  const { data: userData, error: userError } = await supabase
+  const { data: userData, error: userError } = await adminClient
     .from('users')
     .select('*')
     .eq('id', userId)
@@ -42,7 +57,7 @@ export default async function UserDetailPage({
   }
 
   // プラン契約情報を取得
-  const { data: userPlans } = await supabase
+  const { data: userPlans } = await adminClient
     .from('user_plans')
     .select('*, plans(*)')
     .eq('user_id', userId)
@@ -62,7 +77,7 @@ export default async function UserDetailPage({
   const planHistory = userPlans || []
 
   // プラン一覧を取得（プラン変更用）
-  const { data: plans } = await supabase
+  const { data: plans } = await adminClient
     .from('plans')
     .select('*')
     .eq('is_active', true)
