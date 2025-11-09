@@ -112,6 +112,8 @@ export async function POST(request: NextRequest) {
       const { error: updateError } = await supabase
         .from('user_plans')
         .update({
+          status: 'cancelled',
+          ended_at: cancellationDate,
           cancellation_scheduled_date: cancellationDate,
           cancellation_fee: cancellationFee || 0,
           cancellation_fee_paid: cancellationFee === 0 || !cancellationFee,
@@ -126,7 +128,19 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      await cache.delete(cacheKey('user_plan', user.id))
+      await Promise.all([
+        cache.delete(cacheKey('user_plan', user.id)),
+        cache.delete(cacheKey('user_full', user.id)),
+      ])
+
+      const { error: memberTypeUpdateError } = await supabase
+        .from('users')
+        .update({ member_type: 'dropin' })
+        .eq('id', user.id)
+
+      if (memberTypeUpdateError) {
+        console.error('User member_type update error (scheduled cancellation):', memberTypeUpdateError)
+      }
     }
 
     // Stripeサブスクリプションを更新
