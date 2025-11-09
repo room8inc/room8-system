@@ -14,6 +14,12 @@ function getStripeClient(): Stripe {
   })
 }
 
+function isActiveStripeSubscription(
+  subscription: Stripe.Subscription | Stripe.DeletedSubscription | null
+): subscription is Stripe.Subscription {
+  return Boolean(subscription) && !('deleted' in subscription)
+}
+
 /**
  * 退会申請API
  * 
@@ -122,7 +128,7 @@ export async function POST(request: NextRequest) {
         const stripe = getStripeClient()
         const subscriptionId = currentPlan.stripe_subscription_id
 
-        let subscription: Stripe.Subscription | null = null
+        let subscription: Stripe.Subscription | Stripe.DeletedSubscription | null = null
         try {
           const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId)
           subscription = subscriptionResponse as Stripe.Subscription
@@ -136,10 +142,8 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        if (subscription) {
-          if ('deleted' in subscription && subscription.deleted) {
-            console.warn(`Subscription ${subscriptionId} is marked as deleted. Skipping Stripe cancellation.`)
-          } else if (subscription.status === 'canceled') {
+        if (isActiveStripeSubscription(subscription)) {
+          if (subscription.status === 'canceled') {
             console.warn(`Subscription ${subscriptionId} is already canceled. Skipping Stripe cancellation.`)
           } else if (isImmediateCancellation) {
             // 即時解約
@@ -203,6 +207,8 @@ export async function POST(request: NextRequest) {
               effectiveCancellationDate = actualCancellationDate
             }
           }
+        } else if (subscription) {
+          console.warn(`Subscription ${subscriptionId} is marked as deleted. Skipping Stripe cancellation.`)
         }
       } catch (stripeError: any) {
         console.error('Stripe subscription cancel error:', {
