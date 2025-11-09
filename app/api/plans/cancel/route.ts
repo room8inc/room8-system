@@ -137,7 +137,9 @@ export async function POST(request: NextRequest) {
         }
 
         if (subscription) {
-          if (subscription.status === 'canceled') {
+          if ('deleted' in subscription && subscription.deleted) {
+            console.warn(`Subscription ${subscriptionId} is marked as deleted. Skipping Stripe cancellation.`)
+          } else if (subscription.status === 'canceled') {
             console.warn(`Subscription ${subscriptionId} is already canceled. Skipping Stripe cancellation.`)
           } else if (isImmediateCancellation) {
             // 即時解約
@@ -147,7 +149,8 @@ export async function POST(request: NextRequest) {
             })
           } else {
             const requestedCancelAt = Math.floor(cancellationDateObj.getTime() / 1000)
-            const currentPeriodEnd = subscription.current_period_end || requestedCancelAt
+            const currentPeriodEnd =
+              subscription.current_period_end != null ? subscription.current_period_end : requestedCancelAt
             const normalizedCancelAt = Math.max(requestedCancelAt, currentPeriodEnd)
 
             console.info(
