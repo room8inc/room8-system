@@ -7,6 +7,8 @@ import { UserPlanManagement } from './user-plan-management'
 import { DeleteUserButton } from './delete-user-button'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 
+export const dynamic = 'force-dynamic'
+
 export default async function UserDetailPage({
   params,
 }: {
