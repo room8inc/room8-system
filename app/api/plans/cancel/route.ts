@@ -122,9 +122,10 @@ export async function POST(request: NextRequest) {
         const stripe = getStripeClient()
         const subscriptionId = currentPlan.stripe_subscription_id
 
-        let subscription
+        let subscription: Stripe.Subscription | null = null
         try {
-          subscription = await stripe.subscriptions.retrieve(subscriptionId)
+          const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId)
+          subscription = subscriptionResponse as Stripe.Subscription
         } catch (retrieveError: any) {
           if (retrieveError?.code === 'resource_missing' || retrieveError?.message?.includes('No such subscription')) {
             console.warn(
