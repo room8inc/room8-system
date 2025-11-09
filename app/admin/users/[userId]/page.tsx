@@ -108,9 +108,11 @@ export default async function UserDetailPage({
             <div>
               <p className="text-xs text-room-charcoal-light">会員種別</p>
               <p className="text-sm font-medium text-room-charcoal mt-1">
-                {currentPlan || userData.member_type === 'regular'
-                  ? 'Room8会員'
-                  : 'ドロップイン（非会員）'}
+            {currentPlan
+              ? 'Room8会員'
+              : userData.member_type === 'regular'
+              ? 'Room8会員（契約なし）'
+              : 'ドロップイン（非会員）'}
               </p>
             </div>
             <div>
