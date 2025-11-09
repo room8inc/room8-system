@@ -10,7 +10,7 @@ function getStripeClient(): Stripe {
     throw new Error('Stripeのシークレットキーが設定されていません')
   }
   return new Stripe(stripeSecretKey, {
-    apiVersion: '2023-10-16',
+    apiVersion: '2023-10-16' as Stripe.LatestApiVersion,
   })
 }
 
@@ -149,6 +149,23 @@ export async function POST(request: NextRequest) {
             const currentPeriodEnd = subscription.current_period_end || requestedCancelAt
             const normalizedCancelAt = Math.max(requestedCancelAt, currentPeriodEnd)
 
+            console.info(
+              'Stripe cancellation scheduling info:',
+              JSON.stringify(
+                {
+                  subscriptionId,
+                  subscriptionStatus: subscription.status,
+                  subscriptionCancelAt: subscription.cancel_at,
+                  subscriptionCancelAtPeriodEnd: subscription.cancel_at_period_end,
+                  requestedCancelAt,
+                  currentPeriodEnd,
+                  normalizedCancelAt,
+                },
+                null,
+                2
+              )
+            )
+
             // すでに同じ日時でスケジュールされている場合は更新不要
             if (subscription.cancel_at && subscription.cancel_at === normalizedCancelAt) {
               console.warn(`Subscription ${subscriptionId} is already scheduled to cancel at ${normalizedCancelAt}.`)
@@ -184,7 +201,14 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (stripeError: any) {
-        console.error('Stripe subscription cancel error:', stripeError)
+        console.error('Stripe subscription cancel error:', {
+          message: stripeError?.message,
+          code: stripeError?.code,
+          type: stripeError?.type,
+          docUrl: stripeError?.doc_url,
+          requestId: stripeError?.requestId || stripeError?.raw?.requestId,
+          raw: stripeError?.raw,
+        })
         // サブスクリプションが既にキャンセル済み／存在しないなどの場合はエラーにせず進める
         // Stripeエラーコード参考: https://stripe.com/docs/error-codes
         if (stripeError?.code === 'resource_missing' || stripeError?.message?.includes('No such subscription')) {
@@ -193,7 +217,11 @@ export async function POST(request: NextRequest) {
           )
         } else {
           return NextResponse.json(
-            { error: 'Stripeサブスクリプションの解約に失敗しました' },
+            {
+              error: 'Stripeサブスクリプションの解約に失敗しました',
+              details: stripeError?.message,
+              code: stripeError?.code,
+            },
             { status: 500 }
           )
         }
