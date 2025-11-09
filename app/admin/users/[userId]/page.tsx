@@ -41,22 +41,25 @@ export default async function UserDetailPage({
     notFound()
   }
 
-  // 現在のプラン契約を取得
-  const { data: currentPlan } = await supabase
-    .from('user_plans')
-    .select('*, plans(*)')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .is('ended_at', null)
-    .single()
-
-  // プラン契約履歴を取得
-  const { data: planHistory } = await supabase
+  // プラン契約情報を取得
+  const { data: userPlans } = await supabase
     .from('user_plans')
     .select('*, plans(*)')
     .eq('user_id', userId)
     .order('started_at', { ascending: false })
-    .limit(10)
+
+  const today = new Date().toISOString().split('T')[0]
+  const activePlan = userPlans?.find((plan) => plan.status === 'active' && plan.ended_at === null)
+  const scheduledCancellationPlan = userPlans?.find(
+    (plan) =>
+      plan.status === 'cancelled' &&
+      plan.ended_at === null &&
+      plan.cancellation_scheduled_date &&
+      plan.cancellation_scheduled_date >= today
+  )
+
+  const currentPlan = activePlan || scheduledCancellationPlan || null
+  const planHistory = userPlans || []
 
   // プラン一覧を取得（プラン変更用）
   const { data: plans } = await supabase
