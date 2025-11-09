@@ -130,6 +130,15 @@ export async function POST(request: NextRequest) {
         cache.delete(cacheKey('user_plan', user.id)),
         cache.delete(cacheKey('user_full', user.id)),
       ])
+
+      const { error: memberTypeUpdateError } = await supabase
+        .from('users')
+        .update({ member_type: 'dropin' })
+        .eq('id', user.id)
+
+      if (memberTypeUpdateError) {
+        console.error('User member_type update error (scheduled cancellation):', memberTypeUpdateError)
+      }
     }
 
     // Stripeサブスクリプションを更新
