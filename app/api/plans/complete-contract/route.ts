@@ -305,8 +305,7 @@ export async function POST(request: NextRequest) {
               },
             ],
             billing_cycle_anchor: subscriptionStartDate,
-            // trial_endは削除（初回支払いは既に完了しているため、トライアルは不要）
-            // billing_cycle_anchorのみで次回請求日を設定
+            trial_end: subscriptionStartDate,
             proration_behavior: 'none', // 初回支払い時の比例計算を無効化
             metadata: {
               user_id: user.id,
@@ -386,6 +385,7 @@ export async function POST(request: NextRequest) {
                 price: priceId,
               })),
             ],
+            proration_behavior: 'none',
           })
         }
       }
