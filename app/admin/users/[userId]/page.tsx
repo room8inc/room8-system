@@ -34,22 +34,8 @@ export default async function UserDetailPage({
   // paramsを解決
   const { userId } = await params
 
-  const supabaseAdminUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAdminKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!supabaseAdminUrl || !supabaseAdminKey) {
-    throw new Error('Supabase管理者クライアントの環境変数が設定されていません')
-  }
-
-  const adminClient = createAdminClient(supabaseAdminUrl, supabaseAdminKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  })
-
   // ユーザー情報を取得
-  const { data: userData, error: userError } = await adminClient
+  const { data: userData, error: userError } = await supabase
     .from('users')
     .select('*')
     .eq('id', userId)
@@ -60,10 +46,7 @@ export default async function UserDetailPage({
   }
 
   // プラン契約情報を取得
-  const {
-    data: userPlans,
-    error: userPlansError,
-  } = await adminClient
+  const { data: userPlans, error: userPlansError } = await supabase
     .from('user_plans')
     .select('*, plans(*)')
     .eq('user_id', userId)
