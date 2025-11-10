@@ -106,12 +106,15 @@ export async function POST(request: NextRequest) {
 
       await Promise.all([
         cache.delete(cacheKey('user_plan', user.id)),
+        cache.delete(cacheKey('user_plans_full', user.id)),
         cache.delete(cacheKey('user_full', user.id)),
       ])
     } else {
       const { error: updateError } = await supabase
         .from('user_plans')
         .update({
+          status: 'cancelled',
+          ended_at: cancellationDate,
           cancellation_scheduled_date: cancellationDate,
           cancellation_fee: cancellationFee || 0,
           cancellation_fee_paid: cancellationFee === 0 || !cancellationFee,
@@ -128,6 +131,7 @@ export async function POST(request: NextRequest) {
 
       await Promise.all([
         cache.delete(cacheKey('user_plan', user.id)),
+        cache.delete(cacheKey('user_plans_full', user.id)),
         cache.delete(cacheKey('user_full', user.id)),
       ])
 

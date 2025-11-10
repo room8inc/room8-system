@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { isAdmin } from '@/lib/utils/admin'
 import { formatJapaneseName } from '@/lib/utils/name'
 import { UserPlanManagement } from './user-plan-management'
-import { normalizeUserPlans } from '../plan-utils'
+import { normalizeUserPlans } from '@/lib/utils/user-plans'
 import { DeleteUserButton } from './delete-user-button'
 
 export const dynamic = 'force-dynamic'

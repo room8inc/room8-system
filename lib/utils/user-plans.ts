@@ -39,6 +39,11 @@ const normalizePlanRecord = (plan: PlanRecord): NormalizedPlanRecord => {
 export function normalizeUserPlans(userPlans: any, todayStr?: string) {
   const today = todayStr ?? new Date().toISOString().split('T')[0]
 
+  const isFutureOrToday = (date: string | null | undefined) => {
+    if (!date) return false
+    return date >= today
+  }
+
   const records = Array.isArray(userPlans) ? userPlans : []
   const typedRecords = records.reduce<PlanRecord[]>((acc, plan) => {
     if (isPlanRecord(plan)) {
@@ -49,15 +54,20 @@ export function normalizeUserPlans(userPlans: any, todayStr?: string) {
 
   const normalizedRecords = typedRecords.map(normalizePlanRecord)
 
-  const activePlan = normalizedRecords.find((plan) => plan.status === 'active' && plan.ended_at === null) ?? null
+  const activePlan =
+    normalizedRecords.find((plan) => {
+      if (plan.status !== 'active') return false
+      if (plan.ended_at === null) return true
+      return isFutureOrToday(plan.ended_at)
+    }) ?? null
+
   const scheduledCancellationPlan =
-    normalizedRecords.find(
-      (plan) =>
-        plan.status === 'cancelled' &&
-        plan.ended_at === null &&
-        plan.cancellation_scheduled_date &&
-        plan.cancellation_scheduled_date >= today
-    ) ?? null
+    normalizedRecords.find((plan) => {
+      if (plan.status !== 'cancelled') return false
+      if (isFutureOrToday(plan.cancellation_scheduled_date)) return true
+      if (isFutureOrToday(plan.ended_at)) return true
+      return false
+    }) ?? null
 
   const currentPlan = activePlan || scheduledCancellationPlan
 

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { NormalizedPlanRecord } from '../plan-utils'
+import type { NormalizedPlanRecord } from '@/lib/utils/user-plans'
 
 interface UserPlanManagementProps {
   userId: string

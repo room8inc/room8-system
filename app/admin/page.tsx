@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { isAdmin } from '@/lib/utils/admin'
 import { formatJapaneseName } from '@/lib/utils/name'
-import { normalizeUserPlans } from './users/plan-utils'
+import { normalizeUserPlans } from '@/lib/utils/user-plans'
 
 export default async function AdminPage() {
   const supabase = await createClient()

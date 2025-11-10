@@ -6,6 +6,7 @@ import { formatJapaneseName } from '@/lib/utils/name'
 import { getCached, cacheKey } from '@/lib/cache/vercel-kv'
 import { PlanChangeButton } from './plan-change-button'
 import { CancellationButton } from './cancellation-button'
+import { normalizeUserPlans } from '@/lib/utils/user-plans'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,7 @@ export default async function MemberCardPage() {
 
   // 🚀 並列化 + 💎 キャッシュ: 独立したクエリを同時実行
   // 💡 最適化: 必要なカラムだけ取得
-  const [userData, currentPlan] = await Promise.all([
+  const [userData, userPlans] = await Promise.all([
     // ユーザー情報を取得（💎 キャッシュ: 5分間）
     getCached(
       cacheKey('user_full', user.id),
@@ -38,25 +39,27 @@ export default async function MemberCardPage() {
     ),
     // 現在のプラン情報を取得（💎 キャッシュ: 5分間）
     getCached(
-      cacheKey('user_plan', user.id),
+      cacheKey('user_plans_full', user.id),
       async () => {
         const { data } = await supabase
           .from('user_plans')
-          .select('id, started_at, contract_term, payment_method, plan_id, plans:plan_id(name, price)')
+          .select(
+            [
+              '*',
+              'plans:plans!user_plans_plan_id_fkey(*)',
+              'new_plans:plans!user_plans_new_plan_id_fkey(*)',
+            ].join(',')
+          )
           .eq('user_id', user.id)
-          .eq('status', 'active')
-          .is('ended_at', null)
-          .single()
-        return data
+          .order('started_at', { ascending: false })
+        return data ?? []
       },
       300 // 5分
     ),
   ])
 
-  // 💡 Supabaseのネストされたクエリは配列を返すことがあるので、正規化
-  const planData = currentPlan?.plans 
-    ? (Array.isArray(currentPlan.plans) ? currentPlan.plans[0] : currentPlan.plans)
-    : null
+  const { currentPlan } = normalizeUserPlans(userPlans)
+  const planData = currentPlan?.plans
 
   // 会員番号を生成（ユーザーIDの最初の8文字を使用）
   const memberNumber = user.id.substring(0, 8).toUpperCase()
@@ -65,10 +68,18 @@ export default async function MemberCardPage() {
   // member_typeはプラン契約時に設定される
   // - プラン契約あり = member_type='regular' = Room8会員
   // - プラン契約なし = member_type='dropin'（デフォルト） = ドロップイン（非会員）
-  const memberTypeDisplay =
-    currentPlan || userData?.member_type === 'regular'
-      ? 'Room8会員'
-      : 'ドロップイン（非会員）'
+  const memberTypeDisplay = currentPlan
+    ? currentPlan.status === 'cancelled'
+      ? 'Room8会員（解約手続き中）'
+      : 'Room8会員'
+    : userData?.member_type === 'regular'
+    ? 'Room8会員'
+    : 'ドロップイン（非会員）'
+
+  const cancellationNotice =
+    currentPlan?.status === 'cancelled' && currentPlan.cancellation_scheduled_date
+      ? `解約予定日: ${new Date(currentPlan.cancellation_scheduled_date).toLocaleDateString('ja-JP')}`
+      : null
 
   return (
     <div className="min-h-screen bg-room-base">
@@ -92,7 +103,10 @@ export default async function MemberCardPage() {
                 {planData?.name || 'プラン名不明'}
               </p>
             )}
-            <p className="mb-4 text-sm text-room-base-light">{memberTypeDisplay}</p>
+            <p className="mb-2 text-sm text-room-base-light">{memberTypeDisplay}</p>
+            {cancellationNotice && (
+              <p className="mb-2 text-xs text-room-brass-light">{cancellationNotice}</p>
+            )}
             <div className="rounded-lg bg-room-wood bg-opacity-30 px-4 py-2 border border-room-brass">
               <p className="text-xs text-room-base-light">会員番号</p>
               <p className="text-lg font-mono font-bold text-room-brass">{memberNumber}</p>
@@ -329,26 +343,32 @@ export default async function MemberCardPage() {
 
           {/* 退会・プラン変更（会員の場合のみ表示） */}
           {currentPlan && (
-            <>
-              {/* プラン変更 */}
-              <PlanChangeButton
-                userPlanId={currentPlan.id}
-                currentPlanName={planData?.name || 'プラン名不明'}
-                contractTerm={currentPlan.contract_term || 'monthly'}
-                paymentMethod={currentPlan.payment_method || 'monthly'}
-                planPrice={planData?.price || 0}
-              />
+            currentPlan.status === 'active' ? (
+              <>
+                {/* プラン変更 */}
+                <PlanChangeButton
+                  userPlanId={currentPlan.id}
+                  currentPlanName={planData?.name || 'プラン名不明'}
+                  contractTerm={currentPlan.contract_term || 'monthly'}
+                  paymentMethod={currentPlan.payment_method || 'monthly'}
+                  planPrice={planData?.price || 0}
+                />
 
-              {/* 退会 */}
-              <CancellationButton
-                userPlanId={currentPlan.id}
-                currentPlanName={planData?.name || 'プラン名不明'}
-                contractTerm={currentPlan.contract_term || 'monthly'}
-                paymentMethod={currentPlan.payment_method || 'monthly'}
-                planPrice={planData?.price || 0}
-                startedAt={currentPlan.started_at}
-              />
-            </>
+                {/* 退会 */}
+                <CancellationButton
+                  userPlanId={currentPlan.id}
+                  currentPlanName={planData?.name || 'プラン名不明'}
+                  contractTerm={currentPlan.contract_term || 'monthly'}
+                  paymentMethod={currentPlan.payment_method || 'monthly'}
+                  planPrice={planData?.price || 0}
+                  startedAt={currentPlan.started_at}
+                />
+              </>
+            ) : (
+              <div className="rounded-lg bg-room-main bg-opacity-10 border border-room-main p-4 text-sm text-room-main-dark">
+                解約手続き中です。プランの変更・再解約は解約予定日以降に再度お試しください。
+              </div>
+            )
           )}
 
           {/* ログアウト */}
