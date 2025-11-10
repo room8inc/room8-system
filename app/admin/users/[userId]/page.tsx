@@ -71,6 +71,11 @@ export default async function UserDetailPage({
 
   if (userPlansError) {
     console.error('Admin user detail: failed to fetch user_plans', userPlansError)
+  } else {
+    console.log(
+      'Admin user detail: fetched user_plans count',
+      Array.isArray(userPlans) ? userPlans.length : 'null'
+    )
   }
 
   const today = new Date().toISOString().split('T')[0]
@@ -98,6 +103,8 @@ export default async function UserDetailPage({
 
   if (plansError) {
     console.error('Admin user detail: failed to fetch plans', plansError)
+  } else {
+    console.log('Admin user detail: fetched plans count', plans?.length ?? 'null')
   }
 
   return (
