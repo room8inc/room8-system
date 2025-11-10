@@ -97,6 +97,11 @@ export function UserPlanManagement({
       return
     }
 
+    if (!currentPlan) {
+      setError('現在のプラン情報が取得できませんでした')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
