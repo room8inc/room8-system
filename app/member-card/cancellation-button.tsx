@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { calculateCancellationFee } from '@/lib/utils/cancellation-fee'
 
@@ -23,34 +23,80 @@ export function CancellationButton({
 }: CancellationButtonProps) {
   const router = useRouter()
   const [showModal, setShowModal] = useState(false)
-  const [cancellationDate, setCancellationDate] = useState('')
+  const [selectedMonthKey, setSelectedMonthKey] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // 今日の日付を取得
-  const today = new Date()
-  // 翌月1日を計算（デフォルト値）
-  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-  const nextMonthStr = nextMonth.toISOString().split('T')[0]
+  // 今日と翌月（解約可能な最短月）を計算
+  const today = useMemo(() => new Date(), [])
+  const nextMonthStart = useMemo(
+    () => new Date(today.getFullYear(), today.getMonth() + 1, 1),
+    [today]
+  )
+
+  // 選択可能な月（12ヶ月分）を生成
+  const monthOptions = useMemo(() => {
+    return Array.from({ length: 12 }, (_, index) => {
+      const date = new Date(nextMonthStart.getFullYear(), nextMonthStart.getMonth() + index, 1)
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      return {
+        key,
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        label: `${date.getFullYear()}年${date.getMonth() + 1}月`,
+      }
+    })
+  }, [nextMonthStart])
+
+  const defaultCancellationDate = useMemo(() => {
+    if (monthOptions.length === 0) {
+      return null
+    }
+    const [yearStr, monthStr] = monthOptions[0].key.split('-')
+    const year = Number(yearStr)
+    const month = Number(monthStr)
+    if (Number.isNaN(year) || Number.isNaN(month)) {
+      return null
+    }
+    const endOfMonth = new Date(year, month, 0)
+    endOfMonth.setHours(0, 0, 0, 0)
+    return endOfMonth.toISOString().split('T')[0]
+  }, [monthOptions])
+
+  // 選択中の月の最終日をISO日付で計算
+  const selectedCancellationDate = useMemo(() => {
+    if (!selectedMonthKey) {
+      return null
+    }
+    const [yearStr, monthStr] = selectedMonthKey.split('-')
+    const year = Number(yearStr)
+    const month = Number(monthStr) // 1-12
+    if (Number.isNaN(year) || Number.isNaN(month)) {
+      return null
+    }
+    const endOfMonth = new Date(year, month, 0) // 指定月の最終日
+    endOfMonth.setHours(0, 0, 0, 0)
+    return endOfMonth.toISOString().split('T')[0]
+  }, [selectedMonthKey])
 
   // 初期値を設定
   useEffect(() => {
-    if (!cancellationDate) {
-      setCancellationDate(nextMonthStr)
+    if (!selectedMonthKey && monthOptions.length > 0) {
+      setSelectedMonthKey(monthOptions[0].key)
     }
-  }, [cancellationDate, nextMonthStr])
+  }, [selectedMonthKey, monthOptions])
 
   // 解約料金を計算
   const feeResult = calculateCancellationFee({
     planPrice,
     contractTerm,
     startedAt,
-    cancellationDate: cancellationDate || nextMonthStr,
+    cancellationDate: selectedCancellationDate ?? defaultCancellationDate ?? '',
   })
 
   const handleSubmit = async () => {
-    if (!cancellationDate) {
-      setError('解約日を選択してください')
+    if (!selectedCancellationDate) {
+      setError('解約月を選択してください')
       return
     }
 
@@ -65,7 +111,7 @@ export function CancellationButton({
         },
         body: JSON.stringify({
           userPlanId,
-          cancellationDate,
+          cancellationDate: selectedCancellationDate,
           cancellationFee: feeResult.fee,
         }),
       })
@@ -150,17 +196,26 @@ export function CancellationButton({
 
               <div>
                 <label className="block text-sm font-medium text-room-charcoal mb-2">
-                  解約日
+                  解約希望月
                 </label>
-                <input
-                  type="date"
-                  value={cancellationDate}
-                  onChange={(e) => setCancellationDate(e.target.value)}
-                  min={nextMonthStr}
-                  className="w-full rounded-md border border-room-base-dark bg-room-base-light px-3 py-2 text-sm"
-                />
+                <div className="relative">
+                  <select
+                    value={selectedMonthKey}
+                    onChange={(e) => setSelectedMonthKey(e.target.value)}
+                    className="w-full rounded-md border border-room-base-dark bg-room-base-light px-3 py-2 text-sm appearance-none"
+                  >
+                    {monthOptions.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}（{option.month}月末まで利用可）
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-room-charcoal-light">
+                    ▼
+                  </span>
+                </div>
                 <p className="mt-1 text-xs text-room-charcoal-light">
-                  15日までに申請すれば翌月1日から適用されます
+                  お選びの月の末日までご利用いただけます
                 </p>
               </div>
 
@@ -217,7 +272,7 @@ export function CancellationButton({
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={loading || !cancellationDate}
+                disabled={loading || !selectedCancellationDate}
                 className="flex-1 rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light disabled:opacity-50"
               >
                 {loading ? '処理中...' : '退会申請'}
