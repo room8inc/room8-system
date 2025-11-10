@@ -68,8 +68,10 @@ export default async function MemberCardPage() {
   // member_typeはプラン契約時に設定される
   // - プラン契約あり = member_type='regular' = Room8会員
   // - プラン契約なし = member_type='dropin'（デフォルト） = ドロップイン（非会員）
+  const isScheduledCancellation = currentPlan?.isScheduledCancellation ?? false
+
   const memberTypeDisplay = currentPlan
-    ? currentPlan.status === 'cancelled'
+    ? isScheduledCancellation
       ? 'Room8会員（解約手続き中）'
       : 'Room8会員'
     : userData?.member_type === 'regular'
@@ -77,7 +79,7 @@ export default async function MemberCardPage() {
     : 'ドロップイン（非会員）'
 
   const cancellationNotice =
-    currentPlan?.status === 'cancelled' && currentPlan.cancellation_scheduled_date
+    isScheduledCancellation && currentPlan?.cancellation_scheduled_date
       ? `解約予定日: ${new Date(currentPlan.cancellation_scheduled_date).toLocaleDateString('ja-JP')}`
       : null
 
@@ -343,7 +345,7 @@ export default async function MemberCardPage() {
 
           {/* 退会・プラン変更（会員の場合のみ表示） */}
           {currentPlan && (
-            currentPlan.status === 'active' ? (
+            currentPlan.isActive && !isScheduledCancellation ? (
               <>
                 {/* プラン変更 */}
                 <PlanChangeButton
@@ -366,7 +368,7 @@ export default async function MemberCardPage() {
               </>
             ) : (
               <div className="rounded-lg bg-room-main bg-opacity-10 border border-room-main p-4 text-sm text-room-main-dark">
-                解約手続き中です。プランの変更・再解約は解約予定日以降に再度お試しください。
+                解約手続き中です。プランの変更や再度の退会申請を行う場合は、解約予定日以降にお試しください。
               </div>
             )
           )}

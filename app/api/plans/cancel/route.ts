@@ -113,8 +113,6 @@ export async function POST(request: NextRequest) {
       const { error: updateError } = await supabase
         .from('user_plans')
         .update({
-          status: 'cancelled',
-          ended_at: cancellationDate,
           cancellation_scheduled_date: cancellationDate,
           cancellation_fee: cancellationFee || 0,
           cancellation_fee_paid: cancellationFee === 0 || !cancellationFee,
@@ -135,14 +133,7 @@ export async function POST(request: NextRequest) {
         cache.delete(cacheKey('user_full', user.id)),
       ])
 
-      const { error: memberTypeUpdateError } = await supabase
-        .from('users')
-        .update({ member_type: 'dropin' })
-        .eq('id', user.id)
-
-      if (memberTypeUpdateError) {
-        console.error('User member_type update error (scheduled cancellation):', memberTypeUpdateError)
-      }
+      // NOTE: 将来解約の場合は会員種別を維持する（解約撤回を容易にするため）
     }
 
     // Stripeサブスクリプションを更新
@@ -259,7 +250,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 解約料金が発生する場合はStripeで決済を試みる
-    if (cancellationFee && cancellationFee > 0) {
+    if (isImmediateCancellation && cancellationFee && cancellationFee > 0) {
       const feeChargeResult = await chargeCancellationFee({
         stripe,
         supabase,
@@ -383,7 +374,10 @@ async function chargeCancellationFee({
       })
       .eq('id', userPlanId)
 
-    await cache.delete(cacheKey('user_plan', userId))
+    await Promise.all([
+      cache.delete(cacheKey('user_plan', userId)),
+      cache.delete(cacheKey('user_plans_full', userId)),
+    ])
 
     return {
       success: true,

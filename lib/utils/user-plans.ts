@@ -11,6 +11,8 @@ export interface NormalizedPlanRecord extends PlanRecord {
   currentPlanDetail: any | null
   newPlanDetail: any | null
   plans: any | null
+  isActive: boolean
+  isScheduledCancellation: boolean
 }
 
 const isPlanRecord = (plan: any): plan is PlanRecord => {
@@ -24,25 +26,37 @@ const isPlanRecord = (plan: any): plan is PlanRecord => {
   )
 }
 
-const normalizePlanRecord = (plan: PlanRecord): NormalizedPlanRecord => {
+const normalizePlanRecord = (plan: PlanRecord, today: string): NormalizedPlanRecord => {
   const currentPlanDetail = plan.plans ?? null
   const newPlanDetail = plan.new_plans ?? null
+
+  const endedAt = plan.ended_at
+  const scheduledDate = plan.cancellation_scheduled_date
+
+  const isFutureOrToday = (date: string | null | undefined) => {
+    if (!date) return false
+    return date >= today
+  }
+
+  const isActive =
+    plan.status === 'active' && (endedAt === null || isFutureOrToday(endedAt))
+
+  const isScheduledCancellation =
+    (scheduledDate !== null && isFutureOrToday(scheduledDate)) ||
+    (plan.status === 'cancelled' && endedAt !== null && isFutureOrToday(endedAt))
 
   return {
     ...plan,
     currentPlanDetail,
     newPlanDetail,
     plans: currentPlanDetail ?? newPlanDetail ?? null,
+    isActive,
+    isScheduledCancellation,
   }
 }
 
 export function normalizeUserPlans(userPlans: any, todayStr?: string) {
   const today = todayStr ?? new Date().toISOString().split('T')[0]
-
-  const isFutureOrToday = (date: string | null | undefined) => {
-    if (!date) return false
-    return date >= today
-  }
 
   const records = Array.isArray(userPlans) ? userPlans : []
   const typedRecords = records.reduce<PlanRecord[]>((acc, plan) => {
@@ -52,22 +66,11 @@ export function normalizeUserPlans(userPlans: any, todayStr?: string) {
     return acc
   }, [])
 
-  const normalizedRecords = typedRecords.map(normalizePlanRecord)
+  const normalizedRecords = typedRecords.map((plan) => normalizePlanRecord(plan, today))
 
-  const activePlan =
-    normalizedRecords.find((plan) => {
-      if (plan.status !== 'active') return false
-      if (plan.ended_at === null) return true
-      return isFutureOrToday(plan.ended_at)
-    }) ?? null
-
+  const activePlan = normalizedRecords.find((plan) => plan.isActive) ?? null
   const scheduledCancellationPlan =
-    normalizedRecords.find((plan) => {
-      if (plan.status !== 'cancelled') return false
-      if (isFutureOrToday(plan.cancellation_scheduled_date)) return true
-      if (isFutureOrToday(plan.ended_at)) return true
-      return false
-    }) ?? null
+    normalizedRecords.find((plan) => plan.isScheduledCancellation) ?? null
 
   const currentPlan = activePlan || scheduledCancellationPlan
 

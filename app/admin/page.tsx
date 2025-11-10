@@ -157,8 +157,8 @@ export default async function AdminPage() {
                 {usersWithPlans.map((userItem) => {
                   const memberTypeDisplay =
                     userItem.currentPlan || userItem.member_type === 'regular'
-                      ? userItem.currentPlan?.status === 'cancelled'
-                        ? 'Room8会員（解約予定）'
+                      ? userItem.currentPlan?.isScheduledCancellation
+                        ? 'Room8会員（解約手続き中）'
                         : 'Room8会員'
                       : 'ドロップイン（非会員）'
 
@@ -196,7 +196,7 @@ export default async function AdminPage() {
                               契約開始:{' '}
                               {new Date(userItem.currentPlan.started_at).toLocaleDateString('ja-JP')}
                             </div>
-                            {userItem.currentPlan.status === 'cancelled' &&
+                            {userItem.currentPlan.isScheduledCancellation &&
                               userItem.currentPlan.cancellation_scheduled_date && (
                                 <div className="text-room-main-dark">
                                   解約予定日:{' '}

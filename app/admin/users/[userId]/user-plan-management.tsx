@@ -31,6 +31,7 @@ export function UserPlanManagement({
 
   const currentPlanDetail = currentPlan?.currentPlanDetail ?? currentPlan?.plans ?? null
   const upcomingPlanDetail = currentPlan?.newPlanDetail ?? null
+  const isScheduledCancellation = currentPlan?.isScheduledCancellation ?? false
 
   const formatPlanName = (plan: any) => plan?.name || 'プラン名不明'
 
@@ -146,7 +147,7 @@ export function UserPlanManagement({
           <h2 className="text-lg font-semibold text-room-charcoal">
             現在のプラン契約
           </h2>
-          {currentPlan && currentPlan.status !== 'cancelled' && (
+          {currentPlan && !isScheduledCancellation && (
             <button
               onClick={handleCancelPlan}
               disabled={loading}
@@ -168,7 +169,7 @@ export function UserPlanManagement({
             <p className="text-sm text-room-charcoal-light">
               <strong>月額料金:</strong> ¥{currentPlanDetail?.price?.toLocaleString() || '不明'}
             </p>
-            {currentPlan.status === 'cancelled' && currentPlan.cancellation_scheduled_date && (
+            {isScheduledCancellation && currentPlan.cancellation_scheduled_date && (
               <p className="text-sm text-room-main-dark">
                 <strong>解約予定日:</strong>{' '}
                 {new Date(currentPlan.cancellation_scheduled_date).toLocaleDateString('ja-JP')}
@@ -199,14 +200,19 @@ export function UserPlanManagement({
           {!showChangePlan && (
             <button
               onClick={() => setShowChangePlan(true)}
-              className="text-sm text-room-main hover:text-room-main-light"
+              disabled={isScheduledCancellation}
+              className="text-sm text-room-main hover:text-room-main-light disabled:opacity-50"
             >
               プランを変更する
             </button>
           )}
         </div>
 
-        {showChangePlan && (
+        {currentPlan && (!currentPlan.isActive || isScheduledCancellation) ? (
+          <div className="rounded-md bg-room-main bg-opacity-10 border border-room-main p-4 text-sm text-room-main-dark">
+            解約手続き中です。プランの変更・再解約は解約予定日以降に再度お試しください。
+          </div>
+        ) : showChangePlan ? (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-room-charcoal mb-2">
@@ -265,7 +271,7 @@ export function UserPlanManagement({
               </button>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* プラン契約履歴 */}
