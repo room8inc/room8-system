@@ -56,8 +56,15 @@ export async function POST(request: NextRequest) {
     }
 
     // 解約日を判定（15日までは当月末、それ以降は翌月末以降のみ）
-    const cancellationDateObj = new Date(cancellationDate)
-    cancellationDateObj.setHours(0, 0, 0, 0)
+    const [yearStr, monthStr] = cancellationDate.split('-')
+    const candidateYear = Number(yearStr)
+    const candidateMonth = Number(monthStr)
+    if (!candidateYear || !candidateMonth) {
+      return NextResponse.json(
+        { error: '解約月の形式が不正です' },
+        { status: 400 }
+      )
+    }
     const now = new Date()
     now.setHours(0, 0, 0, 0)
 
@@ -67,22 +74,32 @@ export async function POST(request: NextRequest) {
     endOfCurrentMonth.setHours(0, 0, 0, 0)
     const endOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0)
     endOfNextMonth.setHours(0, 0, 0, 0)
-    const minimumCancellationDate = isBeforeCutoff ? endOfCurrentMonth : endOfNextMonth
+    const earliestMonthDate = isBeforeCutoff
+      ? new Date(now.getFullYear(), now.getMonth(), 1)
+      : new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    const formatMonthKey = (date: Date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    const minimumMonthKey = formatMonthKey(earliestMonthDate)
+    const candidateMonthKey = `${candidateYear}-${String(candidateMonth).padStart(2, '0')}`
 
-    if (cancellationDateObj.getTime() < minimumCancellationDate.getTime()) {
+    if (candidateMonthKey < minimumMonthKey) {
       return NextResponse.json(
         {
           error: '解約日は指定可能な最短月より前の日付です',
-          minCancellationDate: minimumCancellationDate.toISOString().split('T')[0],
+          minCancellationMonth: minimumMonthKey,
         },
         { status: 400 }
       )
     }
 
+    const cancellationDateObj = new Date(candidateYear, candidateMonth, 0)
+    cancellationDateObj.setHours(0, 0, 0, 0)
+    effectiveCancellationDate = cancellationDateObj.toISOString().split('T')[0]
+
     const { error: updateError } = await supabase
       .from('user_plans')
       .update({
-        cancellation_scheduled_date: cancellationDate,
+        cancellation_scheduled_date: effectiveCancellationDate,
         cancellation_fee: cancellationFee || 0,
         cancellation_fee_paid: false,
       })
