@@ -8,6 +8,7 @@ import { DeleteUserButton } from './delete-user-button'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default async function UserDetailPage({
   params,
@@ -59,11 +60,18 @@ export default async function UserDetailPage({
   }
 
   // プラン契約情報を取得
-  const { data: userPlans } = await adminClient
+  const {
+    data: userPlans,
+    error: userPlansError,
+  } = await adminClient
     .from('user_plans')
     .select('*, plans(*)')
     .eq('user_id', userId)
     .order('started_at', { ascending: false })
+
+  if (userPlansError) {
+    console.error('Admin user detail: failed to fetch user_plans', userPlansError)
+  }
 
   const today = new Date().toISOString().split('T')[0]
   const activePlan = userPlans?.find((plan) => plan.status === 'active' && plan.ended_at === null)
@@ -79,11 +87,18 @@ export default async function UserDetailPage({
   const planHistory = userPlans || []
 
   // プラン一覧を取得（プラン変更用）
-  const { data: plans } = await adminClient
+  const {
+    data: plans,
+    error: plansError,
+  } = await adminClient
     .from('plans')
     .select('*')
     .eq('is_active', true)
     .order('display_order', { ascending: true })
+
+  if (plansError) {
+    console.error('Admin user detail: failed to fetch plans', plansError)
+  }
 
   return (
     <div className="min-h-screen bg-room-base">
