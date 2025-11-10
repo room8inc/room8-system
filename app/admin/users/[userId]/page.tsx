@@ -5,7 +5,6 @@ import { isAdmin } from '@/lib/utils/admin'
 import { formatJapaneseName } from '@/lib/utils/name'
 import { UserPlanManagement } from './user-plan-management'
 import { DeleteUserButton } from './delete-user-button'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -79,7 +78,7 @@ export default async function UserDetailPage({
   const {
     data: plans,
     error: plansError,
-  } = await adminClient
+  } = await supabase
     .from('plans')
     .select('*')
     .eq('is_active', true)
