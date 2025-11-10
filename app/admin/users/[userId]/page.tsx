@@ -47,7 +47,7 @@ export default async function UserDetailPage({
   // プラン契約情報を取得
   const { data: userPlans, error: userPlansError } = await supabase
     .from('user_plans')
-    .select('*, plans(*)')
+    .select('*, plans:plans!user_plans_plan_id_fkey(*), new_plans:plans!user_plans_new_plan_id_fkey(*)')
     .eq('user_id', userId)
     .order('started_at', { ascending: false })
 
@@ -70,9 +70,20 @@ export default async function UserDetailPage({
       plan.cancellation_scheduled_date >= today
   )
 
+  const resolvePlanName = (planData: any) => {
+    if (!planData) return null
+    if (planData.plans) return planData.plans
+    if (planData.new_plans) return planData.new_plans
+    return planData
+  }
+
   const currentPlan = activePlan || scheduledCancellationPlan || null
   console.log('Admin user detail: currentPlan', currentPlan ? { id: currentPlan.id, status: currentPlan.status } : null)
-  const planHistory = userPlans || []
+  const planHistory =
+    userPlans?.map((plan) => ({
+      ...plan,
+      plans: resolvePlanName(plan.plans ?? plan.new_plans),
+    })) || []
 
   // プラン一覧を取得（プラン変更用）
   const {
