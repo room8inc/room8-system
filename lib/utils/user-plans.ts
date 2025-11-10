@@ -15,6 +15,17 @@ export interface NormalizedPlanRecord extends PlanRecord {
   isScheduledCancellation: boolean
 }
 
+const isPlanRecord = (plan: any): plan is PlanRecord => {
+  return (
+    typeof plan === 'object' &&
+    plan !== null &&
+    typeof plan.status === 'string' &&
+    typeof plan.started_at === 'string' &&
+    'ended_at' in plan &&
+    'cancellation_scheduled_date' in plan
+  )
+}
+
 const normalizePlanRecord = (plan: PlanRecord, today: string): NormalizedPlanRecord => {
   const currentPlanDetail = plan.plans ?? null
   const newPlanDetail = plan.new_plans ?? null
