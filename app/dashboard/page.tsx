@@ -72,7 +72,7 @@ export default async function DashboardPage() {
       async () => {
         const { data } = await supabase
           .from('users')
-          .select('member_type, name, is_staff')
+          .select('name, is_staff')
           .eq('id', user.id)
           .single()
         return data
@@ -205,7 +205,7 @@ export default async function DashboardPage() {
                 {currentCheckin.checkin_at && (
                   <RealtimeCheckinInfo
                     checkinAt={currentCheckin.checkin_at}
-                    memberType={currentPlan ? 'regular' : (userData?.member_type || 'dropin')}
+                    memberType={currentPlan ? 'regular' : 'dropin'}
                     planInfo={planData ? {
                       name: planData.name || '',
                       startTime: planData.start_time || undefined,
@@ -275,11 +275,8 @@ export default async function DashboardPage() {
                   {planData?.name || 'プラン名不明'}
                 </p>
                 <p className="mt-1 text-xs text-room-charcoal-light">
-                  利用形態: {
-                    currentPlan || userData?.member_type === 'regular'
-                      ? 'Room8会員'
-                      : 'ドロップイン（非会員）'
-                  }
+                  利用形態:{' '}
+                  {currentPlan ? 'Room8会員' : 'ドロップイン（非会員）'}
                 </p>
                 <p className="mt-1 text-xs text-room-charcoal-light">
                   契約開始日: {new Date(currentPlan.started_at).toLocaleDateString('ja-JP')}

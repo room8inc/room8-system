@@ -28,7 +28,7 @@ export default async function MeetingRoomsPage() {
       async () => {
         const { data } = await supabase
           .from('users')
-          .select('member_type, is_staff')
+          .select('is_staff')
           .eq('id', user.id)
           .single()
         return data
@@ -218,6 +218,8 @@ export default async function MeetingRoomsPage() {
     google_calendar_event_id: booking.google_calendar_event_id || null
   })) || []
 
+  const memberType = currentPlan ? 'regular' : 'dropin'
+
   return (
     <div className="min-h-screen bg-room-base">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -267,13 +269,17 @@ export default async function MeetingRoomsPage() {
           <h3 className="text-lg font-semibold text-room-charcoal mb-4">
             新規予約
           </h3>
-            <BookingForm
-              userId={user.id}
-              memberType={currentPlan ? 'regular' : (userData?.member_type || 'dropin')}
-            planInfo={planData ? {
-              id: planData.id,
-              features: planData.features,
-            } : null}
+          <BookingForm
+            userId={user.id}
+            memberType={memberType}
+            planInfo={
+              planData
+                ? {
+                    id: planData.id,
+                    features: planData.features,
+                  }
+                : null
+            }
             hourlyRate={rateInfo.rate}
             freeHours={rateInfo.freeHours}
             meetingRoomId={meetingRoom.id}

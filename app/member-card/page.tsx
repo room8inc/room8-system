@@ -31,7 +31,7 @@ export default async function MemberCardPage() {
       async () => {
         const { data } = await supabase
           .from('users')
-          .select('name, member_type, is_individual, is_staff')
+          .select('name, is_individual, is_staff')
           .eq('id', user.id)
           .single()
         return data
@@ -65,18 +65,12 @@ export default async function MemberCardPage() {
   // 会員番号を生成（ユーザーIDの最初の8文字を使用）
   const memberNumber = user.id.substring(0, 8).toUpperCase()
 
-  // 利用形態の表示名
-  // member_typeはプラン契約時に設定される
-  // - プラン契約あり = member_type='regular' = Room8会員
-  // - プラン契約なし = member_type='dropin'（デフォルト） = ドロップイン（非会員）
   const isScheduledCancellation = currentPlan?.isScheduledCancellation ?? false
 
   const memberTypeDisplay = currentPlan
     ? isScheduledCancellation
       ? 'Room8会員（解約手続き中）'
       : 'Room8会員'
-    : userData?.member_type === 'regular'
-    ? 'Room8会員'
     : 'ドロップイン（非会員）'
 
   const cancellationNotice =

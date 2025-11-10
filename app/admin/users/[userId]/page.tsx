@@ -89,6 +89,14 @@ export default async function UserDetailPage({
     console.log('Admin user detail: fetched plans count', plans?.length ?? 'null')
   }
 
+  const memberTypeDisplay = currentPlan
+    ? currentPlan.isScheduledCancellation
+      ? 'Room8会員（解約手続き中）'
+      : currentPlan.isScheduledPlanChange
+      ? 'Room8会員（プラン変更予定）'
+      : 'Room8会員'
+    : 'ドロップイン（非会員）'
+
   return (
     <div className="min-h-screen bg-room-base">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -129,11 +137,7 @@ export default async function UserDetailPage({
             <div>
               <p className="text-xs text-room-charcoal-light">会員種別</p>
               <p className="text-sm font-medium text-room-charcoal mt-1">
-            {currentPlan
-              ? 'Room8会員'
-              : userData.member_type === 'regular'
-              ? 'Room8会員（契約なし）'
-              : 'ドロップイン（非会員）'}
+                {memberTypeDisplay}
               </p>
             </div>
             <div>

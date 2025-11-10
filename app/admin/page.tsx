@@ -155,12 +155,13 @@ export default async function AdminPage() {
               </thead>
               <tbody className="bg-room-base-light divide-y divide-room-base-dark">
                 {usersWithPlans.map((userItem) => {
-                  const memberTypeDisplay =
-                    userItem.currentPlan || userItem.member_type === 'regular'
-                      ? userItem.currentPlan?.isScheduledCancellation
-                        ? 'Room8会員（解約手続き中）'
-                        : 'Room8会員'
-                      : 'ドロップイン（非会員）'
+                  const memberTypeDisplay = userItem.currentPlan
+                    ? userItem.currentPlan.isScheduledCancellation
+                      ? 'Room8会員（解約手続き中）'
+                      : userItem.currentPlan.isScheduledPlanChange
+                      ? 'Room8会員（プラン変更予定）'
+                      : 'Room8会員'
+                    : 'ドロップイン（非会員）'
 
                   return (
                     <tr key={userItem.id} className="hover:bg-room-base">
