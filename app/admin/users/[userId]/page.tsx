@@ -68,15 +68,16 @@ export default async function UserDetailPage({
 
   const userPlanRecords = Array.isArray(userPlans) ? userPlans : []
 
-  const isPlanRecord = (
-    plan: any
-  ): plan is {
+  type PlanRecord = {
     id: string
     status: string
     started_at: string
     ended_at: string | null
     cancellation_scheduled_date: string | null
-  } & Record<string, any> => {
+    [key: string]: any
+  }
+
+  const isPlanRecord = (plan: any): plan is PlanRecord => {
     return (
       typeof plan === 'object' &&
       plan !== null &&
@@ -88,7 +89,7 @@ export default async function UserDetailPage({
   }
 
   const today = new Date().toISOString().split('T')[0]
-  const typedRecords = userPlanRecords.filter(isPlanRecord)
+  const typedRecords: PlanRecord[] = userPlanRecords.filter(isPlanRecord)
 
   const activePlan = typedRecords.find((plan) => plan.status === 'active' && plan.ended_at === null)
   const scheduledCancellationPlan = typedRecords.find(
