@@ -28,6 +28,11 @@ export function UserPlanManagement({
     return today.toISOString().split('T')[0]
   })
 
+  const currentPlanDetail = currentPlan?.currentPlanDetail ?? currentPlan?.plans ?? null
+  const upcomingPlanDetail = currentPlan?.newPlanDetail ?? null
+
+  const formatPlanName = (plan: any) => plan?.name || 'プラン名不明'
+
   const handleChangePlan = async () => {
     if (!selectedPlanId) {
       setError('プランを選択してください')
@@ -135,7 +140,7 @@ export function UserPlanManagement({
           <h2 className="text-lg font-semibold text-room-charcoal">
             現在のプラン契約
           </h2>
-          {currentPlan && (
+          {currentPlan && currentPlan.status !== 'cancelled' && (
             <button
               onClick={handleCancelPlan}
               disabled={loading}
@@ -149,14 +154,28 @@ export function UserPlanManagement({
         {currentPlan ? (
           <div className="space-y-2">
             <p className="text-sm text-room-charcoal">
-              <strong>プラン名:</strong> {currentPlan.plans?.name || 'プラン名不明'}
+              <strong>プラン名:</strong> {formatPlanName(currentPlanDetail)}
             </p>
             <p className="text-sm text-room-charcoal-light">
               <strong>契約開始日:</strong> {new Date(currentPlan.started_at).toLocaleDateString('ja-JP')}
             </p>
             <p className="text-sm text-room-charcoal-light">
-              <strong>月額料金:</strong> ¥{currentPlan.plans?.price?.toLocaleString() || '不明'}
+              <strong>月額料金:</strong> ¥{currentPlanDetail?.price?.toLocaleString() || '不明'}
             </p>
+            {currentPlan.status === 'cancelled' && currentPlan.cancellation_scheduled_date && (
+              <p className="text-sm text-room-main-dark">
+                <strong>解約予定日:</strong>{' '}
+                {new Date(currentPlan.cancellation_scheduled_date).toLocaleDateString('ja-JP')}
+              </p>
+            )}
+            {upcomingPlanDetail && (
+              <div className="rounded-md bg-room-main bg-opacity-10 border border-room-main p-3">
+                <p className="text-xs text-room-main-dark font-semibold">プラン変更が申請されています</p>
+                <p className="text-xs text-room-main-dark">
+                  <strong>次のプラン:</strong> {formatPlanName(upcomingPlanDetail)}
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-sm text-room-charcoal-light">
@@ -271,7 +290,12 @@ export function UserPlanManagement({
                 {planHistory.map((plan) => (
                   <tr key={plan.id}>
                     <td className="px-4 py-3 text-sm text-room-charcoal">
-                      {plan.plans?.name || 'プラン名不明'}
+                      {formatPlanName(plan.currentPlanDetail ?? plan.plans)}
+                      {plan.newPlanDetail && (
+                        <span className="block text-xs text-room-main-dark mt-1">
+                          次のプラン: {formatPlanName(plan.newPlanDetail)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-room-charcoal-light">
                       {new Date(plan.started_at).toLocaleDateString('ja-JP')}
