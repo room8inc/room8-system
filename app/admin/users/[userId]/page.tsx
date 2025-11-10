@@ -66,9 +66,11 @@ export default async function UserDetailPage({
     )
   }
 
+  const userPlanRecords = Array.isArray(userPlans) ? userPlans : []
+
   const today = new Date().toISOString().split('T')[0]
-  const activePlan = userPlans?.find((plan) => plan.status === 'active' && plan.ended_at === null)
-  const scheduledCancellationPlan = userPlans?.find(
+  const activePlan = userPlanRecords.find((plan) => plan.status === 'active' && plan.ended_at === null)
+  const scheduledCancellationPlan = userPlanRecords.find(
     (plan) =>
       plan.status === 'cancelled' &&
       plan.ended_at === null &&
@@ -99,7 +101,7 @@ export default async function UserDetailPage({
   const currentPlanRaw = activePlan || scheduledCancellationPlan || null
   const currentPlan = currentPlanRaw ? normalizePlanRecord(currentPlanRaw) : null
   console.log('Admin user detail: currentPlan', currentPlan ? { id: currentPlan.id, status: currentPlan.status } : null)
-  const planHistory = userPlans?.map(normalizePlanRecord) || []
+  const planHistory = userPlanRecords.map(normalizePlanRecord)
 
   // プラン一覧を取得（プラン変更用）
   const {
