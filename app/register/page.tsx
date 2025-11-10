@@ -97,7 +97,6 @@ export default function RegisterPage() {
           name_kana: formData.isIndividual ? formData.nameKana : null,
           phone: formData.phone,
           address: formData.address,
-          member_type: 'dropin', // デフォルトは'dropin'（非会員）、プラン契約時に'regular'に更新
           is_individual: formData.isIndividual,
           status: 'active',
         }

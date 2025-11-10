@@ -149,7 +149,7 @@ export default function CheckInPage() {
       // ユーザー情報を取得
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('member_type, is_staff')
+        .select('is_staff')
         .eq('id', user.id)
         .single()
 
@@ -160,65 +160,50 @@ export default function CheckInPage() {
 
       console.log('User data:', userData)
 
-      // 利用者の場合、staff_member_idを取得
-      let staffMemberId = null
-      if (userData.is_staff === true) {
+      // 利用者の場合、staff_member_idと法人ユーザーIDを取得
+      let staffMemberId: string | null = null
+      let planOwnerUserId = user.id
+      if (userData?.is_staff === true) {
         const { data: staffMember, error: staffError } = await supabase
           .from('staff_members')
-          .select('id')
+          .select('id, company_user_id')
           .eq('auth_user_id', user.id)
-          .single()
+          .maybeSingle()
 
         if (staffError && staffError.code !== 'PGRST116') {
           console.warn('Staff member fetch warning:', staffError)
         } else if (staffMember) {
           staffMemberId = staffMember.id
-          console.log('Staff member found:', staffMemberId)
-        }
-      }
-
-      // 定期会員の場合、現在のプランIDを取得
-      let planIdAtCheckin = null
-      if (userData.member_type === 'regular') {
-        const { data: activePlan, error: planError } = await supabase
-          .from('user_plans')
-          .select('plan_id')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .is('ended_at', null)
-          .single()
-
-        if (planError && planError.code !== 'PGRST116') {
-          // PGRST116は「データが見つからない」エラー（プラン未登録の場合）
-          console.warn('Active plan fetch warning:', planError)
-        } else if (activePlan) {
-          planIdAtCheckin = activePlan.plan_id
-          console.log('Active plan found:', planIdAtCheckin)
-        }
-      }
-
-      // 利用者の場合は、法人ユーザーのプランIDを取得（利用者は法人のプランを使用）
-      if (userData.is_staff === true && staffMemberId) {
-        const { data: staffMemberData, error: companyPlanError } = await supabase
-          .from('staff_members')
-          .select('company_user_id')
-          .eq('id', staffMemberId)
-          .single()
-
-        if (!companyPlanError && staffMemberData) {
-          const { data: companyPlan, error: planError } = await supabase
-            .from('user_plans')
-            .select('plan_id')
-            .eq('user_id', staffMemberData.company_user_id)
-            .eq('status', 'active')
-            .is('ended_at', null)
-            .single()
-
-          if (!planError && companyPlan) {
-            planIdAtCheckin = companyPlan.plan_id
-            console.log('Company plan found for staff:', planIdAtCheckin)
+          if (staffMember.company_user_id) {
+            planOwnerUserId = staffMember.company_user_id
           }
+          console.log('Staff member found:', {
+            staffMemberId,
+            planOwnerUserId,
+          })
         }
+      }
+
+      // プラン契約の有無を確認
+      let planIdAtCheckin: string | null = null
+      let memberTypeAtCheckin: 'regular' | 'dropin' = 'dropin'
+      const { data: activePlan, error: activePlanError } = await supabase
+        .from('user_plans')
+        .select('plan_id')
+        .eq('user_id', planOwnerUserId)
+        .eq('status', 'active')
+        .is('ended_at', null)
+        .maybeSingle()
+
+      if (activePlanError && activePlanError.code !== 'PGRST116') {
+        console.warn('Active plan fetch warning:', activePlanError)
+      } else if (activePlan?.plan_id) {
+        planIdAtCheckin = activePlan.plan_id
+        memberTypeAtCheckin = 'regular'
+        console.log('Active plan found:', {
+          planIdAtCheckin,
+          planOwnerUserId,
+        })
       }
 
       // チェックイン記録を挿入
@@ -226,7 +211,7 @@ export default function CheckInPage() {
         user_id: user.id,
         checkin_at: new Date().toISOString(),
         venue_id: venueId,
-        member_type_at_checkin: userData.member_type || 'regular',
+        member_type_at_checkin: memberTypeAtCheckin,
         ...(planIdAtCheckin && { plan_id_at_checkin: planIdAtCheckin }),
         ...(staffMemberId && { staff_member_id: staffMemberId }),
       }

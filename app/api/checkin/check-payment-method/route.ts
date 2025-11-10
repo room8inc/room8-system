@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // ユーザー情報を取得
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('stripe_customer_id, member_type')
+      .select('stripe_customer_id, is_staff')
       .eq('id', user.id)
       .single()
 
@@ -42,18 +42,37 @@ export async function GET(request: NextRequest) {
     }
 
     // プラン契約があるかチェック
-    const { data: activePlan } = await supabase
+    let planOwnerUserId = user.id
+    if (userData?.is_staff === true) {
+      const { data: staffMember, error: staffError } = await supabase
+        .from('staff_members')
+        .select('company_user_id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle()
+
+      if (staffError && staffError.code !== 'PGRST116') {
+        console.warn('Staff member fetch warning:', staffError)
+      } else if (staffMember?.company_user_id) {
+        planOwnerUserId = staffMember.company_user_id
+      }
+    }
+
+    const { data: activePlan, error: activePlanError } = await supabase
       .from('user_plans')
       .select('plan_id')
-      .eq('user_id', user.id)
+      .eq('user_id', planOwnerUserId)
       .eq('status', 'active')
       .is('ended_at', null)
-      .single()
+      .maybeSingle()
 
-    const memberType = activePlan ? 'regular' : (userData?.member_type || 'dropin')
+    if (activePlanError && activePlanError.code !== 'PGRST116') {
+      console.warn('Active plan fetch warning:', activePlanError)
+    }
+
+    const isRegularMember = !!activePlan?.plan_id
 
     // ドロップイン会員でない場合はスキップ
-    if (memberType !== 'dropin') {
+    if (isRegularMember) {
       return NextResponse.json({
         hasPaymentMethod: true,
         hasUnpaidCheckouts: false,

@@ -148,7 +148,7 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
 
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('member_type')
+        .select('is_staff')
         .eq('id', user.id)
         .single()
 
@@ -156,18 +156,41 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
         throw new Error(`ユーザー情報の取得に失敗しました: ${userError.message}`)
       }
 
+      // 利用者の場合、スタッフレコードと法人ユーザーIDを取得
+      let staffMemberId: string | null = null
+      let planOwnerUserId = user.id
+      if (userData?.is_staff === true) {
+        const { data: staffMember, error: staffError } = await supabase
+          .from('staff_members')
+          .select('id, company_user_id')
+          .eq('auth_user_id', user.id)
+          .maybeSingle()
+
+        if (staffError && staffError.code !== 'PGRST116') {
+          console.warn('Staff member fetch warning:', staffError)
+        } else if (staffMember) {
+          staffMemberId = staffMember.id
+          if (staffMember.company_user_id) {
+            planOwnerUserId = staffMember.company_user_id
+          }
+        }
+      }
+
       // プラン契約があるかチェック
-      const { data: activePlan } = await supabase
+      const { data: activePlan, error: activePlanError } = await supabase
         .from('user_plans')
         .select('plan_id')
-        .eq('user_id', user.id)
+        .eq('user_id', planOwnerUserId)
         .eq('status', 'active')
         .is('ended_at', null)
-        .single()
+        .maybeSingle()
+
+      if (activePlanError && activePlanError.code !== 'PGRST116') {
+        console.warn('Active plan fetch warning:', activePlanError)
+      }
 
       const planIdAtCheckin = activePlan?.plan_id || null
-      // member_typeはチェックイン時に変更しない（プラン契約の有無で判定）
-      const memberTypeAtCheckin = activePlan ? 'regular' : (userData.member_type || 'dropin')
+      const memberTypeAtCheckin: 'regular' | 'dropin' = planIdAtCheckin ? 'regular' : 'dropin'
 
       // チェックインを作成
       const { data: checkinData, error: insertError } = await supabase
@@ -178,6 +201,7 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
           venue_id: venueId,
           member_type_at_checkin: memberTypeAtCheckin,
           ...(planIdAtCheckin && { plan_id_at_checkin: planIdAtCheckin }),
+          ...(staffMemberId && { staff_member_id: staffMemberId }),
         })
         .select('id')
         .single()
