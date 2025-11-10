@@ -6,6 +6,7 @@ import { formatJapaneseName } from '@/lib/utils/name'
 import { getCached, cacheKey } from '@/lib/cache/vercel-kv'
 import { PlanChangeButton } from './plan-change-button'
 import { CancellationButton } from './cancellation-button'
+import { CancellationRevertButton } from './cancellation-revert-button'
 import { normalizeUserPlans } from '@/lib/utils/user-plans'
 
 export const dynamic = 'force-dynamic'
@@ -367,8 +368,9 @@ export default async function MemberCardPage() {
                 />
               </>
             ) : (
-              <div className="rounded-lg bg-room-main bg-opacity-10 border border-room-main p-4 text-sm text-room-main-dark">
-                解約手続き中です。プランの変更や再度の退会申請を行う場合は、解約予定日以降にお試しください。
+              <div className="space-y-4 rounded-lg bg-room-main bg-opacity-10 border border-room-main p-4 text-sm text-room-main-dark">
+                <p>解約手続き中です。解約申請を取り消す場合は下のボタンから操作できます。</p>
+                <CancellationRevertButton userPlanId={currentPlan.id} />
               </div>
             )
           )}

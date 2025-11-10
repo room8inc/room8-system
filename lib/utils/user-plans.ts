@@ -15,35 +15,16 @@ export interface NormalizedPlanRecord extends PlanRecord {
   isScheduledCancellation: boolean
 }
 
-const isPlanRecord = (plan: any): plan is PlanRecord => {
-  return (
-    typeof plan === 'object' &&
-    plan !== null &&
-    typeof plan.status === 'string' &&
-    typeof plan.started_at === 'string' &&
-    'ended_at' in plan &&
-    'cancellation_scheduled_date' in plan
-  )
-}
-
 const normalizePlanRecord = (plan: PlanRecord, today: string): NormalizedPlanRecord => {
   const currentPlanDetail = plan.plans ?? null
   const newPlanDetail = plan.new_plans ?? null
 
-  const endedAt = plan.ended_at
-  const scheduledDate = plan.cancellation_scheduled_date
-
-  const isFutureOrToday = (date: string | null | undefined) => {
-    if (!date) return false
-    return date >= today
-  }
-
-  const isActive =
-    plan.status === 'active' && (endedAt === null || isFutureOrToday(endedAt))
-
+  const isActive = plan.status === 'active'
   const isScheduledCancellation =
-    (scheduledDate !== null && isFutureOrToday(scheduledDate)) ||
-    (plan.status === 'cancelled' && endedAt !== null && isFutureOrToday(endedAt))
+    plan.status === 'cancelled' &&
+    plan.cancellation_scheduled_date !== null &&
+    plan.cancellation_scheduled_date >= today &&
+    plan.ended_at === null
 
   return {
     ...plan,
