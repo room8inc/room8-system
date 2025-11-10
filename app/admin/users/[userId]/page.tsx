@@ -66,8 +66,6 @@ export default async function UserDetailPage({
     )
   }
 
-  const userPlanRecords = Array.isArray(userPlans) ? userPlans : []
-
   type PlanRecord = {
     id: string
     status: string
@@ -88,9 +86,15 @@ export default async function UserDetailPage({
     )
   }
 
-  const today = new Date().toISOString().split('T')[0]
-  const typedRecords = userPlanRecords.filter(isPlanRecord) as unknown as PlanRecord[]
+  const userPlanRecords = Array.isArray(userPlans) ? userPlans : []
+  const typedRecords = userPlanRecords.reduce<PlanRecord[]>((acc, plan) => {
+    if (isPlanRecord(plan)) {
+      acc.push(plan)
+    }
+    return acc
+  }, [])
 
+  const today = new Date().toISOString().split('T')[0]
   const activePlan = typedRecords.find((plan) => plan.status === 'active' && plan.ended_at === null)
   const scheduledCancellationPlan = typedRecords.find(
     (plan) =>
