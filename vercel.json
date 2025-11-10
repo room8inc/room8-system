@@ -6,11 +6,24 @@
   "crons": [
     {
       "path": "/api/cron/sync-google-calendar",
-      "schedule": "0 3 * * *"
+      "schedule": "0 3 * * *",
+      "headers": {
+        "Authorization": "Bearer ${env:CRON_SECRET}"
+      }
     },
     {
       "path": "/api/cron/monthly-billing",
-      "schedule": "0 2 1 * *"
+      "schedule": "0 2 1 * *",
+      "headers": {
+        "Authorization": "Bearer ${env:CRON_SECRET}"
+      }
+    },
+    {
+      "path": "/api/cron/process-cancellations",
+      "schedule": "0 2 1 * *",
+      "headers": {
+        "Authorization": "Bearer ${env:CRON_SECRET}"
+      }
     }
   ]
 }
