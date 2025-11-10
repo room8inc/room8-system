@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { isAdmin } from '@/lib/utils/admin'
 import { formatJapaneseName } from '@/lib/utils/name'
 import { UserPlanManagement } from './user-plan-management'
+import { normalizeUserPlans } from '../plan-utils'
 import { DeleteUserButton } from './delete-user-button'
 
 export const dynamic = 'force-dynamic'
@@ -66,68 +67,11 @@ export default async function UserDetailPage({
     )
   }
 
-  type PlanRecord = {
-    id: string
-    status: string
-    started_at: string
-    ended_at: string | null
-    cancellation_scheduled_date: string | null
-    [key: string]: any
-  }
-
-  const isPlanRecord = (plan: any): plan is PlanRecord => {
-    return (
-      typeof plan === 'object' &&
-      plan !== null &&
-      typeof plan.status === 'string' &&
-      typeof plan.started_at === 'string' &&
-      'ended_at' in plan &&
-      'cancellation_scheduled_date' in plan
-    )
-  }
-
-  const userPlanRecords = Array.isArray(userPlans) ? userPlans : []
-  const typedRecords = userPlanRecords.reduce<PlanRecord[]>((acc, plan) => {
-    if (isPlanRecord(plan)) {
-      acc.push(plan)
-    }
-    return acc
-  }, [])
-
-  const today = new Date().toISOString().split('T')[0]
-  const activePlan = typedRecords.find((plan) => plan.status === 'active' && plan.ended_at === null)
-  const scheduledCancellationPlan = typedRecords.find(
-    (plan) =>
-      plan.status === 'cancelled' &&
-      plan.ended_at === null &&
-      plan.cancellation_scheduled_date &&
-      plan.cancellation_scheduled_date >= today
+  const { currentPlan, planHistory } = normalizeUserPlans(userPlans)
+  console.log(
+    'Admin user detail: currentPlan',
+    currentPlan ? { id: currentPlan.id, status: currentPlan.status } : null
   )
-
-  const normalizePlanRecord = (plan: any) => {
-    if (!plan) return plan
-    const {
-      plans: currentPlanDetail,
-      new_plans: newPlanDetail,
-      ...rest
-    } = plan
-
-    const normalizedPlan = {
-      ...rest,
-      currentPlanDetail: currentPlanDetail ?? null,
-      newPlanDetail: newPlanDetail ?? null,
-    }
-
-    return {
-      ...normalizedPlan,
-      plans: currentPlanDetail ?? newPlanDetail ?? null,
-    }
-  }
-
-  const currentPlanRaw = activePlan || scheduledCancellationPlan || null
-  const currentPlan = currentPlanRaw ? normalizePlanRecord(currentPlanRaw) : null
-  console.log('Admin user detail: currentPlan', currentPlan ? { id: currentPlan.id, status: currentPlan.status } : null)
-  const planHistory = typedRecords.map(normalizePlanRecord)
 
   // プラン一覧を取得（プラン変更用）
   const {

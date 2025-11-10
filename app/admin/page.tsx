@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { isAdmin } from '@/lib/utils/admin'
 import { formatJapaneseName } from '@/lib/utils/name'
+import { normalizeUserPlans } from './users/plan-utils'
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -56,17 +57,28 @@ export default async function AdminPage() {
   // 各ユーザーの現在のプラン契約を取得
   const usersWithPlans = await Promise.all(
     (users || []).map(async (userItem) => {
-      const { data: currentPlan } = await supabase
+      const { data: userPlans, error: userPlansError } = await supabase
         .from('user_plans')
-        .select('*, plans(*)')
+        .select(
+          [
+            '*',
+            'plans:plans!user_plans_plan_id_fkey(*)',
+            'new_plans:plans!user_plans_new_plan_id_fkey(*)',
+          ].join(',')
+        )
         .eq('user_id', userItem.id)
-        .eq('status', 'active')
-        .is('ended_at', null)
-        .single()
+        .order('started_at', { ascending: false })
+
+      if (userPlansError) {
+        console.error('Admin page: failed to fetch user plans', userItem.id, userPlansError)
+      }
+
+      const { currentPlan, scheduledCancellationPlan } = normalizeUserPlans(userPlans)
 
       return {
         ...userItem,
         currentPlan,
+        scheduledCancellationPlan,
       }
     })
   )
@@ -145,7 +157,9 @@ export default async function AdminPage() {
                 {usersWithPlans.map((userItem) => {
                   const memberTypeDisplay =
                     userItem.currentPlan || userItem.member_type === 'regular'
-                      ? 'Room8会員'
+                      ? userItem.currentPlan?.status === 'cancelled'
+                        ? 'Room8会員（解約予定）'
+                        : 'Room8会員'
                       : 'ドロップイン（非会員）'
 
                   return (
@@ -177,8 +191,25 @@ export default async function AdminPage() {
                             : 'プラン未契約'}
                         </div>
                         {userItem.currentPlan && (
-                          <div className="text-xs text-room-charcoal-light">
-                            契約開始: {new Date(userItem.currentPlan.started_at).toLocaleDateString('ja-JP')}
+                          <div className="space-y-0.5 text-xs text-room-charcoal-light">
+                            <div>
+                              契約開始:{' '}
+                              {new Date(userItem.currentPlan.started_at).toLocaleDateString('ja-JP')}
+                            </div>
+                            {userItem.currentPlan.status === 'cancelled' &&
+                              userItem.currentPlan.cancellation_scheduled_date && (
+                                <div className="text-room-main-dark">
+                                  解約予定日:{' '}
+                                  {new Date(
+                                    userItem.currentPlan.cancellation_scheduled_date
+                                  ).toLocaleDateString('ja-JP')}
+                                </div>
+                              )}
+                            {userItem.currentPlan.newPlanDetail && (
+                              <div className="text-room-main-dark">
+                                次のプラン: {userItem.currentPlan.newPlanDetail.name}
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>
