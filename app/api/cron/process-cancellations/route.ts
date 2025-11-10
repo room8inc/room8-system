@@ -2,28 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { cache, cacheKey } from '@/lib/cache/vercel-kv'
 import { getStripeClient, chargeCancellationFee } from '@/lib/stripe/cancellation-fee'
-import Stripe from 'stripe'
-
-const STRIPE = getStripeClient()
-const CRON_SECRET = process.env.CRON_SECRET
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
-    if (!CRON_SECRET) {
-      console.error('CRON_SECRET is not configured')
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
-    }
+    const cronSecret = process.env.CRON_SECRET
+    const authHeader = request.headers.get('authorization')
+    const isVercelCron = request.headers.get('x-vercel-cron') === '1'
 
-    const authHeader = request.headers.get('authorization') || ''
-    const token = authHeader.replace('Bearer ', '')
-
-    if (token !== CRON_SECRET) {
+    if (cronSecret) {
+      const expected = `Bearer ${cronSecret}`
+      if (authHeader !== expected && !isVercelCron) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+    } else if (!isVercelCron) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const supabase = await createClient()
+    const stripe = getStripeClient()
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const todayStr = today.toISOString().split('T')[0]
@@ -77,7 +75,7 @@ export async function POST(request: NextRequest) {
 
       if (!plan.cancellation_fee_paid && plan.cancellation_fee && plan.cancellation_fee > 0) {
         const chargeResult = await chargeCancellationFee({
-          stripe: STRIPE,
+          stripe,
           supabase,
           userId: plan.user_id,
           userPlanId: plan.id,

@@ -9,9 +9,16 @@ export const runtime = 'nodejs'
  */
 export async function GET(request: NextRequest) {
   try {
-    // Vercel Cronからのリクエストか確認（オプション）
+    const cronSecret = process.env.CRON_SECRET
     const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const isVercelCron = request.headers.get('x-vercel-cron') === '1'
+
+    if (cronSecret) {
+      const expected = `Bearer ${cronSecret}`
+      if (authHeader !== expected && !isVercelCron) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+    } else if (!isVercelCron) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
