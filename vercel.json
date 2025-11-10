@@ -11,10 +11,6 @@
     {
       "path": "/api/cron/monthly-billing",
       "schedule": "0 2 1 * *"
-    },
-    {
-      "path": "/api/cron/process-cancellations",
-      "schedule": "0 2 1 * *"
     }
   ]
 }

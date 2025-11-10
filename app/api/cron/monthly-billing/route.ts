@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { processScheduledCancellations } from '@/lib/cron/process-cancellations'
 import Stripe from 'stripe'
 
 export const runtime = 'nodejs'
@@ -35,9 +36,26 @@ export async function GET(request: NextRequest) {
 
     const stripe = getStripeClient()
     const supabase = await createClient()
+    const now = new Date()
+
+    const cancellationSummary = await processScheduledCancellations({
+      supabase,
+      stripe,
+      referenceDate: now,
+    })
+
+    if (
+      cancellationSummary.processed > 0 ||
+      cancellationSummary.chargeFailed > 0 ||
+      cancellationSummary.failedUpdates.length > 0
+    ) {
+      console.log(
+        `Processed cancellations before monthly billing`,
+        JSON.stringify(cancellationSummary, null, 2)
+      )
+    }
 
     // 前月の1日を取得（例：今日が2025-02-01なら、2025-01-01を取得）
-    const now = new Date()
     const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const billingMonth = previousMonth.toISOString().split('T')[0]
     
@@ -122,6 +140,7 @@ export async function GET(request: NextRequest) {
       success: 0,
       failed: 0,
       errors: [] as string[],
+      cancellations: cancellationSummary,
     }
 
     // 各ユーザーに対して決済を実行
