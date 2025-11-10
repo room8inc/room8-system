@@ -1,9 +1,9 @@
 import { cache, cacheKey } from '@/lib/cache/vercel-kv'
 import { chargeCancellationFee } from '@/lib/stripe/cancellation-fee'
-import type { createClient as CreateSupabaseClient } from '@/lib/supabase/server'
+import type { createClient as createSupabaseClient } from '@/lib/supabase/server'
 import type Stripe from 'stripe'
 
-type SupabaseServerClient = Awaited<ReturnType<CreateSupabaseClient>>
+type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseClient>>
 
 export interface ProcessCancellationsResult {
   processed: number
