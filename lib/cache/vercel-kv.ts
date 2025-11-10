@@ -5,10 +5,23 @@
 
 import { kv } from '@vercel/kv'
 
+let kvWarningLogged = false
+
 // 💡 Vercel KVのラッパー
-// KV_REST_API_URL または KV_REDIS_URL のどちらかがあれば動作
+// REST用URLとトークンが揃っているか確認（Redis互換でもOK）
 const isKVAvailable = () => {
-  return !!(process.env.KV_REST_API_URL || process.env.KV_REDIS_URL)
+  const url = process.env.KV_REST_API_URL || process.env.KV_REDIS_URL
+  const token = process.env.KV_REST_API_TOKEN || process.env.KV_REDIS_TOKEN
+  const available = Boolean(url && token)
+
+  if (!available && !kvWarningLogged && process.env.NODE_ENV !== 'development') {
+    console.warn(
+      '[Cache] Vercel KV is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN (or Redis equivalents) to enable caching.'
+    )
+    kvWarningLogged = true
+  }
+
+  return available
 }
 
 export const cache = {
