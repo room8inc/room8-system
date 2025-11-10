@@ -89,6 +89,7 @@ export default async function UserDetailPage({
   )
 
   const currentPlan = activePlan || scheduledCancellationPlan || null
+  console.log('Admin user detail: currentPlan', currentPlan ? { id: currentPlan.id, status: currentPlan.status } : null)
   const planHistory = userPlans || []
 
   // プラン一覧を取得（プラン変更用）
