@@ -55,19 +55,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 即時解約か将来解約かを判定
+    // 解約日を判定（15日までは当月末、それ以降は翌月末以降のみ）
     const cancellationDateObj = new Date(cancellationDate)
     cancellationDateObj.setHours(0, 0, 0, 0)
     const now = new Date()
     now.setHours(0, 0, 0, 0)
 
-    const minimumCancellationDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-    minimumCancellationDate.setHours(0, 0, 0, 0)
+    const cutoffDay = 15
+    const isBeforeCutoff = now.getDate() <= cutoffDay
+    const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    endOfCurrentMonth.setHours(0, 0, 0, 0)
+    const endOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0)
+    endOfNextMonth.setHours(0, 0, 0, 0)
+    const minimumCancellationDate = isBeforeCutoff ? endOfCurrentMonth : endOfNextMonth
 
     if (cancellationDateObj.getTime() < minimumCancellationDate.getTime()) {
       return NextResponse.json(
         {
-          error: '解約日は翌月以降の日付を指定してください',
+          error: '解約日は指定可能な最短月より前の日付です',
           minCancellationDate: minimumCancellationDate.toISOString().split('T')[0],
         },
         { status: 400 }

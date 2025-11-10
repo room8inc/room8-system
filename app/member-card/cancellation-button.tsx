@@ -27,26 +27,33 @@ export function CancellationButton({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // 今日と翌月（解約可能な最短月）を計算
-  const today = useMemo(() => new Date(), [])
-  const nextMonthStart = useMemo(
-    () => new Date(today.getFullYear(), today.getMonth() + 1, 1),
-    [today]
-  )
+  // 今日と最短解約月（申請日が15日以前なら当月末、それ以降は翌月末）
+  const today = useMemo(() => {
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+    return now
+  }, [])
+
+  const isBeforeCutoff = useMemo(() => today.getDate() <= 15, [today])
+
+  const earliestMonthStart = useMemo(() => {
+    return new Date(today.getFullYear(), today.getMonth() + (isBeforeCutoff ? 0 : 1), 1)
+  }, [today, isBeforeCutoff])
 
   // 選択可能な月（12ヶ月分）を生成
   const monthOptions = useMemo(() => {
     return Array.from({ length: 12 }, (_, index) => {
-      const date = new Date(nextMonthStart.getFullYear(), nextMonthStart.getMonth() + index, 1)
+      const date = new Date(earliestMonthStart.getFullYear(), earliestMonthStart.getMonth() + index, 1)
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
       return {
         key,
         year: date.getFullYear(),
         month: date.getMonth() + 1,
         label: `${date.getFullYear()}年${date.getMonth() + 1}月`,
+        isCurrentMonth: isBeforeCutoff && index === 0,
       }
     })
-  }, [nextMonthStart])
+  }, [earliestMonthStart, isBeforeCutoff])
 
   const defaultCancellationDate = useMemo(() => {
     if (monthOptions.length === 0) {
@@ -206,7 +213,8 @@ export function CancellationButton({
                   >
                     {monthOptions.map((option) => (
                       <option key={option.key} value={option.key}>
-                        {option.label}（{option.month}月末まで利用可）
+                        {option.label}
+                        {option.isCurrentMonth ? '（当月末まで利用可）' : '（月末まで利用可）'}
                       </option>
                     ))}
                   </select>
@@ -215,7 +223,7 @@ export function CancellationButton({
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-room-charcoal-light">
-                  お選びの月の末日までご利用いただけます
+                  毎月15日までの申請で当月末解約が可能です。それ以降の申請は翌月末以降の解約となります。
                 </p>
               </div>
 
