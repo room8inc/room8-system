@@ -30,9 +30,8 @@ const normalizePlanRecord = (plan: PlanRecord, today: string): NormalizedPlanRec
   const currentPlanDetail = plan.plans ?? null
   const newPlanDetail = plan.new_plans ?? null
 
-  const isActive = plan.status === 'active'
+  const isActive = plan.status === 'active' && plan.ended_at === null
   const isScheduledCancellation =
-    plan.status === 'cancelled' &&
     plan.cancellation_scheduled_date !== null &&
     plan.cancellation_scheduled_date >= today &&
     plan.ended_at === null

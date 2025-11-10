@@ -71,71 +71,43 @@ export async function POST(request: NextRequest) {
     cancellationDateObj.setHours(0, 0, 0, 0)
     const now = new Date()
     now.setHours(0, 0, 0, 0)
-    const isImmediateCancellation = cancellationDateObj.getTime() <= now.getTime()
 
-    // 解約予定日を設定
-    // 解約料金がある場合は、支払い済みフラグをfalseに設定
-    if (isImmediateCancellation) {
-      const todayStr = now.toISOString().split('T')[0]
-      const { error: immediateUpdateError } = await supabase
-        .from('user_plans')
-        .update({
-          status: 'cancelled',
-          ended_at: todayStr,
-          cancellation_scheduled_date: cancellationDate,
-          cancellation_fee: cancellationFee || 0,
-          cancellation_fee_paid: cancellationFee === 0 || !cancellationFee,
-        })
-        .eq('id', userPlanId)
+    const minimumCancellationDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    minimumCancellationDate.setHours(0, 0, 0, 0)
 
-      if (immediateUpdateError) {
-        console.error('Immediate cancellation update error:', immediateUpdateError)
-        return NextResponse.json(
-          { error: '退会情報の更新に失敗しました' },
-          { status: 500 }
-        )
-      }
-
-      // ユーザーの会員区分をドロップインに戻す
-      await supabase
-        .from('users')
-        .update({ member_type: 'dropin' })
-        .eq('id', user.id)
-
-      effectiveCancellationDate = todayStr
-
-      await Promise.all([
-        cache.delete(cacheKey('user_plan', user.id)),
-        cache.delete(cacheKey('user_plans_full', user.id)),
-        cache.delete(cacheKey('user_full', user.id)),
-      ])
-    } else {
-      const { error: updateError } = await supabase
-        .from('user_plans')
-        .update({
-          cancellation_scheduled_date: cancellationDate,
-          cancellation_fee: cancellationFee || 0,
-          cancellation_fee_paid: cancellationFee === 0 || !cancellationFee,
-        })
-        .eq('id', userPlanId)
-
-      if (updateError) {
-        console.error('Cancellation update error:', updateError)
-        return NextResponse.json(
-          { error: '退会申請の更新に失敗しました' },
-          { status: 500 }
-        )
-      }
-
-      await Promise.all([
-        cache.delete(cacheKey('user_plan', user.id)),
-        cache.delete(cacheKey('user_plans_full', user.id)),
-        cache.delete(cacheKey('user_full', user.id)),
-      ])
-
-      // NOTE: 将来解約の場合は会員種別を維持する（解約撤回を容易にするため）
+    if (cancellationDateObj.getTime() < minimumCancellationDate.getTime()) {
+      return NextResponse.json(
+        {
+          error: '解約日は翌月以降の日付を指定してください',
+          minCancellationDate: minimumCancellationDate.toISOString().split('T')[0],
+        },
+        { status: 400 }
+      )
     }
 
+    const { error: updateError } = await supabase
+      .from('user_plans')
+      .update({
+        cancellation_scheduled_date: cancellationDate,
+        cancellation_fee: cancellationFee || 0,
+        cancellation_fee_paid: false,
+      })
+      .eq('id', userPlanId)
+
+    if (updateError) {
+      console.error('Cancellation update error:', updateError)
+      return NextResponse.json(
+        { error: '退会申請の更新に失敗しました' },
+        { status: 500 }
+      )
+    }
+
+    await Promise.all([
+      cache.delete(cacheKey('user_plan', user.id)),
+      cache.delete(cacheKey('user_plans_full', user.id)),
+      cache.delete(cacheKey('user_full', user.id)),
+    ])
+ 
     // Stripeサブスクリプションを更新
     if (currentPlan.stripe_subscription_id) {
       try {
@@ -158,12 +130,6 @@ export async function POST(request: NextRequest) {
         if (subscription) {
           if (subscription.status === 'canceled') {
             console.warn(`Subscription ${subscriptionId} is already canceled. Skipping Stripe cancellation.`)
-          } else if (isImmediateCancellation) {
-            // 即時解約
-            await stripe.subscriptions.cancel(subscriptionId, {
-              invoice_now: false,
-              prorate: false,
-            })
           } else {
             const requestedCancelAt = Math.floor(cancellationDateObj.getTime() / 1000)
             const currentPeriodEnd =
@@ -211,13 +177,13 @@ export async function POST(request: NextRequest) {
 
             const actualCancellationDate = new Date(normalizedCancelAt * 1000).toISOString().split('T')[0]
             if (actualCancellationDate !== cancellationDate) {
+              effectiveCancellationDate = actualCancellationDate
               await supabase
                 .from('user_plans')
                 .update({
                   cancellation_scheduled_date: actualCancellationDate,
                 })
                 .eq('id', userPlanId)
-              effectiveCancellationDate = actualCancellationDate
             }
           }
         }
@@ -246,29 +212,6 @@ export async function POST(request: NextRequest) {
             { status: 500 }
           )
         }
-      }
-    }
-
-    // 解約料金が発生する場合はStripeで決済を試みる
-    if (isImmediateCancellation && cancellationFee && cancellationFee > 0) {
-      const feeChargeResult = await chargeCancellationFee({
-        stripe,
-        supabase,
-        userId: user.id,
-        userPlanId,
-        amount: cancellationFee,
-      })
-
-      if (!feeChargeResult.success) {
-        console.error('Cancellation fee charge failed:', feeChargeResult.error)
-        return NextResponse.json(
-          {
-            error: '解約料金の決済に失敗しました',
-            details: feeChargeResult.error,
-            requiresPaymentMethodUpdate: feeChargeResult.code === 'no_payment_method',
-          },
-          { status: 402 }
-        )
       }
     }
 

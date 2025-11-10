@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { NormalizedPlanRecord } from '@/lib/utils/user-plans'
+import { CancellationRevertButton } from '@/app/member-card/cancellation-revert-button'
 
 interface UserPlanManagementProps {
   userId: string
@@ -174,6 +175,14 @@ export function UserPlanManagement({
                 <strong>解約予定日:</strong>{' '}
                 {new Date(currentPlan.cancellation_scheduled_date).toLocaleDateString('ja-JP')}
               </p>
+            )}
+            {isScheduledCancellation && (
+              <div className="space-y-2">
+                <p className="text-xs text-room-main-dark">
+                  解約手続き中です。下のボタンから解約申請を取り消すことができます。
+                </p>
+                <CancellationRevertButton userPlanId={currentPlan.id} />
+              </div>
             )}
             {upcomingPlanDetail && (
               <div className="rounded-md bg-room-main bg-opacity-10 border border-room-main p-3">
