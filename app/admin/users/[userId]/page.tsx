@@ -89,7 +89,7 @@ export default async function UserDetailPage({
   }
 
   const today = new Date().toISOString().split('T')[0]
-  const typedRecords = userPlanRecords.filter(isPlanRecord).map((plan) => plan as PlanRecord)
+  const typedRecords = userPlanRecords.filter(isPlanRecord) as unknown as PlanRecord[]
 
   const activePlan = typedRecords.find((plan) => plan.status === 'active' && plan.ended_at === null)
   const scheduledCancellationPlan = typedRecords.find(
