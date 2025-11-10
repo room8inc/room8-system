@@ -69,15 +69,6 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const { error: userUpdateError } = await supabase
-        .from('users')
-        .update({ member_type: 'dropin' })
-        .eq('id', plan.user_id)
-
-      if (userUpdateError) {
-        console.error('Process cancellations: failed to downgrade user', plan.user_id, userUpdateError)
-      }
-
       await Promise.all([
         cache.delete(cacheKey('user_plan', plan.user_id)),
         cache.delete(cacheKey('user_plans_full', plan.user_id)),

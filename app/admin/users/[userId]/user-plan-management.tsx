@@ -75,14 +75,7 @@ export function UserPlanManagement({
         throw new Error(`プラン契約に失敗しました: ${insertError.message}`)
       }
 
-      // member_typeを'regular'に更新
-      await supabase
-        .from('users')
-        .update({
-          member_type: 'regular',
-        })
-        .eq('id', userId)
-
+      // member_typeの更新は行わず、契約情報のキャッシュを更新
       router.refresh()
       setShowChangePlan(false)
       setSelectedPlanId('')
@@ -122,14 +115,6 @@ export function UserPlanManagement({
       if (updateError) {
         throw new Error(`プラン契約の解除に失敗しました: ${updateError.message}`)
       }
-
-      // member_typeを'dropin'に更新
-      await supabase
-        .from('users')
-        .update({
-          member_type: 'dropin',
-        })
-        .eq('id', userId)
 
       router.refresh()
     } catch (err) {

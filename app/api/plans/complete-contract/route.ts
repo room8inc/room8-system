@@ -264,14 +264,6 @@ export async function POST(request: NextRequest) {
         .eq('id', assignedLockerId)
     }
 
-    // member_typeを'regular'に更新
-    await supabase
-      .from('users')
-      .update({
-        member_type: 'regular',
-      })
-      .eq('id', user.id)
-
     // Subscriptionを作成（2ヶ月目以降の自動決済用）
     // Payment Intentから取得した顧客IDを使用（確実に存在する）
     if (customerId) {
@@ -390,9 +382,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // キャッシュをクリア（会員情報が更新されたため）
+    // プラン契約関連のキャッシュをクリア（会員種別はプラン状態から判定）
     await Promise.all([
       cache.delete(cacheKey('user_plan', user.id)),
+      cache.delete(cacheKey('user_plans_full', user.id)),
       cache.delete(cacheKey('user_full', user.id)),
       cache.delete(cacheKey('user', user.id)),
     ])
