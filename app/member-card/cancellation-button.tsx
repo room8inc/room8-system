@@ -55,6 +55,11 @@ export function CancellationButton({
     })
   }, [earliestMonthStart, isBeforeCutoff])
 
+  const formatDate = (year: number, month: number, day: number) => {
+    const pad = (value: number) => String(value).padStart(2, '0')
+    return `${year}-${pad(month)}-${pad(day)}`
+  }
+
   const defaultCancellationDate = useMemo(() => {
     if (monthOptions.length === 0) {
       return null
@@ -66,8 +71,7 @@ export function CancellationButton({
       return null
     }
     const endOfMonth = new Date(year, month, 0)
-    endOfMonth.setHours(0, 0, 0, 0)
-    return endOfMonth.toISOString().split('T')[0]
+    return formatDate(year, month, endOfMonth.getDate())
   }, [monthOptions])
 
   // 選択中の月の最終日をISO日付で計算
@@ -82,8 +86,7 @@ export function CancellationButton({
       return null
     }
     const endOfMonth = new Date(year, month, 0) // 指定月の最終日
-    endOfMonth.setHours(0, 0, 0, 0)
-    return endOfMonth.toISOString().split('T')[0]
+    return formatDate(year, month, endOfMonth.getDate())
   }, [selectedMonthKey])
 
   // 初期値を設定
