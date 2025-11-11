@@ -68,6 +68,8 @@ export async function POST(request: NextRequest) {
       try {
         await stripe.subscriptions.update(plan.stripe_subscription_id, {
           cancel_at: null,
+        })
+        await stripe.subscriptions.update(plan.stripe_subscription_id, {
           cancel_at_period_end: false,
         })
       } catch (stripeError: any) {
