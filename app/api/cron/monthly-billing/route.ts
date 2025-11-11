@@ -103,6 +103,7 @@ export async function GET(request: NextRequest) {
         billingMonth,
         bookingsCount: 0,
         overtimeCount: 0,
+        cancellations: cancellationSummary,
       })
     }
 
