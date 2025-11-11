@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service-client'
 import { processScheduledCancellations } from '@/lib/cron/process-cancellations'
 import Stripe from 'stripe'
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     const stripe = getStripeClient()
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const now = new Date()
 
     const cancellationSummary = await processScheduledCancellations({

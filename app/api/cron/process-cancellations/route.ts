@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service-client'
 import { getStripeClient } from '@/lib/stripe/cancellation-fee'
 import { processScheduledCancellations } from '@/lib/cron/process-cancellations'
 
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const stripe = getStripeClient()
 
     const summary = await processScheduledCancellations({

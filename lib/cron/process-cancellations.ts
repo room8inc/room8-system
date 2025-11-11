@@ -1,9 +1,7 @@
 import { cache, cacheKey } from '@/lib/cache/vercel-kv'
 import { chargeCancellationFee } from '@/lib/stripe/cancellation-fee'
-import type { createClient as createSupabaseClient } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type Stripe from 'stripe'
-
-type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseClient>>
 
 export interface ProcessCancellationsResult {
   processed: number
@@ -17,7 +15,7 @@ export async function processScheduledCancellations({
   stripe,
   referenceDate = new Date(),
 }: {
-  supabase: SupabaseServerClient
+  supabase: SupabaseClient
   stripe: Stripe
   referenceDate?: Date
 }): Promise<ProcessCancellationsResult> {
