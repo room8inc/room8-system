@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const todayStr = today.toISOString().split('T')[0]
 
     const isScheduledCancellation =
-      plan.status === 'cancelled' &&
+      (plan.status === 'active' || plan.status === 'cancelled') &&
       plan.cancellation_scheduled_date !== null &&
       plan.cancellation_scheduled_date >= todayStr &&
       plan.ended_at === null
