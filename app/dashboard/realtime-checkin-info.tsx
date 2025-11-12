@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { calculateOvertime } from '@/lib/utils/overtime'
 
 interface RealtimeCheckinInfoProps {
   checkinAt: string
@@ -42,64 +43,17 @@ export function RealtimeCheckinInfo({
       }
 
       // 定期会員の時間外利用チェック
-      if (memberType === 'regular' && planInfo) {
-        const nowTime = now.getHours() * 60 + now.getMinutes() // 分単位
-        const today = now.getDay() // 0=日曜, 1=月曜, ..., 6=土曜
-        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-        const todayName = dayNames[today]
+      if (memberType === 'regular' && planInfo && planInfo.startTime && planInfo.endTime) {
+        // calculateOvertimeを使用して時間外利用を計算
+        const overtimeResult = calculateOvertime(checkinTime, now, {
+          startTime: planInfo.startTime,
+          endTime: planInfo.endTime,
+          availableDays: planInfo.availableDays,
+        })
 
-        // プランの利用可能時間をチェック
-        if (planInfo.startTime && planInfo.endTime) {
-          // TIME型は "HH:MM:SS" 形式なので、最初の5文字を取得
-          const startTimeStr = planInfo.startTime.substring(0, 5)
-          const endTimeStr = planInfo.endTime.substring(0, 5)
-          
-          const [startHour, startMinute] = startTimeStr.split(':').map(Number)
-          const [endHour, endMinute] = endTimeStr.split(':').map(Number)
-          const startTimeMinutes = startHour * 60 + startMinute
-          const endTimeMinutes = endHour * 60 + endMinute
-
-          // 利用可能日かチェック
-          const isAvailableDay = planInfo.availableDays?.includes(todayName) ?? true
-
-          if (isAvailableDay) {
-            // プラン時間内かチェック
-            if (nowTime >= startTimeMinutes && nowTime <= endTimeMinutes) {
-              // プラン時間内なので時間外利用ではない
-              setIsOvertime(false)
-              setOvertimeMinutes(0)
-              setCurrentCharge(0)
-            } else if (nowTime > endTimeMinutes) {
-              // プラン時間を超過している
-              const overtime = nowTime - endTimeMinutes
-              // 10分の猶予を考慮
-              const chargeableMinutes = Math.max(0, overtime - 10)
-              if (chargeableMinutes >= 15) {
-                setIsOvertime(true)
-                setOvertimeMinutes(chargeableMinutes)
-                // 30分200円、1時間400円、最大2,000円
-                const hours = Math.ceil(chargeableMinutes / 60)
-                const charge = Math.min(hours * 400, 2000)
-                setCurrentCharge(charge)
-              } else {
-                // 猶予時間内なので課金なし
-                setIsOvertime(false)
-                setOvertimeMinutes(0)
-                setCurrentCharge(0)
-              }
-            } else {
-              // プラン時間前なので時間外利用ではない
-              setIsOvertime(false)
-              setOvertimeMinutes(0)
-              setCurrentCharge(0)
-            }
-          } else {
-            // 利用可能日ではない場合は時間外利用として扱う（簡易版）
-            setIsOvertime(false)
-            setOvertimeMinutes(0)
-            setCurrentCharge(0)
-          }
-        }
+        setIsOvertime(overtimeResult.isOvertime)
+        setOvertimeMinutes(overtimeResult.overtimeMinutes)
+        setCurrentCharge(overtimeResult.overtimeFee)
       }
     }
 

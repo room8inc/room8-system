@@ -74,21 +74,45 @@ export function calculateOvertime(
   // プラン時間内の利用時間を計算
   let overtimeMinutes = 0
 
-  // チェックインがプラン時間前の場合
+  // チェックインがプラン時間前の場合（10分の猶予を考慮）
   if (checkinTimeMinutes < startTimeMinutes) {
-    overtimeMinutes += startTimeMinutes - checkinTimeMinutes
+    const earlyMinutes = startTimeMinutes - checkinTimeMinutes
+    // 10分以内なら課金なし（カウント開始しない）
+    if (earlyMinutes > 10) {
+      // 10分超えたら、超過分をそのまま計算（10分差し引かない）
+      overtimeMinutes += earlyMinutes
+    }
   }
 
   // チェックアウトがプラン時間後の場合
   if (checkoutTimeMinutes > endTimeMinutes) {
     const overtime = checkoutTimeMinutes - endTimeMinutes
-    // 10分の猶予を考慮
-    const chargeableMinutes = Math.max(0, overtime - 10)
-    overtimeMinutes += chargeableMinutes
+    // 10分以内なら課金なし（17:00でチェックアウトしたことにする）
+    // 例: 17:00終了プランで17:10まで → 課金なし
+    if (overtime <= 10) {
+      // チェックインがプラン時間前の場合の時間外利用はそのまま加算
+      if (overtimeMinutes > 0) {
+        // 料金を計算（30分単位で切り上げ）
+        const fee = calculateOvertimeFee(overtimeMinutes)
+        return {
+          isOvertime: true,
+          overtimeMinutes,
+          overtimeFee: fee,
+        }
+      }
+      return {
+        isOvertime: false,
+        overtimeMinutes: 0,
+        overtimeFee: 0,
+      }
+    }
+    // 10分超えたら、超過分をそのままカウント（10分差し引かない）
+    // 例: 17:11 → 11分使用 → 200円、18:00 → 60分使用 → 400円、19:15 → 135分使用 → 1000円
+    overtimeMinutes += overtime
   }
 
-  // 15分未満の場合は課金なし
-  if (overtimeMinutes < 15) {
+  // 時間外利用がない場合は課金なし
+  if (overtimeMinutes <= 0) {
     return {
       isOvertime: false,
       overtimeMinutes: 0,
@@ -96,7 +120,7 @@ export function calculateOvertime(
     }
   }
 
-  // 料金を計算
+  // 料金を計算（30分単位で切り上げ）
   const fee = calculateOvertimeFee(overtimeMinutes)
 
   return {
@@ -108,15 +132,38 @@ export function calculateOvertime(
 
 /**
  * 時間外利用料金を計算
- * @param overtimeMinutes 時間外利用時間（分）
+ * @param overtimeMinutes 時間外利用時間（分、10分の猶予を超えた超過分をそのままカウント）
  * @returns 料金（円）
+ * 
+ * 計算例（プラン終了17:00の場合）:
+ * - 17:11 → 11分 → 30分切り上げ → 200円
+ * - 18:00 → 60分 → 60分 → 400円
+ * - 19:15 → 135分 → 150分切り上げ → 1000円
  */
 export function calculateOvertimeFee(overtimeMinutes: number): number {
   // 30分200円、1時間400円、最大2,000円
-  const HOURLY_RATE = 400 // 1時間あたりの料金（円）
+  const RATE_30_MIN = 200 // 30分あたりの料金（円）
+  const RATE_60_MIN = 400 // 1時間あたりの料金（円）
   const MAX_FEE = 2000 // 最大料金（円）
 
-  const hours = Math.ceil(overtimeMinutes / 60) // 切り上げ
-  return Math.min(hours * HOURLY_RATE, MAX_FEE)
+  // 30分単位で切り上げ
+  // 例: 11分 → 1単位、60分 → 2単位、135分 → 5単位
+  const chargeable30MinUnits = Math.ceil(overtimeMinutes / 30)
+  
+  // 料金計算（30分単位）
+  let fee = 0
+  if (chargeable30MinUnits === 1) {
+    // 1-30分 → 200円
+    fee = RATE_30_MIN
+  } else if (chargeable30MinUnits === 2) {
+    // 31-60分 → 400円
+    fee = RATE_60_MIN
+  } else {
+    // 61分以上 → 30分単位で200円追加（最大2,000円）
+    // 例: 135分 → 5単位 → 1000円
+    fee = Math.min(chargeable30MinUnits * RATE_30_MIN, MAX_FEE)
+  }
+  
+  return fee
 }
 
