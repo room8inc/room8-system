@@ -33,9 +33,7 @@ CREATE TABLE seat_checkins (
   checkin_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   checkout_at TIMESTAMP WITH TIME ZONE, -- 座席からのチェックアウト時刻
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  -- 1ユーザーが1座席に同時にチェックインできないように制約
-  UNIQUE(user_id, seat_id, checkin_at) WHERE checkout_at IS NULL
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 -- Indexes for seat_checkins
@@ -44,6 +42,9 @@ CREATE INDEX idx_seat_checkins_seat_id ON seat_checkins(seat_id);
 CREATE INDEX idx_seat_checkins_checkin_id ON seat_checkins(checkin_id);
 CREATE INDEX idx_seat_checkins_checkout_at ON seat_checkins(checkout_at);
 CREATE INDEX idx_seat_checkins_active ON seat_checkins(seat_id, checkout_at) WHERE checkout_at IS NULL;
+
+-- 部分UNIQUEインデックス: 1ユーザーが1座席に同時にチェックインできないように制約
+CREATE UNIQUE INDEX idx_seat_checkins_unique_active ON seat_checkins(user_id, seat_id) WHERE checkout_at IS NULL;
 
 -- ============================================
 -- Trigger: Update updated_at timestamp
