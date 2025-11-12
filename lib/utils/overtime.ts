@@ -87,8 +87,9 @@ export function calculateOvertime(
   // チェックアウトがプラン時間後の場合
   if (checkoutTimeMinutes > endTimeMinutes) {
     const overtime = checkoutTimeMinutes - endTimeMinutes
-    // 10分以内なら課金なし（17:00でチェックアウトしたことにする）
+    // 10分以内なら課金なし（プラン終了時刻でチェックアウトしたことにする）
     // 例: 17:00終了プランで17:10まで → 課金なし
+    // 例: 22:00終了プランで22:10まで → 課金なし
     if (overtime <= 10) {
       // チェックインがプラン時間前の場合の時間外利用はそのまま加算
       if (overtimeMinutes > 0) {
@@ -107,7 +108,8 @@ export function calculateOvertime(
       }
     }
     // 10分超えたら、超過分をそのままカウント（10分差し引かない）
-    // 例: 17:11 → 11分使用 → 200円、18:00 → 60分使用 → 400円、19:15 → 135分使用 → 1000円
+    // 例: 17:00終了プランで17:11 → 11分使用 → 200円、18:00 → 60分使用 → 400円
+    // 例: 22:00終了プランで22:11 → 11分使用 → 200円、23:00 → 60分使用 → 400円
     overtimeMinutes += overtime
   }
 
