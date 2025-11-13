@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // 1. 自分の座席チェックインを取得
     const { data: seatCheckin, error: checkinError } = await supabase
       .from('seat_checkins')
-      .select('id, seat_id, checkin_at, seats(seat_number, seat_name)')
+      .select('id, seat_id, checkin_at')
       .eq('user_id', user.id)
       .eq('seat_id', seatId)
       .is('checkout_at', null)
@@ -53,7 +53,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 2. 座席チェックアウトを実行
+    // 2. 座席情報を取得
+    const { data: seat, error: seatError } = await supabase
+      .from('seats')
+      .select('seat_number, seat_name')
+      .eq('id', seatId)
+      .single()
+
+    if (seatError || !seat) {
+      console.warn('Seat info fetch error (non-blocking):', seatError)
+    }
+
+    // 3. 座席チェックアウトを実行
     const checkoutAt = new Date().toISOString()
     const { error: updateError } = await supabase
       .from('seat_checkins')
@@ -75,8 +86,6 @@ export async function POST(request: NextRequest) {
       cache.delete(cacheKey('seat_status', seatId)),
       cache.delete(cacheKey('seats_availability')),
     ])
-
-    const seat = seatCheckin.seats as { seat_number: string; seat_name: string } | null
 
     return NextResponse.json({
       success: true,
