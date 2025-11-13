@@ -313,6 +313,33 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
       const checkoutAt = new Date()
       const durationMinutes = Math.floor((checkoutAt.getTime() - checkinAt.getTime()) / (1000 * 60))
 
+      // 5分以内のチェックアウトはチェックインをキャンセル（削除）する
+      if (durationMinutes < 5) {
+        // 座席チェックアウトを先に実行（外部キー制約のため）
+        await supabase
+          .from('seat_checkins')
+          .delete()
+          .eq('checkin_id', checkinId)
+
+        // チェックインを削除
+        const { error: deleteError } = await supabase
+          .from('checkins')
+          .delete()
+          .eq('id', checkinId)
+
+        if (deleteError) {
+          throw new Error(`チェックインのキャンセルに失敗しました: ${deleteError.message}`)
+        }
+
+        setStatus('success')
+        setMessage('チェックインをキャンセルしました（5分以内のため）')
+        setTimeout(() => {
+          onSuccess?.()
+          onClose()
+        }, 2000)
+        return
+      }
+
       // 会員の場合は時間外利用を計算
       let isOvertime = false
       let overtimeMinutes = 0

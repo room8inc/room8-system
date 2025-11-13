@@ -287,6 +287,35 @@ export default function CheckInPage() {
       const checkoutAt = new Date()
       const durationMinutes = Math.floor((checkoutAt.getTime() - checkinAt.getTime()) / (1000 * 60))
 
+      // 5分以内のチェックアウトはチェックインをキャンセル（削除）する
+      if (durationMinutes < 5) {
+        // 座席チェックアウトを先に実行（外部キー制約のため）
+        await supabase
+          .from('seat_checkins')
+          .delete()
+          .eq('checkin_id', checkinId)
+
+        // チェックインを削除
+        const { error: deleteError } = await supabase
+          .from('checkins')
+          .delete()
+          .eq('id', checkinId)
+
+        if (deleteError) {
+          console.error('Checkin cancel error:', deleteError)
+          throw new Error(`チェックインのキャンセルに失敗しました: ${deleteError.message}`)
+        }
+
+        setStatus('success')
+        setMessage('チェックインをキャンセルしました（5分以内のため）')
+        
+        // 3秒後にダッシュボードにリダイレクト
+        setTimeout(() => {
+          router.push('/dashboard')
+        }, 3000)
+        return
+      }
+
       // チェックアウト記録を更新
       const { error: updateError } = await supabase
         .from('checkins')
