@@ -198,7 +198,14 @@ export default async function DashboardPage() {
                 </p>
                 {currentCheckin.checkin_at && (
                   <p className="mt-1 text-xs text-room-charcoal-light">
-                    チェックイン時刻: {new Date(currentCheckin.checkin_at).toLocaleString('ja-JP')}
+                    チェックイン時刻: {new Date(currentCheckin.checkin_at).toLocaleString('ja-JP', {
+                      timeZone: 'Asia/Tokyo',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </p>
                 )}
                 {/* リアルタイム情報表示 */}

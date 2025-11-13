@@ -118,7 +118,9 @@ export function UnpaidCheckoutsWarning() {
           <ul className="text-xs text-room-charcoal-light space-y-1 mb-3">
             {unpaidCheckouts.slice(0, 3).map((checkout) => (
               <li key={checkout.id}>
-                {new Date(checkout.checkout_at).toLocaleDateString('ja-JP')} - {checkout.duration_minutes || 0}分 - {(checkout.dropin_fee || 0).toLocaleString()}円
+                {new Date(checkout.checkout_at).toLocaleDateString('ja-JP', {
+                  timeZone: 'Asia/Tokyo',
+                })} - {checkout.duration_minutes || 0}分 - {(checkout.dropin_fee || 0).toLocaleString()}円
               </li>
             ))}
             {unpaidCheckouts.length > 3 && (

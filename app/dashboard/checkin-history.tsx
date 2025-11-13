@@ -35,6 +35,7 @@ export async function CheckinHistory({ userId }: { userId: string }) {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric',
+                            timeZone: 'Asia/Tokyo',
                           })}
                         </span>
                         {!checkoutAt && (
@@ -48,6 +49,7 @@ export async function CheckinHistory({ userId }: { userId: string }) {
                           入室: {checkinAt.toLocaleTimeString('ja-JP', {
                             hour: '2-digit',
                             minute: '2-digit',
+                            timeZone: 'Asia/Tokyo',
                           })}
                         </span>
                         {checkoutAt && (
@@ -55,6 +57,7 @@ export async function CheckinHistory({ userId }: { userId: string }) {
                             退室: {checkoutAt.toLocaleTimeString('ja-JP', {
                               hour: '2-digit',
                               minute: '2-digit',
+                              timeZone: 'Asia/Tokyo',
                             })}
                           </span>
                         )}
