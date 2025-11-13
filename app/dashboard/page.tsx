@@ -10,6 +10,7 @@ import { isAdmin } from '@/lib/utils/admin'
 import { CheckinHistory } from './checkin-history'
 import { UpcomingBookings } from './upcoming-bookings'
 import { UnpaidCheckoutsWarning } from './unpaid-checkouts-warning'
+import { SeatMap } from './seat-map'
 import { getCached, cacheKey } from '@/lib/cache/vercel-kv'
 
 // 💡 キャッシュ最適化: 20秒ごとに再検証（さらに高速化）
@@ -304,6 +305,13 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+
+        {/* 座席表（チェックイン中のみ表示） */}
+        {isCheckedIn && (
+          <div className="mt-8">
+            <SeatMap />
+          </div>
+        )}
 
         {/* 💡 Streaming: 会議室予約と利用履歴を非同期で読み込み */}
         <Suspense fallback={<div className="mt-8 rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark animate-pulse h-32"></div>}>
