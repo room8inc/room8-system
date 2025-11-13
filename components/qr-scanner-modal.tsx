@@ -316,26 +316,43 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
       // 5分以内のチェックアウトはチェックインをキャンセル（削除）する
       if (durationMinutes < 5) {
         // 座席チェックアウトを先に実行（外部キー制約のため）
-        await supabase
+        const { error: seatDeleteError } = await supabase
           .from('seat_checkins')
           .delete()
           .eq('checkin_id', checkinId)
 
+        if (seatDeleteError) {
+          console.warn('Seat checkin delete error (non-blocking):', seatDeleteError)
+        }
+
         // チェックインを削除
-        const { error: deleteError } = await supabase
+        const { data: deleteData, error: deleteError } = await supabase
           .from('checkins')
           .delete()
           .eq('id', checkinId)
+          .select()
 
         if (deleteError) {
+          console.error('Checkin delete error:', deleteError)
           throw new Error(`チェックインのキャンセルに失敗しました: ${deleteError.message}`)
+        }
+
+        // 削除が成功したことを確認
+        if (!deleteData || deleteData.length === 0) {
+          console.warn('Checkin was not found or already deleted:', checkinId)
         }
 
         setStatus('success')
         setMessage('チェックインをキャンセルしました（5分以内のため）')
+        
+        // ページをリフレッシュして状態を更新
         setTimeout(() => {
           onSuccess?.()
           onClose()
+          // ページをリフレッシュ
+          if (typeof window !== 'undefined') {
+            window.location.reload()
+          }
         }, 2000)
         return
       }
