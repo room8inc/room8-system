@@ -360,6 +360,20 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
         throw new Error(`チェックアウトに失敗しました: ${updateError.message}`)
       }
 
+      // 座席チェックアウトを自動実行（会場チェックアウト時に座席も自動解除）
+      const { error: seatCheckoutError } = await supabase
+        .from('seat_checkins')
+        .update({
+          checkout_at: checkoutAt.toISOString(),
+        })
+        .eq('checkin_id', checkinId)
+        .is('checkout_at', null)
+
+      if (seatCheckoutError) {
+        // 座席チェックアウトのエラーは警告として記録するが、会場チェックアウトは成功とする
+        console.warn('Seat checkout error (non-blocking):', seatCheckoutError)
+      }
+
       // ドロップイン会員の場合は料金計算と決済処理を実行
       if (checkinData.member_type_at_checkin === 'dropin') {
         setMessage('料金計算中...')
