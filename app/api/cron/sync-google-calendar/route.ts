@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { syncGoogleCalendarEvents } from '@/lib/utils/google-calendar-sync'
+import { checkAndRenewWatchChannel } from '@/lib/utils/google-calendar-watch'
 
 export const runtime = 'nodejs'
 
 /**
  * Googleカレンダーの定期同期ジョブ（1日1回実行）
  * Vercel Cronから呼び出される
+ * 
+ * 実行内容:
+ * 1. Watchチャンネルの有効期限をチェックし、必要に応じて自動再登録
+ * 2. GoogleカレンダーのイベントをDBに同期
  */
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +27,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // 今日から30日後までのイベントを同期
+    // 1. Watchチャンネルの有効期限をチェックし、必要に応じて自動再登録（残り1日以内で再登録）
+    let watchChannelRenewed = false
+    let watchChannelReason = ''
+    try {
+      const watchResult = await checkAndRenewWatchChannel(1) // 残り1日以内で再登録
+      watchChannelRenewed = watchResult.renewed
+      watchChannelReason = watchResult.reason || ''
+      if (watchChannelRenewed) {
+        console.log(`Watchチャンネルを自動再登録しました: ${watchChannelReason}`)
+      } else {
+        console.log(`Watchチャンネルチェック: ${watchChannelReason}`)
+      }
+    } catch (watchError: any) {
+      console.error('Watchチャンネルチェックエラー:', watchError)
+      // エラーでも同期処理は続行
+    }
+
+    // 2. 今日から30日後までのイベントを同期
     const today = new Date()
     const startDate = new Date(today)
     startDate.setDate(today.getDate() - 1) // 1日前から（念のため）
@@ -40,6 +62,8 @@ export async function GET(request: NextRequest) {
       errors: result.errors,
       startDate: startDateStr,
       endDate: endDateStr,
+      watchChannelRenewed,
+      watchChannelReason,
     })
   } catch (error: any) {
     console.error('定期同期エラー:', error)
