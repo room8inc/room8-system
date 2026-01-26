@@ -158,7 +158,7 @@ export function BookingList({ bookings, userId }: BookingListProps) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
             <h3 className="text-lg font-medium text-room-charcoal mb-4">
-              予約をキャンセルしますか？
+              この予約をキャンセルしますか？
             </h3>
             {pendingCancel && (
               <div className="mb-4 rounded-md bg-room-base-light border border-room-base-dark p-3 text-sm text-room-charcoal">
@@ -190,7 +190,7 @@ export function BookingList({ bookings, userId }: BookingListProps) {
                 onClick={handleCancelCancel}
                 className="px-4 py-2 text-sm rounded-md border border-room-base-dark text-room-charcoal hover:bg-room-base"
               >
-                戻る
+                キャンセルしない
               </button>
               <button
                 type="button"
@@ -198,7 +198,7 @@ export function BookingList({ bookings, userId }: BookingListProps) {
                 disabled={cancelling !== null}
                 className="px-4 py-2 text-sm rounded-md bg-room-charcoal text-white hover:bg-room-charcoal-light disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {cancelling ? 'キャンセル中...' : 'キャンセルを確定'}
+                {cancelling ? 'キャンセル中...' : 'キャンセルする'}
               </button>
             </div>
           </div>
