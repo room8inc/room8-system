@@ -3,6 +3,7 @@ import { cache as reactCache } from 'react'
 import { getGoogleCalendarClient } from '@/lib/utils/google-calendar'
 import { getCached, cacheKey } from '@/lib/cache/vercel-kv'
 import { createClient } from '@/lib/supabase/server'
+import { calendar_v3 } from 'googleapis'
 
 export const runtime = 'nodejs'
 
@@ -67,8 +68,8 @@ const getWeekEvents = reactCache(async (startDate: string, endDate: string) => {
       // 3. DBに保存（次回以降のキャッシュ用）
       if (events.length > 0) {
         const upsertData = events
-          .filter(event => event.id && event.start?.dateTime && event.end?.dateTime)
-          .map(event => ({
+          .filter((event: calendar_v3.Schema$Event) => event.id && event.start?.dateTime && event.end?.dateTime)
+          .map((event: calendar_v3.Schema$Event) => ({
             event_id: event.id!,
             calendar_id: targetCalendarId,
             summary: event.summary || '',
