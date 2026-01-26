@@ -135,7 +135,13 @@ export async function GET(request: NextRequest) {
       )
 
       if (activeCheckin) {
-        const userName = (activeCheckin.users as { name: string } | null)?.name || null
+        const userRecord = activeCheckin.users as
+          | { name: string }
+          | { name: string }[]
+          | null
+        const userName = Array.isArray(userRecord)
+          ? userRecord[0]?.name ?? null
+          : userRecord?.name ?? null
         seatStatusMap.set(seat.id, {
           seatId: seat.id,
           seatNumber: seat.seat_number,
