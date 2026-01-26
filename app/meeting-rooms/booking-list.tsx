@@ -23,16 +23,30 @@ interface BookingListProps {
   userId: string
 }
 
+type PendingCancel = {
+  bookingId: string
+  googleCalendarEventId: string | null
+  bookingDate: string
+  startTime: string
+  endTime: string
+}
+
 export function BookingList({ bookings, userId }: BookingListProps) {
   const router = useRouter()
   const supabase = createClient()
   const [cancelling, setCancelling] = useState<string | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState<string | null>(null)
-  const [pendingCancel, setPendingCancel] = useState<{ bookingId: string; googleCalendarEventId: string | null } | null>(null)
+  const [pendingCancel, setPendingCancel] = useState<PendingCancel | null>(null)
 
-  const handleCancelClick = (bookingId: string, googleCalendarEventId: string | null) => {
-    setPendingCancel({ bookingId, googleCalendarEventId })
-    setShowConfirmDialog(bookingId)
+  const handleCancelClick = (booking: Booking) => {
+    setPendingCancel({
+      bookingId: booking.id,
+      googleCalendarEventId: booking.google_calendar_event_id,
+      bookingDate: booking.booking_date,
+      startTime: booking.start_time,
+      endTime: booking.end_time,
+    })
+    setShowConfirmDialog(booking.id)
   }
 
   const handleConfirmCancel = async () => {
@@ -144,10 +158,31 @@ export function BookingList({ bookings, userId }: BookingListProps) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
             <h3 className="text-lg font-medium text-room-charcoal mb-4">
-              予約のキャンセル
+              予約をキャンセルしますか？
             </h3>
-            <p className="text-room-charcoal-light mb-6">
-              この予約をキャンセルしますか？
+            {pendingCancel && (
+              <div className="mb-4 rounded-md bg-room-base-light border border-room-base-dark p-3 text-sm text-room-charcoal">
+                <div className="flex justify-between">
+                  <span className="text-room-charcoal-light">予約日</span>
+                  <span>
+                    {new Date(pendingCancel.bookingDate).toLocaleDateString('ja-JP', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      weekday: 'short',
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-room-charcoal-light">時間</span>
+                  <span>
+                    {pendingCancel.startTime.substring(0, 5)} - {pendingCancel.endTime.substring(0, 5)}
+                  </span>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-room-charcoal-light mb-6">
+              前日24時以降のキャンセルは返金対象外になる場合があります。
             </p>
             <div className="flex gap-3 justify-end">
               <button
@@ -155,7 +190,7 @@ export function BookingList({ bookings, userId }: BookingListProps) {
                 onClick={handleCancelCancel}
                 className="px-4 py-2 text-sm rounded-md border border-room-base-dark text-room-charcoal hover:bg-room-base"
               >
-                キャンセル
+                戻る
               </button>
               <button
                 type="button"
@@ -163,7 +198,7 @@ export function BookingList({ bookings, userId }: BookingListProps) {
                 disabled={cancelling !== null}
                 className="px-4 py-2 text-sm rounded-md bg-room-charcoal text-white hover:bg-room-charcoal-light disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {cancelling ? 'キャンセル中...' : '確定'}
+                {cancelling ? 'キャンセル中...' : 'キャンセルを確定'}
               </button>
             </div>
           </div>
@@ -239,7 +274,7 @@ export function BookingList({ bookings, userId }: BookingListProps) {
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      handleCancelClick(booking.id, booking.google_calendar_event_id)
+                      handleCancelClick(booking)
                     }}
                     disabled={cancelling === booking.id || showConfirmDialog === booking.id}
                     className="rounded-md bg-room-charcoal px-3 py-1.5 text-xs text-white hover:bg-room-charcoal-light disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
