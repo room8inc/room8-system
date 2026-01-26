@@ -99,8 +99,20 @@ function PaymentForm({
             .eq('id', bookingId)
             .single()
 
-          if (bookingResponse.data) {
-            const booking = bookingResponse.data
+          if (bookingResponse.data || pendingBooking) {
+            const booking = pendingBooking ?? bookingResponse.data
+            const bookingDate = booking?.booking_date
+            const startTime = booking?.start_time
+            const endTime = booking?.end_time
+
+            if (!bookingDate || !startTime || !endTime) {
+              console.error('Missing booking date/time for calendar event:', booking)
+              setError('予約は完了しましたが、カレンダー連携に必要な日時が取得できませんでした。')
+              onError('カレンダー連携に必要な日時が取得できませんでした。')
+              setProcessing(false)
+              return
+            }
+
             const userData = await supabase
               .from('users')
               .select('name, email')
@@ -109,7 +121,7 @@ function PaymentForm({
 
             const userName = userData.data?.name || '会員'
             const eventTitle = `会議室予約 - ${userName}`
-            const eventDescription = `会員: ${userName}\n予約日: ${booking.booking_date}\n利用時間: ${booking.start_time} - ${booking.end_time}\n備考: ${booking.notes || 'なし'}`
+            const eventDescription = `会員: ${userName}\n予約日: ${bookingDate}\n利用時間: ${startTime} - ${endTime}\n備考: ${booking.notes || 'なし'}`
 
             const calendarEventResponse = await fetch('/api/calendar/create-event', {
               method: 'POST',
@@ -117,9 +129,9 @@ function PaymentForm({
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                date: booking.booking_date,
-                startTime: booking.start_time,
-                endTime: booking.end_time,
+                date: bookingDate,
+                startTime: startTime,
+                endTime: endTime,
                 title: eventTitle,
                 description: eventDescription,
               }),

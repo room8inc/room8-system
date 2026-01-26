@@ -334,9 +334,25 @@ export async function createGoogleCalendarEvent(
   try {
     const { calendar, calendarId } = await getGoogleCalendarClient()
 
+    const normalizeTime = (time: string) => {
+      if (/^\d{2}:\d{2}:\d{2}$/.test(time)) {
+        return time.slice(0, 5)
+      }
+      return time
+    }
+
+    const normalizedStart = normalizeTime(startTime)
+    const normalizedEnd = normalizeTime(endTime)
+
     // 日時をISO形式に変換（日本時間）
-    const startDateTime = new Date(`${date}T${startTime}:00+09:00`)
-    const endDateTime = new Date(`${date}T${endTime}:00+09:00`)
+    const startDateTime = new Date(`${date}T${normalizedStart}:00+09:00`)
+    const endDateTime = new Date(`${date}T${normalizedEnd}:00+09:00`)
+
+    if (Number.isNaN(startDateTime.getTime()) || Number.isNaN(endDateTime.getTime())) {
+      throw new Error(
+        `Invalid time value: date=${date}, startTime=${startTime}, endTime=${endTime}`
+      )
+    }
 
     // Googleカレンダーにイベントを追加
     const response = await calendar.events.insert({
