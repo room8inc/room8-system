@@ -99,8 +99,8 @@ function PaymentForm({
             .eq('id', bookingId)
             .single()
 
-          if (bookingResponse.data || pendingBooking) {
-            const booking = pendingBooking ?? bookingResponse.data
+          if (bookingResponse.data) {
+            const booking = bookingResponse.data
             const bookingDate = booking?.booking_date
             const startTime = booking?.start_time
             const endTime = booking?.end_time
