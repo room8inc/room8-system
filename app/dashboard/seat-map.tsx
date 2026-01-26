@@ -61,11 +61,35 @@ export function SeatMap() {
   }
 
   useEffect(() => {
+    // 初回読み込み
     fetchSeatStatus()
 
-    // 30秒ごとに自動更新
-    const interval = setInterval(fetchSeatStatus, 30000)
-    return () => clearInterval(interval)
+    // Supabase Realtimeで座席チェックインをリアルタイム監視
+    // 座席チェックイン/チェックアウトがあった時だけ更新
+    const channel = supabase
+      .channel('seat-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'seat_checkins'
+        },
+        (payload) => {
+          console.log('[Realtime] Seat checkin change detected:', payload)
+          // 変更があった時だけ再読み込み
+          fetchSeatStatus()
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Realtime] Subscription status:', status)
+      })
+
+    // クリーンアップ: コンポーネントアンマウント時にチャネル解除
+    return () => {
+      console.log('[Realtime] Unsubscribing from seat-changes channel')
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   // 座席チェックイン
