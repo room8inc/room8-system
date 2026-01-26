@@ -18,6 +18,7 @@ function PaymentForm({
   amount,
   onSuccess,
   onError,
+  onCancel,
 }: {
   clientSecret: string
   paymentIntentId: string | null
@@ -25,6 +26,7 @@ function PaymentForm({
   amount: number
   onSuccess: () => void
   onError: (errorMessage: string) => void
+  onCancel: () => void
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -229,7 +231,7 @@ function PaymentForm({
           type="button"
           onClick={() => {
             setError(null)
-            onError('決済をキャンセルしました')
+            onCancel()
           }}
           disabled={processing}
           className="px-4 py-2 text-sm rounded-md border border-room-base-dark text-room-charcoal hover:bg-room-base disabled:opacity-50"
@@ -662,6 +664,31 @@ export function BookingForm({
 
   const amount = calculateAmount()
 
+  const handlePaymentCancel = async () => {
+    try {
+      if (pendingBooking?.id) {
+        const { error: cancelError } = await supabase
+          .from('meeting_room_bookings')
+          .update({ status: 'cancelled', payment_status: 'cancelled' })
+          .eq('id', pendingBooking.id)
+
+        if (cancelError) {
+          console.error('Payment cancel booking update error:', cancelError)
+          setError('予約のキャンセルに失敗しました。管理者にお問い合わせください。')
+        }
+      }
+    } catch (err) {
+      console.error('Payment cancel error:', err)
+      setError('予約のキャンセル中にエラーが発生しました')
+    } finally {
+      setShowConfirmModal(false)
+      setClientSecret(null)
+      setPaymentIntentId(null)
+      setPendingBooking(null)
+      router.refresh()
+    }
+  }
+
   // 分ボタンの表示/無効化をbooleanに正規化
   const showMinute0 = availableMinutes?.['0'] !== false
   const showMinute30 = availableMinutes?.['30'] !== false
@@ -991,6 +1018,7 @@ export function BookingForm({
                   onError={(errorMessage) => {
                     setError(errorMessage)
                   }}
+                  onCancel={handlePaymentCancel}
                 />
               </Elements>
             ) : (
