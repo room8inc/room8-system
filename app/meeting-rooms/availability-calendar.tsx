@@ -13,6 +13,8 @@ interface AvailabilityStatus {
   date: string
   timeSlot: string
   available: boolean
+  partial?: boolean
+  availableMinutes?: { '0': boolean; '30': boolean }
   reason?: string
 }
 
@@ -55,6 +57,19 @@ export function AvailabilityCalendar({
   }
 
   const weekDates = getWeekDates()
+  const BUSINESS_CLOSE_TIME = '22:00'
+  const businessCloseMinutes = Number(BUSINESS_CLOSE_TIME.split(':')[0]) * 60 + Number(BUSINESS_CLOSE_TIME.split(':')[1])
+
+  const normalizeTime = (time: string) => (time.length >= 5 ? time.slice(0, 5) : time)
+  const timeToMinutes = (time: string) => {
+    const [hours, minutes] = normalizeTime(time).split(':').map(Number)
+    return hours * 60 + minutes
+  }
+  const minutesToTime = (totalMinutes: number) => {
+    const hours = Math.floor(totalMinutes / 60) % 24
+    const minutes = totalMinutes % 60
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+  }
 
   // 週を移動
   const moveWeek = (direction: 'prev' | 'next') => {
@@ -157,41 +172,51 @@ export function AvailabilityCalendar({
             }
           }
 
-          // 指定された利用時間で終了時刻を計算
-          const [startHours, startMins] = timeSlot.split(':').map(Number)
-          const endMinutes = startHours * 60 + startMins + minDurationHours * 60
-          const endHours = Math.floor(endMinutes / 60) % 24
-          const endMins = endMinutes % 60
-          const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`
+          const slotMinutes = timeToMinutes(timeSlot)
+          const availableMinutes: { '0': boolean; '30': boolean } = { '0': true, '30': true }
 
-          // データベース内の予約と重複チェック
-          const hasOverlap = existingBookings?.some((booking) => {
-            if (booking.booking_date !== dateStr) return false
-            const bookingStart = booking.start_time
-            const bookingEnd = booking.end_time
-            // 時間の重複チェック: 開始時刻が予約終了時刻より前で、終了時刻が予約開始時刻より後
-            const overlaps = timeSlot < bookingEnd && endTime > bookingStart
-            if (overlaps) {
-              console.log(`データベース予約と重複: ${dateStr} ${timeSlot}-${endTime} vs ${bookingStart}-${bookingEnd}`)
+          for (const minute of [0, 30] as const) {
+            const startMinutes = slotMinutes + minute
+            const endMinutes = startMinutes + minDurationHours * 60
+
+            if (endMinutes > businessCloseMinutes) {
+              availableMinutes[String(minute) as '0' | '30'] = false
+              continue
             }
-            return overlaps
-          })
 
-          if (hasOverlap) {
-            availabilityMap.set(key, {
-              date: dateStr,
-              timeSlot,
-              available: false,
-              reason: '既に予約済み（データベース）',
+            // 今日の場合は現在時刻以降のみ予約可能（分単位で判定）
+            if (dateStr === formatDate(new Date())) {
+              const now = new Date()
+              const requestTime = new Date()
+              requestTime.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0)
+              if (requestTime < now) {
+                availableMinutes[String(minute) as '0' | '30'] = false
+                continue
+              }
+            }
+
+            const hasOverlap = existingBookings?.some((booking) => {
+              if (booking.booking_date !== dateStr) return false
+              const bookingStart = timeToMinutes(booking.start_time)
+              const bookingEnd = timeToMinutes(booking.end_time)
+              return startMinutes < bookingEnd && endMinutes > bookingStart
             })
-            continue
+
+            if (hasOverlap) {
+              availableMinutes[String(minute) as '0' | '30'] = false
+            }
           }
 
-          // まずはtrueとして設定、後でGoogleカレンダーで確認
+          const hasAnyAvailability = availableMinutes['0'] || availableMinutes['30']
+          const isPartial = hasAnyAvailability && (availableMinutes['0'] !== availableMinutes['30'])
+
           availabilityMap.set(key, {
             date: dateStr,
             timeSlot,
-            available: true,
+            available: hasAnyAvailability,
+            partial: isPartial,
+            availableMinutes,
+            reason: isPartial ? '一部時間のみ予約可能' : hasAnyAvailability ? undefined : '既に予約済み（データベース）',
           })
         }
       }
@@ -227,55 +252,52 @@ export function AvailabilityCalendar({
           availabilityMap.forEach((status, key) => {
             if (!status.available) return // 既に予約不可の場合はスキップ
 
-            const [startHours, startMins] = status.timeSlot.split(':').map(Number)
-            const endMinutes = startHours * 60 + startMins + minDurationHours * 60
-            const endHours = Math.floor(endMinutes / 60) % 24
-            const endMins = endMinutes % 60
-            const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`
+            const slotMinutes = timeToMinutes(status.timeSlot)
+            const availableMinutes = status.availableMinutes ?? { '0': true, '30': true }
 
-            // イベントと重複があるかチェック
-            const hasOverlap = calendarEvents?.some((event: any) => {
-              if (!event.start_time || !event.end_time) return false
+            for (const minute of [0, 30] as const) {
+              if (!availableMinutes[String(minute) as '0' | '30']) continue
 
-              // イベントの開始時刻と終了時刻をDateオブジェクトに変換（UTC）
-              const eventStart = new Date(event.start_time)
-              const eventEnd = new Date(event.end_time)
-              
-              // イベントの日付文字列をJSTで取得
-              const eventDateStr = new Intl.DateTimeFormat('en-CA', {
-                timeZone: 'Asia/Tokyo',
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-              }).format(eventStart)
+              const startMinutes = slotMinutes + minute
+              const endMinutes = startMinutes + minDurationHours * 60
+              const endTime = minutesToTime(endMinutes)
+              const startTime = minutesToTime(startMinutes)
 
-              // 日付が一致するかチェック
-              if (eventDateStr !== status.date) return false
+              const hasOverlap = calendarEvents?.some((event: any) => {
+                if (!event.start_time || !event.end_time) return false
 
-              // 時刻の重複チェック
-              // リクエストの開始時刻と終了時刻（JST）
-              const requestStart = new Date(`${status.date}T${status.timeSlot}:00+09:00`)
-              const requestEnd = new Date(`${status.date}T${endTime}:00+09:00`)
+                const eventStart = new Date(event.start_time)
+                const eventEnd = new Date(event.end_time)
 
-              // 時間の重複チェック: 開始時刻が予約終了時刻より前で、終了時刻が予約開始時刻より後
-              // eventStartとeventEndはUTC、requestStartとrequestEndはJSTだが、getTime()でミリ秒に変換するため正しく比較できる
-              const overlaps = requestStart.getTime() < eventEnd.getTime() && requestEnd.getTime() > eventStart.getTime()
-              
-              // デバッグログは削除（必要に応じて開発環境でのみ有効化）
-              // if (overlaps && process.env.NODE_ENV === 'development') {
-              //   console.log(`Googleカレンダー予約と重複: ${status.date} ${status.timeSlot}-${endTime} vs ${event.start_time}-${event.end_time}`)
-              // }
-              
-              return overlaps
-            })
+                const eventDateStr = new Intl.DateTimeFormat('en-CA', {
+                  timeZone: 'Asia/Tokyo',
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                }).format(eventStart)
 
-            if (hasOverlap) {
-              availabilityMap.set(key, {
-                ...status,
-                available: false,
-                reason: 'Googleカレンダーに予定あり',
+                if (eventDateStr !== status.date) return false
+
+                const requestStart = new Date(`${status.date}T${startTime}:00+09:00`)
+                const requestEnd = new Date(`${status.date}T${endTime}:00+09:00`)
+                return requestStart.getTime() < eventEnd.getTime() && requestEnd.getTime() > eventStart.getTime()
               })
+
+              if (hasOverlap) {
+                availableMinutes[String(minute) as '0' | '30'] = false
+              }
             }
+
+            const hasAnyAvailability = availableMinutes['0'] || availableMinutes['30']
+            const isPartial = hasAnyAvailability && (availableMinutes['0'] !== availableMinutes['30'])
+
+            availabilityMap.set(key, {
+              ...status,
+              available: hasAnyAvailability,
+              partial: isPartial,
+              availableMinutes,
+              reason: isPartial ? '一部時間のみ予約可能' : hasAnyAvailability ? undefined : 'Googleカレンダーに予定あり',
+            })
           })
         }
       } catch (err) {
@@ -402,13 +424,15 @@ export function AvailabilityCalendar({
                       className={`border border-room-base-dark p-2 text-center cursor-pointer transition-colors ${
                         isSelected
                           ? 'bg-room-main text-white'
+                          : status?.partial
+                          ? 'bg-room-brass bg-opacity-20 text-room-charcoal hover:bg-room-brass hover:bg-opacity-30 cursor-pointer'
                           : isAvailable
                           ? 'bg-white hover:bg-room-base cursor-pointer'
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
                       title={status?.reason || (isAvailable ? '予約可能' : '予約不可')}
                     >
-                      {isAvailable ? '○' : '×'}
+                      {status?.partial ? '△' : isAvailable ? '○' : '×'}
                     </td>
                   )
                 })}
@@ -421,7 +445,8 @@ export function AvailabilityCalendar({
       {/* 凡例と説明 */}
       <div className="space-y-2">
         <div className="flex items-center gap-4 text-xs text-room-charcoal-light">
-          <span>○ 予約可能な時間があります</span>
+          <span>○ 予約可能</span>
+          <span>△ 一部の時間のみ予約可能</span>
           <span>× 予約できません</span>
         </div>
         <div className="text-xs text-room-charcoal-light bg-room-base-dark p-2 rounded">
