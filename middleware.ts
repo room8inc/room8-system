@@ -6,7 +6,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   
   // Webhookエンドポイントは認証不要なので、早期リターン
-  if (pathname === '/api/calendar/webhook-v2' || pathname.startsWith('/api/cron/')) {
+  if (pathname === '/api/calendar/webhook-v2' || pathname === '/api/line-webhook' || pathname.startsWith('/api/cron/')) {
     return NextResponse.next()
   }
 
@@ -79,7 +79,7 @@ export const config = {
      * - /api/calendar/webhook (Webhookエンドポイント - 認証不要)
      * Feel free to modify this pattern to include more paths.
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/calendar/webhook-v2|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/calendar/webhook-v2|api/line-webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
 
