@@ -139,7 +139,7 @@ export function askTimeMessage(): Message {
 export function askAddressMessage(): Message {
   return {
     type: 'text',
-    text: '住所利用（登記・届出用）は必要ですか？',
+    text: 'シェアオフィスオプション（住所利用・郵便物受取・来客対応・会議室月4h無料）は必要ですか？',
     quickReply: {
       items: [
         {
@@ -319,7 +319,7 @@ export function dropinMessage(): Message[] {
 
 export function planResultMessage(plan: PlanInfo, needsAddress: NeedsAddress): Message[] {
   const priceText = getPriceDisplay(plan, needsAddress)
-  const showPrice = needsAddress === 'yes' ? plan.addressPrice : plan.basePrice
+  const showPrice = needsAddress === 'yes' ? plan.shareOfficePrice : plan.workspacePrice
 
   const flexMessage: Message = {
     type: 'flex',
@@ -398,14 +398,14 @@ export function planResultMessage(plan: PlanInfo, needsAddress: NeedsAddress): M
                       contents: [
                         {
                           type: 'text' as const,
-                          text: '住所利用',
+                          text: 'シェアオフィス',
                           size: 'sm' as const,
                           color: '#888888',
                           flex: 3,
                         },
                         {
                           type: 'text' as const,
-                          text: `+${formatPrice(plan.addressPrice - plan.basePrice)}/月`,
+                          text: `+${formatPrice(plan.shareOfficePrice - plan.workspacePrice)}/月`,
                           size: 'sm' as const,
                           color: '#333333',
                           flex: 7,
@@ -440,7 +440,7 @@ export function planResultMessage(plan: PlanInfo, needsAddress: NeedsAddress): M
               },
               {
                 type: 'text',
-                text: '• 登記・届出の住所利用オプション',
+                text: '• シェアオフィスオプション（+3,300円）',
                 size: 'sm',
                 color: '#555555',
                 margin: 'sm',

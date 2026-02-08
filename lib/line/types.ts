@@ -32,6 +32,6 @@ export interface PlanInfo {
   key: string
   name: string
   timeRange: string
-  basePrice: number
-  addressPrice: number
+  workspacePrice: number
+  shareOfficePrice: number
 }
