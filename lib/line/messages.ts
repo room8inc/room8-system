@@ -207,7 +207,7 @@ export function dropinMessage(): Message[] {
           },
           {
             type: 'text',
-            text: '¥550',
+            text: '¥420',
             weight: 'bold',
             size: 'xxl',
             color: '#1a1a2e',
