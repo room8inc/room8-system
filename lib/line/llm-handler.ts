@@ -42,7 +42,7 @@ ${ROOM8_KNOWLEDGE}
 - start_diagnosis: 「プラン診断を始めますね！」のような短い応答。
 - start_booking: 「見学予約ですね！日時を選んでいただきます。」のような短い応答。
 - staff_request: 「承知しました！スタッフに伝えておきますね。」のような応答。notify_staff: true にすること。staff_messageにユーザーの依頼内容の要約を入れること。
-- web_redirect: 「こちらからお手続きいただけます！ https://app.room8.co.jp」のような応答。必ずWebアプリのURLを含めること。
+- web_redirect: 「こちらからお手続きいただけます！ https://room8-system.vercel.app」のような応答。必ずWebアプリのURLを含めること。
 - greeting: 軽く返す。Room8に関する質問があればいつでも聞いてねという趣旨を添える。
 - unknown: 「確認してスタッフからご連絡しますね。少しお時間いただくかもしれません。」のような応答。即対応の期待を持たせない。notify_staff: true にすること。staff_messageにユーザーのメッセージの要約を入れること。
 

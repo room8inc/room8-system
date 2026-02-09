@@ -12,9 +12,9 @@
 - 最寄り駅: JR勝川駅 徒歩3分（名古屋駅からJR中央線で約20分）
 - 営業時間: 平日 9:00〜22:00 / 土日祝 9:00〜17:00
 - 定休日: 年末年始（12/30〜1/4）のみ。それ以外は無休。臨時休業の場合あり
-- 運営: 株式会社L&C STYLE
-- Webサイト: https://room8.co.jp
-- Webアプリ（会員向け）: https://app.room8.co.jp
+- 運営: 株式会社Room8
+- Webサイト: https://www.room8.co.jp/
+- Webアプリ（会員向け）: https://room8-system.vercel.app
 - SNS: Facebook（facebook.com/room8.kachigawa）/ X（twitter.com/room8jp）
 
 ## 料金
@@ -97,16 +97,16 @@
 
 ### プラン変更
 
-- Webアプリ（https://app.room8.co.jp）から手続き
+- Webアプリ（https://room8-system.vercel.app）から手続き
 
 ### 解約
 
 - 毎月15日までに申請 → 翌月末で終了
-- Webアプリ（https://app.room8.co.jp）から手続き
+- Webアプリ（https://room8-system.vercel.app）から手続き
 
 ### 会議室予約
 
-- Webアプリ（https://app.room8.co.jp）から予約
+- Webアプリ（https://room8-system.vercel.app）から予約
 
 ### 支払い方法
 
@@ -138,10 +138,9 @@ AIの実践活用を学び合うコミュニティ。
 - 扱うツール: ChatGPT、Claude、Gemini、Midjourney、Canva 等
 - 活用分野: 業務効率化、文書作成、マーケティング、デザイン等
 
-### 法人向けAI研修（L&C STYLE提供）
+### 法人向けAI研修
 
 - 法人向けの生成AI研修サービス
-- Room8の事業ではなく、運営会社L&C STYLEの別事業
 - 詳細: https://l-c-style.co.jp/business/corporate_training/
 
 ## よくある質問（FAQ）
