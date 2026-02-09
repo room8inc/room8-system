@@ -20,6 +20,14 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@stripe/react-stripe-js', '@stripe/stripe-js'],
   },
+
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.md$/,
+      type: 'asset/source',
+    })
+    return config
+  },
 }
 
 export default nextConfig
