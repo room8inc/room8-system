@@ -200,11 +200,15 @@ export async function handleEvent(event: WebhookEvent): Promise<void> {
     const userId = event.source.userId
     if (!userId) return
 
+    console.log('[LINE] Text message received:', event.message.text, 'from:', userId)
+
     const userState = await getUserState(userId)
     const text = event.message.text
 
     // LLMで意図判定
+    console.log('[LINE] Calling LLM handler...')
     const llmResponse = await handleTextWithLLM(text, userState.display_name || undefined)
+    console.log('[LINE] LLM response:', llmResponse)
 
     // 意図に応じた処理
     if (llmResponse.intent === 'start_diagnosis') {

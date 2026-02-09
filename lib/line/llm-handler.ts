@@ -57,7 +57,7 @@ ${ROOM8_KNOWLEDGE}
 
 const FALLBACK_RESPONSE: LLMResponse = {
   intent: 'unknown',
-  reply: 'メニューから選択してください。\nプラン診断や見学予約はいつでも始められます！',
+  reply: 'すみません、うまく処理できませんでした。メニューからプラン診断や見学予約をお試しください。',
   notify_staff: false,
 }
 
@@ -72,7 +72,7 @@ const VALID_INTENTS: LLMIntent[] = [
 ]
 
 /**
- * テキストメッセージをLLM（Gemini Flash）で意図判定し、応答を生成する
+ * テキストメッセージをLLM（Gemini 2.5 Flash）で意図判定し、応答を生成する
  */
 export async function handleTextWithLLM(
   userMessage: string,
@@ -80,16 +80,18 @@ export async function handleTextWithLLM(
 ): Promise<LLMResponse> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
-    console.error('GEMINI_API_KEY is not set')
+    console.error('[LLM] GEMINI_API_KEY is not set')
     return FALLBACK_RESPONSE
   }
+
+  console.log('[LLM] handleTextWithLLM called:', { userMessage, userName })
 
   try {
     const userPrompt = userName
       ? `ユーザー名: ${userName}\nメッセージ: ${userMessage}`
       : `メッセージ: ${userMessage}`
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
 
     const body = {
       system_instruction: {
@@ -108,6 +110,7 @@ export async function handleTextWithLLM(
       },
     }
 
+    console.log('[LLM] Calling Gemini 2.5 Flash...')
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -116,28 +119,30 @@ export async function handleTextWithLLM(
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Gemini API error:', response.status, errorText)
+      console.error('[LLM] Gemini API error:', response.status, errorText)
       return FALLBACK_RESPONSE
     }
 
     const data = await response.json()
+    console.log('[LLM] Gemini raw response:', JSON.stringify(data).slice(0, 500))
 
     // Gemini response structure: candidates[0].content.parts[0].text
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
     if (!text) {
-      console.error('Gemini response has no text:', JSON.stringify(data))
+      console.error('[LLM] Gemini response has no text:', JSON.stringify(data))
       return FALLBACK_RESPONSE
     }
 
     const parsed = JSON.parse(text) as LLMResponse
+    console.log('[LLM] Parsed response:', parsed)
 
     // バリデーション
     if (!VALID_INTENTS.includes(parsed.intent)) {
-      console.error('LLM returned invalid intent:', parsed.intent)
+      console.error('[LLM] Invalid intent:', parsed.intent)
       return FALLBACK_RESPONSE
     }
     if (typeof parsed.reply !== 'string' || parsed.reply.length === 0) {
-      console.error('LLM returned empty reply')
+      console.error('[LLM] Empty reply')
       return FALLBACK_RESPONSE
     }
 
@@ -148,7 +153,7 @@ export async function handleTextWithLLM(
       staff_message: parsed.staff_message || undefined,
     }
   } catch (error) {
-    console.error('LLM handler error:', error)
+    console.error('[LLM] Handler error:', error)
     return FALLBACK_RESPONSE
   }
 }
