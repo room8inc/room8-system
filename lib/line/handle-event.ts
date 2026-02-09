@@ -16,6 +16,8 @@ import {
   resetMessage,
   fallbackMessage,
 } from './messages'
+import { handleTextWithLLM } from './llm-handler'
+import { notifyStaff } from './staff-notify'
 import {
   checkGoogleCalendarAvailability,
   createGoogleCalendarEvent,
@@ -193,15 +195,50 @@ export async function handleEvent(event: WebhookEvent): Promise<void> {
     return
   }
 
-  // テキストメッセージ → フォールバック
+  // テキストメッセージ → LLMで意図判定して応答
   if (event.type === 'message' && event.message.type === 'text') {
     const userId = event.source.userId
     if (!userId) return
 
-    await client.replyMessage({
-      replyToken: event.replyToken,
-      messages: [fallbackMessage()],
-    })
+    const userState = await getUserState(userId)
+    const text = event.message.text
+
+    // LLMで意図判定
+    const llmResponse = await handleTextWithLLM(text, userState.display_name || undefined)
+
+    // 意図に応じた処理
+    if (llmResponse.intent === 'start_diagnosis') {
+      // プラン診断フローを開始（既存ロジック再利用）
+      await updateUserState(userId, { state: 'asked_usage' })
+      await client.replyMessage({
+        replyToken: event.replyToken,
+        messages: [askUsageMessage()],
+      })
+    } else if (llmResponse.intent === 'start_booking') {
+      // 見学予約フローを開始
+      await updateUserState(userId, { state: 'asked_booking', usage_type: 'tour' })
+      await client.replyMessage({
+        replyToken: event.replyToken,
+        messages: [askBookingDatetimeMessage()],
+      })
+    } else {
+      // FAQ・リダイレクト・スタッフ依頼・挨拶・不明 → LLMの回答をそのまま返す
+      await client.replyMessage({
+        replyToken: event.replyToken,
+        messages: [{ type: 'text', text: llmResponse.reply }],
+      })
+    }
+
+    // スタッフ通知が必要な場合
+    if (llmResponse.notify_staff) {
+      await notifyStaff(
+        userState.display_name || '不明',
+        userId,
+        text,
+        llmResponse.staff_message || text
+      )
+    }
+
     return
   }
 }
