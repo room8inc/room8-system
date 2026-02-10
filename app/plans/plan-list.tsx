@@ -4,26 +4,17 @@ import Link from 'next/link'
 import { ContractForm } from './contract-form'
 
 interface PlanListProps {
-  planType: 'workspace' | 'shared_office'
   plans: any[]
   currentPlan: any
   error: any
 }
 
-export function PlanList({ planType, plans, currentPlan, error }: PlanListProps) {
-  const planTypeName =
-    planType === 'shared_office' ? 'シェアオフィスプラン' : 'ワークスペースプラン'
-  const planTypeDescription =
-    planType === 'shared_office'
-      ? '住所利用・郵便物受取・来客対応、会議室月4時間まで無料（超過分1時間1,100円）、法人登記オプション、同伴利用可（1日2時間まで）'
-      : '場所貸しのみ、会議室利用可（1時間1,100円）'
-
+export function PlanList({ plans, currentPlan, error }: PlanListProps) {
   const formatTime = (time: string | null) => {
     if (!time) return ''
     return time.substring(0, 5) // "HH:MM"
   }
 
-  // 平日/週末の時間帯を組み立てる
   const formatAvailableTime = (plan: any) => {
     const hasWeekday = plan.weekday_start_time && plan.weekday_end_time
     const hasWeekend = plan.weekend_start_time && plan.weekend_end_time
@@ -38,29 +29,39 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
     return '—'
   }
 
-  // planTypeに応じた価格を取得
-  const getPlanPrice = (plan: any) => {
-    return planType === 'shared_office' ? plan.shared_office_price : plan.workspace_price
-  }
-
   return (
     <div className="min-h-screen bg-room-base">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* ヘッダー */}
         <div className="mb-8">
           <Link
-            href="/plans"
+            href="/dashboard"
             className="text-sm text-room-main hover:text-room-main-light"
           >
-            ← プラン種類選択に戻る
+            ← ダッシュボードに戻る
           </Link>
           <h1 className="mt-2 text-3xl font-bold text-room-charcoal">
-            {planTypeName}
+            会員契約・プラン選択
           </h1>
           <p className="mt-2 text-sm text-room-charcoal-light">
-            {planTypeDescription}
+            ご希望の時間帯プランを選択してください。オプションでシェアオフィス機能（住所利用等）を追加できます。
           </p>
         </div>
+
+        {/* 現在の契約状況 */}
+        {currentPlan && (
+          <div className="mb-8 rounded-lg bg-room-main bg-opacity-10 border border-room-main p-6">
+            <h2 className="text-lg font-semibold text-room-charcoal mb-2">
+              現在の契約
+            </h2>
+            <p className="text-sm text-room-charcoal">
+              {currentPlan.plans?.name || 'プラン名不明'}
+            </p>
+            <p className="text-xs text-room-charcoal-light mt-1">
+              契約開始日: {new Date(currentPlan.started_at).toLocaleDateString('ja-JP')}
+            </p>
+          </div>
+        )}
 
         {/* エラー表示 */}
         {error && (
@@ -77,9 +78,6 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
             <p className="text-sm text-room-wood-dark">
               プラン情報がありません
             </p>
-            <p className="text-xs text-room-charcoal-light mt-2">
-              データベースのマイグレーション（002_seed_plans.sql）を実行してください。
-            </p>
           </div>
         )}
 
@@ -88,7 +86,6 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {plans.map((plan) => {
               const isCurrentPlan = currentPlan?.plan_id === plan.id
-              const price = getPlanPrice(plan)
 
               return (
                 <div
@@ -104,7 +101,7 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
                       {plan.name}
                     </h3>
                     <p className="text-2xl font-bold text-room-main mt-2">
-                      ¥{price.toLocaleString()}/月
+                      ¥{plan.workspace_price?.toLocaleString()}/月〜
                     </p>
                   </div>
 
@@ -112,24 +109,6 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
                     <p>
                       <strong>利用時間:</strong> {formatAvailableTime(plan)}
                     </p>
-                    {planType === 'shared_office' && (
-                      <>
-                        <p>
-                          <strong>住所利用:</strong> 可能（郵便物受取・来客対応含む）
-                        </p>
-                        <p>
-                          <strong>会議室:</strong> 月4時間まで無料、超過分¥1,100/時間
-                        </p>
-                        <p>
-                          <strong>プリンター:</strong> 標準装備
-                        </p>
-                      </>
-                    )}
-                    {planType === 'workspace' && (
-                      <p>
-                        <strong>会議室:</strong> ¥1,100/時間
-                      </p>
-                    )}
                   </div>
 
                   {isCurrentPlan ? (
@@ -142,8 +121,7 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
                     <ContractForm
                       planId={plan.id}
                       planName={plan.name}
-                      planPrice={price}
-                      planType={planType}
+                      planPrice={plan.workspace_price}
                       planData={plan}
                     />
                   )}

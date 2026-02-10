@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       planId,
-      planType = 'workspace' as 'workspace' | 'shared_office',
       contractTerm,
       paymentMethod,
       options,
@@ -38,6 +37,9 @@ export async function POST(request: NextRequest) {
       campaignId,
       paymentIntentId,
     } = body
+
+    // planTypeはオプションのshared_officeフラグから導出
+    const planType: 'workspace' | 'shared_office' = options?.shared_office ? 'shared_office' : 'workspace'
 
     // Payment Intentを確認
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {

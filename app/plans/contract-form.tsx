@@ -7,18 +7,16 @@ import { createClient } from '@/lib/supabase/client'
 interface ContractFormProps {
   planId: string
   planName: string
-  planPrice: number // planTypeに応じた価格（workspace_price or shared_office_price）
-  planType: 'workspace' | 'shared_office'
-  planData?: any // プランの全データ（時間帯等を含む）
+  planPrice: number // workspace_price（ベース価格）
+  planData?: any // プランの全データ（code等を含む）
 }
 
-export function ContractForm({ planId, planName, planPrice, planType, planData }: ContractFormProps) {
+export function ContractForm({ planId, planName, planPrice, planData }: ContractFormProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [startDate, setStartDate] = useState(() => {
-    // デフォルトは今日の日付
     const today = new Date()
     return today.toISOString().split('T')[0]
   })
@@ -29,12 +27,13 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
 
   // オプションの状態管理
   const [options, setOptions] = useState({
-    company_registration: false,  // 法人登記（+5,500円/月）- シェアオフィスのみ
+    shared_office: false,          // シェアオフィス（+3,300円/月）- 全プラン
+    company_registration: false,   // 法人登記（+5,500円/月）- シェアオフィス選択時のみ
     printer: false,                // プリンター（+1,100円/月）- ワークスペースのみ（シェアオフィスは標準装備）
     twenty_four_hours: false,      // 24時間利用（+5,500円/月）- レギュラープランのみ
     fixed_seat: false,             // 固定席化（+23,100円/月）- 全プラン
-    locker: false,                 // ロッカー（料金要確認）- 全プラン
-    locker_size: null as 'large' | 'small' | null, // ロッカーのサイズ
+    locker: false,                 // ロッカー - 全プラン
+    locker_size: null as 'large' | 'small' | null,
   })
 
   // ロッカーの空き状況
@@ -49,11 +48,12 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
 
   // 利用可能なオプションを判定
   const availableOptions = {
-    company_registration: planType === 'shared_office',  // 法人登記: シェアオフィスのみ
-    printer: planType === 'workspace',                   // プリンター: ワークスペースのみ（シェアオフィスは標準装備）
-    twenty_four_hours: planData?.code === 'regular',     // 24時間: レギュラープランのみ
-    fixed_seat: true, // 全プランで利用可能
-    locker: true, // 全プランで利用可能
+    shared_office: true,                                   // 全プランで選択可能
+    company_registration: options.shared_office,           // シェアオフィス選択時のみ
+    printer: !options.shared_office,                       // ワークスペースのみ（シェアオフィスは標準装備）
+    twenty_four_hours: planData?.code === 'regular',       // レギュラープランのみ
+    fixed_seat: true,
+    locker: true,
   }
 
   // ロッカーの空き状況を取得
@@ -77,10 +77,8 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
 
   // コンポーネントマウント時に空き状況を取得
   useEffect(() => {
-    if (availableOptions.locker) {
-      fetchLockerInventory()
-    }
-  }, [availableOptions.locker])
+    fetchLockerInventory()
+  }, [])
 
   // キャンペーン一覧を取得
   useEffect(() => {
@@ -95,18 +93,14 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
         .order('created_at', { ascending: false })
 
       if (data) {
-        // プランに適用可能なキャンペーンのみをフィルタリング
         const applicableCampaigns = data.filter((campaign) => {
-          // 全プラン適用の場合
           if (!campaign.applicable_plan_ids || campaign.applicable_plan_ids.length === 0) {
             return true
           }
-          // 特定プラン適用の場合
           return campaign.applicable_plan_ids.includes(planId)
         })
         setCampaigns(applicableCampaigns)
 
-        // デフォルトで最初のキャンペーンを選択
         if (applicableCampaigns.length > 0) {
           setSelectedCampaignId(applicableCampaigns[0].id)
         }
@@ -116,9 +110,9 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
   }, [planId])
 
   const handleContractClick = () => {
-    console.log('handleContractClick called', { planId, contractTerm, paymentMethod, startDate, options, selectedCampaignId })
+    // シェアオフィスオプションからplanTypeを導出
+    const planType = options.shared_office ? 'shared_office' : 'workspace'
 
-    // 決済画面へ遷移（URLパラメータで契約情報を渡す）
     const params = new URLSearchParams({
       planId,
       planType,
@@ -132,19 +126,13 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
       params.append('campaignId', selectedCampaignId)
     }
 
-    const checkoutUrl = `/plans/checkout?${params.toString()}`
-    console.log('Navigating to:', checkoutUrl)
-
-    // window.location.hrefを使用して確実に遷移
-    window.location.href = checkoutUrl
+    window.location.href = `/plans/checkout?${params.toString()}`
   }
 
-
-  // ロッカーの料金（税込み、割引対象外）
-  const LOCKER_PRICE_LARGE = 4950 // 大ロッカー: 月4,950円
-  const LOCKER_PRICE_SMALL = 2200 // 小ロッカー: 月2,200円
-
-  // 入会金（通常11,000円）
+  // オプション料金定数
+  const SHARED_OFFICE_PRICE = 3300
+  const LOCKER_PRICE_LARGE = 4950
+  const LOCKER_PRICE_SMALL = 2750
   const ENTRY_FEE = 11000
 
   // キャンペーンを取得
@@ -152,9 +140,7 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
 
   // 入会金を計算（キャンペーン適用）
   const calculateEntryFee = () => {
-    if (!selectedCampaign) {
-      return ENTRY_FEE
-    }
+    if (!selectedCampaign) return ENTRY_FEE
 
     switch (selectedCampaign.campaign_type) {
       case 'entry_fee_free':
@@ -176,49 +162,38 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
     const start = new Date(startDate)
     const year = start.getFullYear()
     const month = start.getMonth()
-
-    // その月の最終日を取得
     const lastDay = new Date(year, month + 1, 0).getDate()
-
-    // 開始日から月末までの日数
-    const daysInMonth = lastDay
     const daysFromStart = lastDay - start.getDate() + 1
 
-    // 日割り計算（端数切り上げ）
     const monthlyPrice = calculatePlanPrice()
-    const proratedFee = Math.ceil((monthlyPrice * daysFromStart) / daysInMonth)
-
+    const proratedFee = Math.ceil((monthlyPrice * daysFromStart) / lastDay)
     return proratedFee
   }
 
   // オプション料金を計算（割引対象外）
   const calculateOptionPrice = () => {
     let total = 0
+    if (options.shared_office) total += SHARED_OFFICE_PRICE
     if (options.company_registration && availableOptions.company_registration) total += 5500
     if (options.printer && availableOptions.printer) total += 1100
-    if (options.twenty_four_hours) total += 5500
+    if (options.twenty_four_hours && availableOptions.twenty_four_hours) total += 5500
     if (options.fixed_seat) total += 23100
     if (options.locker && options.locker_size) {
-      // ロッカーの料金はサイズによって異なる（割引対象外）
       total += options.locker_size === 'large' ? LOCKER_PRICE_LARGE : LOCKER_PRICE_SMALL
     }
     return total
   }
 
-  // プラン料金を計算（割引適用）
+  // プラン料金を計算（割引適用、ベース価格のみ）
   const calculatePlanPrice = () => {
     let basePrice = planPrice
 
-    // 長期契約割引（20%off）
     if (contractTerm === 'yearly') {
       basePrice = Math.floor(basePrice * 0.8)
     }
-
-    // 年一括前払い割引（30%off）
     if (paymentMethod === 'annual_prepaid') {
       basePrice = Math.floor(basePrice * 0.7)
     }
-
     return basePrice
   }
 
@@ -228,24 +203,19 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
     const optionPrice = calculateOptionPrice()
     const entryFee = calculateEntryFee()
 
-    // 初月会費無料キャンペーンの場合
     const firstMonthFee = selectedCampaign?.campaign_type === 'first_month_free'
       ? 0
       : calculateFirstMonthProratedFee()
 
-    // オプション料金は初月も日割り計算する必要があるが、簡略化のため月額で計算
-    // （実際の実装ではオプションも日割り計算が必要）
     const firstMonthOptionPrice = selectedCampaign?.campaign_type === 'first_month_free'
       ? 0
       : optionPrice
 
     if (paymentMethod === 'annual_prepaid') {
-      // 年一括前払いの場合：初月は日割り、残り11ヶ月は通常料金
       const remainingMonthsPrice = (planPriceAfterDiscount + optionPrice) * 11
       return entryFee + firstMonthFee + firstMonthOptionPrice + remainingMonthsPrice
     }
 
-    // 月払いの場合：初月のみ日割り計算
     return entryFee + firstMonthFee + firstMonthOptionPrice
   }
 
@@ -344,7 +314,6 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
               {campaigns.map((campaign) => {
                 const isSelected = selectedCampaignId === campaign.id
 
-                // キャンペーンごとのお得情報を計算
                 let benefitText = ''
                 if (campaign.campaign_type === 'entry_fee_free') {
                   benefitText = `入会金: 通常¥${ENTRY_FEE.toLocaleString()} → 無料`
@@ -366,7 +335,6 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => {
-                        // キャンペーンが1つの場合は常に選択状態を維持
                         if (campaigns.length === 1) {
                           setSelectedCampaignId(campaign.id)
                         } else {
@@ -390,130 +358,161 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
         )}
 
         {/* オプション選択 */}
-        {(availableOptions.company_registration || availableOptions.printer || availableOptions.twenty_four_hours || availableOptions.fixed_seat || availableOptions.locker) && (
-          <div>
-            <label className="block text-xs font-medium text-room-charcoal mb-2">
-              オプション（追加料金）
+        <div>
+          <label className="block text-xs font-medium text-room-charcoal mb-2">
+            オプション（追加料金）
+          </label>
+          <div className="space-y-2">
+            {/* シェアオフィス */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={options.shared_office}
+                onChange={(e) => {
+                  const checked = e.target.checked
+                  setOptions({
+                    ...options,
+                    shared_office: checked,
+                    // OFF→法人登記リセット、ON→プリンターリセット（標準装備）
+                    company_registration: checked ? options.company_registration : false,
+                    printer: checked ? false : options.printer,
+                  })
+                }}
+                className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+              />
+              <span className="text-xs text-room-charcoal">
+                シェアオフィス <span className="text-room-main">+¥{SHARED_OFFICE_PRICE.toLocaleString()}/月</span>
+              </span>
             </label>
+            {options.shared_office && (
+              <div className="ml-6 text-xs text-room-charcoal-light space-y-0.5">
+                <p>住所利用（名刺・HP掲載OK）/ 郵便物受取 / 来客対応</p>
+                <p>会議室 月4h無料 / プリンター標準装備</p>
+              </div>
+            )}
+
+            {/* 法人登記（シェアオフィス選択時のみ） */}
+            {availableOptions.company_registration && (
+              <label className="flex items-center gap-2 cursor-pointer ml-4">
+                <input
+                  type="checkbox"
+                  checked={options.company_registration}
+                  onChange={(e) => setOptions({ ...options, company_registration: e.target.checked })}
+                  className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                />
+                <span className="text-xs text-room-charcoal">
+                  法人登記 <span className="text-room-main">+¥5,500/月</span>
+                </span>
+              </label>
+            )}
+
+            {/* プリンター（ワークスペースのみ。シェアオフィスは標準装備） */}
+            {availableOptions.printer && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={options.printer}
+                  onChange={(e) => setOptions({ ...options, printer: e.target.checked })}
+                  className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                />
+                <span className="text-xs text-room-charcoal">
+                  プリンター <span className="text-room-main">+¥1,100/月</span>
+                </span>
+              </label>
+            )}
+
+            {/* 24時間利用（レギュラープランのみ） */}
+            {availableOptions.twenty_four_hours && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={options.twenty_four_hours}
+                  onChange={(e) => setOptions({ ...options, twenty_four_hours: e.target.checked })}
+                  className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                />
+                <span className="text-xs text-room-charcoal">
+                  24時間利用 <span className="text-room-main">+¥5,500/月</span>
+                </span>
+              </label>
+            )}
+
+            {/* 固定席化 */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={options.fixed_seat}
+                onChange={(e) => setOptions({ ...options, fixed_seat: e.target.checked })}
+                className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+              />
+              <span className="text-xs text-room-charcoal">
+                固定席化 <span className="text-room-main">+¥23,100/月</span>
+              </span>
+            </label>
+
+            {/* ロッカー */}
             <div className="space-y-2">
-              {availableOptions.company_registration && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={options.company_registration}
-                    onChange={(e) => setOptions({ ...options, company_registration: e.target.checked })}
-                    className="rounded border-room-base-dark text-room-main focus:ring-room-main"
-                  />
-                  <span className="text-xs text-room-charcoal">
-                    法人登記 <span className="text-room-main">+¥5,500/月</span>
-                  </span>
-                </label>
-              )}
-              {availableOptions.printer && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={options.printer}
-                    onChange={(e) => setOptions({ ...options, printer: e.target.checked })}
-                    className="rounded border-room-base-dark text-room-main focus:ring-room-main"
-                  />
-                  <span className="text-xs text-room-charcoal">
-                    プリンター <span className="text-room-main">+¥1,100/月</span>
-                  </span>
-                </label>
-              )}
-              {availableOptions.twenty_four_hours && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={options.twenty_four_hours}
-                    onChange={(e) => setOptions({ ...options, twenty_four_hours: e.target.checked })}
-                    className="rounded border-room-base-dark text-room-main focus:ring-room-main"
-                  />
-                  <span className="text-xs text-room-charcoal">
-                    24時間利用 <span className="text-room-main">+¥5,500/月</span>
-                  </span>
-                </label>
-              )}
-              {availableOptions.fixed_seat && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={options.fixed_seat}
-                    onChange={(e) => setOptions({ ...options, fixed_seat: e.target.checked })}
-                    className="rounded border-room-base-dark text-room-main focus:ring-room-main"
-                  />
-                  <span className="text-xs text-room-charcoal">
-                    固定席化 <span className="text-room-main">+¥23,100/月</span>
-                  </span>
-                </label>
-              )}
-              {availableOptions.locker && (
-                <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={options.locker}
+                  onChange={(e) => {
+                    const checked = e.target.checked
+                    setOptions({
+                      ...options,
+                      locker: checked,
+                      locker_size: checked ? options.locker_size : null
+                    })
+                    if (checked) {
+                      fetchLockerInventory()
+                    }
+                  }}
+                  className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                />
+                <span className="text-xs text-room-charcoal">
+                  ロッカー <span className="text-room-main">(サイズ選択後に料金表示)</span>
+                </span>
+              </label>
+              {options.locker && lockerInventory && (
+                <div className="ml-6 space-y-1">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
-                      type="checkbox"
-                      checked={options.locker}
-                      onChange={(e) => {
-                        const checked = e.target.checked
-                        setOptions({
-                          ...options,
-                          locker: checked,
-                          locker_size: checked ? options.locker_size : null
-                        })
-                        if (checked) {
-                          fetchLockerInventory()
-                        }
-                      }}
-                      className="rounded border-room-base-dark text-room-main focus:ring-room-main"
+                      type="radio"
+                      name={`locker-size-${planId}`}
+                      checked={options.locker_size === 'large'}
+                      onChange={() => setOptions({ ...options, locker_size: 'large' })}
+                      disabled={lockerInventory.large.available === 0}
+                      className="rounded border-room-base-dark text-room-main focus:ring-room-main disabled:opacity-50"
                     />
-                    <span className="text-xs text-room-charcoal">
-                      ロッカー <span className="text-room-main">(サイズ選択後に料金表示)</span>
+                    <span className={`text-xs ${lockerInventory.large.available === 0 ? 'text-room-charcoal-light' : 'text-room-charcoal'}`}>
+                      大ロッカー <span className="text-room-main">+¥{LOCKER_PRICE_LARGE.toLocaleString()}/月</span> {lockerInventory.large.available > 0 ? (
+                        <span className="text-room-main">(空き{lockerInventory.large.available}個)</span>
+                      ) : (
+                        <span className="text-red-600">(満室)</span>
+                      )}
                     </span>
                   </label>
-                  {options.locker && lockerInventory && (
-                    <div className="ml-6 space-y-1">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name={`locker-size-${planId}`}
-                          checked={options.locker_size === 'large'}
-                          onChange={() => setOptions({ ...options, locker_size: 'large' })}
-                          disabled={lockerInventory.large.available === 0}
-                          className="rounded border-room-base-dark text-room-main focus:ring-room-main disabled:opacity-50"
-                        />
-                        <span className={`text-xs ${lockerInventory.large.available === 0 ? 'text-room-charcoal-light' : 'text-room-charcoal'}`}>
-                          大ロッカー <span className="text-room-main">+¥{LOCKER_PRICE_LARGE.toLocaleString()}/月</span> {lockerInventory.large.available > 0 ? (
-                            <span className="text-room-main">(空き{lockerInventory.large.available}個)</span>
-                          ) : (
-                            <span className="text-red-600">(満室)</span>
-                          )}
-                        </span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name={`locker-size-${planId}`}
-                          checked={options.locker_size === 'small'}
-                          onChange={() => setOptions({ ...options, locker_size: 'small' })}
-                          disabled={lockerInventory.small.available === 0}
-                          className="rounded border-room-base-dark text-room-main focus:ring-room-main disabled:opacity-50"
-                        />
-                        <span className={`text-xs ${lockerInventory.small.available === 0 ? 'text-room-charcoal-light' : 'text-room-charcoal'}`}>
-                          小ロッカー <span className="text-room-main">+¥{LOCKER_PRICE_SMALL.toLocaleString()}/月</span> {lockerInventory.small.available > 0 ? (
-                            <span className="text-room-main">(空き{lockerInventory.small.available}個)</span>
-                          ) : (
-                            <span className="text-red-600">(満室)</span>
-                          )}
-                        </span>
-                      </label>
-                    </div>
-                  )}
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`locker-size-${planId}`}
+                      checked={options.locker_size === 'small'}
+                      onChange={() => setOptions({ ...options, locker_size: 'small' })}
+                      disabled={lockerInventory.small.available === 0}
+                      className="rounded border-room-base-dark text-room-main focus:ring-room-main disabled:opacity-50"
+                    />
+                    <span className={`text-xs ${lockerInventory.small.available === 0 ? 'text-room-charcoal-light' : 'text-room-charcoal'}`}>
+                      小ロッカー <span className="text-room-main">+¥{LOCKER_PRICE_SMALL.toLocaleString()}/月</span> {lockerInventory.small.available > 0 ? (
+                        <span className="text-room-main">(空き{lockerInventory.small.available}個)</span>
+                      ) : (
+                        <span className="text-red-600">(満室)</span>
+                      )}
+                    </span>
+                  </label>
                 </div>
               )}
             </div>
           </div>
-        )}
+        </div>
 
         {/* 料金サマリー */}
         <div className="rounded-md bg-room-base-dark p-3 space-y-1">
@@ -538,7 +537,6 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
               <span className="text-room-charcoal">+¥{calculateOptionPrice().toLocaleString()}/月</span>
             </div>
           )}
-          {/* 入会金 */}
           <div className="flex justify-between text-xs">
             <span className="text-room-charcoal">入会金:</span>
             <span className="text-room-charcoal">
@@ -555,7 +553,6 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
               )}
             </span>
           </div>
-          {/* 初月会費 */}
           {paymentMethod === 'monthly' && (
             <div className="flex justify-between text-xs">
               <span className="text-room-charcoal">初月会費（日割り計算）:</span>

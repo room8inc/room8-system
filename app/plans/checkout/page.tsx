@@ -438,11 +438,8 @@ function CheckoutPageContent() {
         }
 
         // プラン料金を計算（割引適用）
-        // planTypeに応じた価格を使用（新カラム）
-        const resolvedPlanType = planType || 'workspace'
-        let planPrice = resolvedPlanType === 'shared_office'
-          ? (plan.shared_office_price ?? plan.price)
-          : (plan.workspace_price ?? plan.price)
+        // ベース価格は常にworkspace_price（シェアオフィスはオプション料金で加算）
+        let planPrice = plan.workspace_price ?? plan.price
         if (contractTerm === 'yearly') {
           planPrice = Math.floor(planPrice * 0.8)
         }
@@ -462,12 +459,13 @@ function CheckoutPageContent() {
 
         // オプション料金を計算
         let optionPrice = 0
+        if (options.shared_office) optionPrice += 3300
         if (options.company_registration) optionPrice += 5500
         if (options.printer) optionPrice += 1100
         if (options.twenty_four_hours) optionPrice += 5500
         if (options.fixed_seat) optionPrice += 23100
         if (options.locker && options.locker_size) {
-          optionPrice += options.locker_size === 'large' ? 4950 : 2200
+          optionPrice += options.locker_size === 'large' ? 4950 : 2750
         }
 
         // 合計金額を計算

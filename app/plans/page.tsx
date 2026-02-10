@@ -1,14 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { PlanTypeSelector } from './plan-type-selector'
 import { PlanList } from './plan-list'
 
-export default async function PlansPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ type?: string }>
-}) {
+export default async function PlansPage() {
   const supabase = await createClient()
 
   const {
@@ -31,14 +25,13 @@ export default async function PlansPage({
     redirect('/dashboard')
   }
 
-  // searchParamsを解決
-  const resolvedSearchParams = await searchParams
-
-  // プラン一覧を取得
+  // プラン一覧を取得（workspace_priceがあるもの = 新6ベースプランのみ）
+  // 旧シェアオフィスプラン（起業家・レギュラー・ライト）はworkspace_priceがNULLなので除外される
   const { data: plans, error: plansError } = await supabase
     .from('plans')
     .select('*')
     .eq('is_active', true)
+    .not('workspace_price', 'is', null)
     .order('display_order', { ascending: true })
 
   // 現在のプラン契約を取得
@@ -50,26 +43,9 @@ export default async function PlansPage({
     .is('ended_at', null)
     .single()
 
-  const allPlans = plans || []
-
-  // プラン種類が指定されている場合は、プラン一覧を表示
-  const planType = resolvedSearchParams.type as 'workspace' | 'shared_office' | undefined
-
-  if (planType) {
-    return (
-      <PlanList
-        planType={planType}
-        plans={allPlans}
-        currentPlan={currentPlan}
-        error={plansError}
-      />
-    )
-  }
-
-  // プラン種類選択画面
   return (
-    <PlanTypeSelector
-      plans={allPlans}
+    <PlanList
+      plans={plans || []}
       currentPlan={currentPlan}
       error={plansError}
     />
