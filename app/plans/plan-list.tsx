@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ContractForm } from './contract-form'
+import { useRouter } from 'next/navigation'
 
 interface PlanListProps {
   plans: any[]
@@ -10,9 +10,11 @@ interface PlanListProps {
 }
 
 export function PlanList({ plans, currentPlan, error }: PlanListProps) {
+  const router = useRouter()
+
   const formatTime = (time: string | null) => {
     if (!time) return ''
-    return time.substring(0, 5) // "HH:MM"
+    return time.substring(0, 5)
   }
 
   const formatAvailableTime = (plan: any) => {
@@ -31,7 +33,7 @@ export function PlanList({ plans, currentPlan, error }: PlanListProps) {
 
   return (
     <div className="min-h-screen bg-room-base">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         {/* ヘッダー */}
         <div className="mb-8">
           <Link
@@ -41,93 +43,80 @@ export function PlanList({ plans, currentPlan, error }: PlanListProps) {
             ← ダッシュボードに戻る
           </Link>
           <h1 className="mt-2 text-3xl font-bold text-room-charcoal">
-            会員契約・プラン選択
+            いつ使いますか？
           </h1>
           <p className="mt-2 text-sm text-room-charcoal-light">
-            ご希望の時間帯プランを選択してください。オプションでシェアオフィス機能（住所利用等）を追加できます。
+            利用したい時間帯を選んでください
           </p>
         </div>
 
         {/* 現在の契約状況 */}
         {currentPlan && (
-          <div className="mb-8 rounded-lg bg-room-main bg-opacity-10 border border-room-main p-6">
-            <h2 className="text-lg font-semibold text-room-charcoal mb-2">
-              現在の契約
-            </h2>
+          <div className="mb-8 rounded-lg bg-room-main bg-opacity-10 border border-room-main p-4">
             <p className="text-sm text-room-charcoal">
-              {currentPlan.plans?.name || 'プラン名不明'}
-            </p>
-            <p className="text-xs text-room-charcoal-light mt-1">
-              契約開始日: {new Date(currentPlan.started_at).toLocaleDateString('ja-JP')}
+              現在の契約: <span className="font-medium">{currentPlan.plans?.name || 'プラン名不明'}</span>
             </p>
           </div>
         )}
 
         {/* エラー表示 */}
         {error && (
-          <div className="mb-8 rounded-lg bg-room-main bg-opacity-10 border border-room-main p-6">
+          <div className="mb-8 rounded-lg bg-room-main bg-opacity-10 border border-room-main p-4">
             <p className="text-sm text-room-main-dark">
-              プラン情報の取得に失敗しました: {error.message}
+              プラン情報の取得に失敗しました
             </p>
           </div>
         )}
 
-        {/* プランが取得できていない場合 */}
-        {!error && (!plans || plans.length === 0) && (
-          <div className="mb-8 rounded-lg bg-room-wood bg-opacity-10 border border-room-wood p-6">
-            <p className="text-sm text-room-wood-dark">
-              プラン情報がありません
-            </p>
-          </div>
-        )}
-
-        {/* プラン一覧 */}
+        {/* プラン選択 */}
         {plans.length > 0 && (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-3">
             {plans.map((plan) => {
               const isCurrentPlan = currentPlan?.plan_id === plan.id
 
               return (
-                <div
+                <button
                   key={plan.id}
-                  className={`rounded-lg border-2 p-6 ${
+                  onClick={() => {
+                    if (!isCurrentPlan) {
+                      router.push(`/plans/configure?planId=${plan.id}`)
+                    }
+                  }}
+                  disabled={isCurrentPlan}
+                  className={`w-full text-left rounded-lg border-2 p-5 transition-all ${
                     isCurrentPlan
-                      ? 'border-room-main bg-room-main bg-opacity-5'
-                      : 'border-room-base-dark bg-room-base-light'
+                      ? 'border-room-main bg-room-main bg-opacity-5 cursor-default'
+                      : 'border-room-base-dark bg-room-base-light hover:border-room-main hover:shadow-md cursor-pointer'
                   }`}
                 >
-                  <div className="mb-4">
-                    <h3 className="text-xl font-bold text-room-charcoal">
-                      {plan.name}
-                    </h3>
-                    <p className="text-2xl font-bold text-room-main mt-2">
-                      ¥{plan.workspace_price?.toLocaleString()}/月〜
-                    </p>
-                  </div>
-
-                  <div className="space-y-2 text-sm text-room-charcoal-light mb-4">
-                    <p>
-                      <strong>利用時間:</strong> {formatAvailableTime(plan)}
-                    </p>
-                  </div>
-
-                  {isCurrentPlan ? (
-                    <div className="rounded-md bg-room-main bg-opacity-20 p-3 text-center">
-                      <p className="text-sm font-medium text-room-main-dark">
-                        現在のプラン
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-room-charcoal">
+                        {plan.name}
+                      </h3>
+                      <p className="text-sm text-room-charcoal-light mt-1">
+                        {formatAvailableTime(plan)}
                       </p>
                     </div>
-                  ) : (
-                    <ContractForm
-                      planId={plan.id}
-                      planName={plan.name}
-                      planPrice={plan.workspace_price}
-                      planData={plan}
-                    />
-                  )}
-                </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-room-main">
+                        ¥{plan.workspace_price?.toLocaleString()}
+                        <span className="text-xs font-normal text-room-charcoal-light">/月〜</span>
+                      </p>
+                      {isCurrentPlan && (
+                        <span className="text-xs text-room-main font-medium">現在のプラン</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
               )
             })}
+          </div>
+        )}
+
+        {!error && (!plans || plans.length === 0) && (
+          <div className="rounded-lg bg-room-wood bg-opacity-10 border border-room-wood p-6">
+            <p className="text-sm text-room-wood-dark">プラン情報がありません</p>
           </div>
         )}
       </div>
