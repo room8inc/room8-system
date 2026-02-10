@@ -88,7 +88,7 @@ export function UserPlanManagement({
   }
 
   const handleCancelPlan = async () => {
-    if (!confirm('現在のプラン契約を解除しますか？')) {
+    if (!confirm('現在のプラン契約を解除しますか？\nStripeのサブスクリプションも同時に解約されます。')) {
       return
     }
 
@@ -101,19 +101,23 @@ export function UserPlanManagement({
     setError(null)
 
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const res = await fetch('/api/admin/plans/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userPlanId: currentPlan.id,
+          userId,
+        }),
+      })
 
-      // プラン契約を終了
-      const { error: updateError } = await supabase
-        .from('user_plans')
-        .update({
-          ended_at: today,
-          status: 'cancelled',
-        })
-        .eq('id', currentPlan.id)
+      const data = await res.json()
 
-      if (updateError) {
-        throw new Error(`プラン契約の解除に失敗しました: ${updateError.message}`)
+      if (!res.ok) {
+        throw new Error(data.error || 'プラン解除に失敗しました')
+      }
+
+      if (data.warning) {
+        setError(data.warning)
       }
 
       router.refresh()
