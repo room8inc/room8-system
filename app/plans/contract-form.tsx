@@ -7,12 +7,12 @@ import { createClient } from '@/lib/supabase/client'
 interface ContractFormProps {
   planId: string
   planName: string
-  planPrice: number // プランの基本料金
-  planFeatures?: any // プランのfeatures情報
-  planData?: any // プランの全データ（available_days等を含む）
+  planPrice: number // planTypeに応じた価格（workspace_price or shared_office_price）
+  planType: 'workspace' | 'shared_office'
+  planData?: any // プランの全データ（時間帯等を含む）
 }
 
-export function ContractForm({ planId, planName, planPrice, planFeatures, planData }: ContractFormProps) {
+export function ContractForm({ planId, planName, planPrice, planType, planData }: ContractFormProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -22,11 +22,11 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
     const today = new Date()
     return today.toISOString().split('T')[0]
   })
-  
+
   // 契約期間と支払い方法
   const [contractTerm, setContractTerm] = useState<'monthly' | 'yearly'>('monthly')
   const [paymentMethod, setPaymentMethod] = useState<'monthly' | 'annual_prepaid'>('monthly')
-  
+
   // オプションの状態管理
   const [options, setOptions] = useState({
     company_registration: false,  // 法人登記（+5,500円/月）- シェアオフィスプランのみ
@@ -36,7 +36,7 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
     locker: false,                 // ロッカー（料金要確認）- 全プラン
     locker_size: null as 'large' | 'small' | null, // ロッカーのサイズ
   })
-  
+
   // ロッカーの空き状況
   const [lockerInventory, setLockerInventory] = useState<{
     large: { available: number; total: number }
@@ -46,43 +46,21 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
   // キャンペーン関連
   const [campaigns, setCampaigns] = useState<any[]>([])
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
-  
-  // プランの種類を判定
-  const planType = planFeatures?.type // 'shared_office' or 'coworking'
-  
+
   // 24時間利用オプションが利用可能か判定
-  // 条件: 平日も土日も全部使えるプラン限定
-  // シェアオフィスプラン：起業家プラン・レギュラープランのみ（ライトプランには付けられない）
-  // ワークスペースプラン：フルタイムプランのみ
+  // 条件: 平日も土日も使えるプラン（weekday_start_time と weekend_start_time の両方が存在）
   const isTwentyFourHoursAvailable = () => {
-    if (!planData?.available_days) return false
-    
-    const availableDays = planData.available_days as string[]
-    const hasAllWeekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].every(day => availableDays.includes(day))
-    const hasWeekend = availableDays.includes('saturday') || availableDays.includes('sunday')
-    
-    if (planType === 'shared_office') {
-      // 起業家プランまたはレギュラープラン（ライトプランは除外）
-      return hasAllWeekdays && hasWeekend && planData.code !== 'light'
-    } else if (planType === 'coworking') {
-      // フルタイムプランのみ
-      return planData.code === 'fulltime'
-    }
-    return false
+    if (!planData) return false
+    return !!(planData.weekday_start_time && planData.weekend_start_time)
   }
-  
+
   // 利用可能なオプションを判定
   const availableOptions = {
-    company_registration: planType === 'shared_office' && !planFeatures?.company_registration?.standard,
-    printer: planType === 'coworking' && !planFeatures?.printer,
+    company_registration: planType === 'shared_office',
+    printer: planType === 'workspace',
     twenty_four_hours: isTwentyFourHoursAvailable(),
     fixed_seat: true, // 全プランで利用可能
     locker: true, // 全プランで利用可能
-  }
-  
-  // 起業家プランの場合は法人登記は標準装備なので選択不可
-  if (planFeatures?.company_registration?.standard) {
-    availableOptions.company_registration = false
   }
 
   // ロッカーの空き状況を取得
@@ -90,20 +68,20 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
     const { data: lockers } = await supabase
       .from('lockers')
       .select('size, status')
-    
+
     if (lockers) {
       const large = lockers.filter(l => l.size === 'large')
       const small = lockers.filter(l => l.size === 'small')
       const largeAvailable = large.filter(l => l.status === 'available').length
       const smallAvailable = small.filter(l => l.status === 'available').length
-      
+
       setLockerInventory({
         large: { available: largeAvailable, total: large.length },
         small: { available: smallAvailable, total: small.length },
       })
     }
   }
-  
+
   // コンポーネントマウント時に空き状況を取得
   useEffect(() => {
     if (availableOptions.locker) {
@@ -122,7 +100,7 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
         .lte('started_at', today)
         .or(`ended_at.is.null,ended_at.gte.${today}`)
         .order('created_at', { ascending: false })
-      
+
       if (data) {
         // プランに適用可能なキャンペーンのみをフィルタリング
         const applicableCampaigns = data.filter((campaign) => {
@@ -134,7 +112,7 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
           return campaign.applicable_plan_ids.includes(planId)
         })
         setCampaigns(applicableCampaigns)
-        
+
         // デフォルトで最初のキャンペーンを選択
         if (applicableCampaigns.length > 0) {
           setSelectedCampaignId(applicableCampaigns[0].id)
@@ -146,23 +124,24 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
 
   const handleContractClick = () => {
     console.log('handleContractClick called', { planId, contractTerm, paymentMethod, startDate, options, selectedCampaignId })
-    
+
     // 決済画面へ遷移（URLパラメータで契約情報を渡す）
     const params = new URLSearchParams({
       planId,
+      planType,
       contractTerm,
       paymentMethod,
       startDate,
       options: encodeURIComponent(JSON.stringify(options)),
     })
-    
+
     if (selectedCampaignId) {
       params.append('campaignId', selectedCampaignId)
     }
 
     const checkoutUrl = `/plans/checkout?${params.toString()}`
     console.log('Navigating to:', checkoutUrl)
-    
+
     // window.location.hrefを使用して確実に遷移
     window.location.href = checkoutUrl
   }
@@ -171,7 +150,7 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
   // ロッカーの料金（税込み、割引対象外）
   const LOCKER_PRICE_LARGE = 4950 // 大ロッカー: 月4,950円
   const LOCKER_PRICE_SMALL = 2200 // 小ロッカー: 月2,200円
-  
+
   // 入会金（通常11,000円）
   const ENTRY_FEE = 11000
 
@@ -200,25 +179,25 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
   // 初月の日割り計算
   const calculateFirstMonthProratedFee = () => {
     if (!startDate) return 0
-    
+
     const start = new Date(startDate)
     const year = start.getFullYear()
     const month = start.getMonth()
-    
+
     // その月の最終日を取得
     const lastDay = new Date(year, month + 1, 0).getDate()
-    
+
     // 開始日から月末までの日数
     const daysInMonth = lastDay
     const daysFromStart = lastDay - start.getDate() + 1
-    
+
     // 日割り計算（端数切り上げ）
     const monthlyPrice = calculatePlanPrice()
     const proratedFee = Math.ceil((monthlyPrice * daysFromStart) / daysInMonth)
-    
+
     return proratedFee
   }
-  
+
   // オプション料金を計算（割引対象外）
   const calculateOptionPrice = () => {
     let total = 0
@@ -232,35 +211,35 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
     }
     return total
   }
-  
+
   // プラン料金を計算（割引適用）
   const calculatePlanPrice = () => {
     let basePrice = planPrice
-    
+
     // 長期契約割引（20%off）
     if (contractTerm === 'yearly') {
       basePrice = Math.floor(basePrice * 0.8)
     }
-    
+
     // 年一括前払い割引（30%off）
     if (paymentMethod === 'annual_prepaid') {
       basePrice = Math.floor(basePrice * 0.7)
     }
-    
+
     return basePrice
   }
-  
+
   // 合計金額を計算
   const calculateTotalPrice = () => {
     const planPriceAfterDiscount = calculatePlanPrice()
     const optionPrice = calculateOptionPrice()
     const entryFee = calculateEntryFee()
-    
+
     // 初月会費無料キャンペーンの場合
-    const firstMonthFee = selectedCampaign?.campaign_type === 'first_month_free' 
-      ? 0 
+    const firstMonthFee = selectedCampaign?.campaign_type === 'first_month_free'
+      ? 0
       : calculateFirstMonthProratedFee()
-    
+
     // オプション料金は初月も日割り計算する必要があるが、簡略化のため月額で計算
     // （実際の実装ではオプションも日割り計算が必要）
     const firstMonthOptionPrice = selectedCampaign?.campaign_type === 'first_month_free'
@@ -371,7 +350,7 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
             <div className="space-y-2">
               {campaigns.map((campaign) => {
                 const isSelected = selectedCampaignId === campaign.id
-                
+
                 // キャンペーンごとのお得情報を計算
                 let benefitText = ''
                 if (campaign.campaign_type === 'entry_fee_free') {
@@ -387,7 +366,7 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
                   const firstMonthFee = calculateFirstMonthProratedFee()
                   benefitText = `初月会費: 通常¥${firstMonthFee.toLocaleString()} → 無料`
                 }
-                
+
                 return (
                   <label key={campaign.id} className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -484,8 +463,8 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
                       checked={options.locker}
                       onChange={(e) => {
                         const checked = e.target.checked
-                        setOptions({ 
-                          ...options, 
+                        setOptions({
+                          ...options,
                           locker: checked,
                           locker_size: checked ? options.locker_size : null
                         })
@@ -629,4 +608,3 @@ export function ContractForm({ planId, planName, planPrice, planFeatures, planDa
     </>
   )
 }
-

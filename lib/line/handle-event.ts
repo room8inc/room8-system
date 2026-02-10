@@ -67,7 +67,7 @@ export async function handleEvent(event: WebhookEvent): Promise<void> {
         await updateUserState(userId, { state: 'showed_plan', usage_type: 'dropin' })
         await client.replyMessage({
           replyToken: event.replyToken,
-          messages: dropinMessage(),
+          messages: await dropinMessage(),
         })
         return
       }
@@ -103,7 +103,7 @@ export async function handleEvent(event: WebhookEvent): Promise<void> {
     // address 選択
     if (params.address && userState.state === 'asked_address') {
       const needsAddress = params.address as NeedsAddress
-      const plan = recommendPlan(userState.time_slot as TimeSlot)
+      const plan = await recommendPlan(userState.time_slot as TimeSlot)
       await updateUserState(userId, {
         state: 'showed_plan',
         needs_address: needsAddress,

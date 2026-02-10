@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       planId,
+      planType = 'workspace' as 'workspace' | 'shared_office',
       contractTerm,
       paymentMethod,
       options,
@@ -234,6 +235,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.id,
         plan_id: planId,
+        plan_type: planType,
         started_at: startDate,
         status: 'active',
         contract_term: contractTerm,
@@ -267,14 +269,24 @@ export async function POST(request: NextRequest) {
     // Subscriptionを作成（2ヶ月目以降の自動決済用）
     // Payment Intentから取得した顧客IDを使用（確実に存在する）
     if (customerId) {
-      // PriceIDを取得
+      // PriceIDを取得（plan_typeに応じてws/soを切り替え）
       let priceId: string | null = null
-      if (contractTerm === 'yearly') {
-        priceId = plan.stripe_price_id_yearly
-      } else if (paymentMethod === 'annual_prepaid') {
-        priceId = plan.stripe_price_id_annual_prepaid
+      if (planType === 'shared_office') {
+        if (contractTerm === 'yearly') {
+          priceId = plan.stripe_price_id_so_yearly
+        } else if (paymentMethod === 'annual_prepaid') {
+          priceId = plan.stripe_price_id_so_annual_prepaid
+        } else {
+          priceId = plan.stripe_price_id_so_monthly
+        }
       } else {
-        priceId = plan.stripe_price_id_monthly
+        if (contractTerm === 'yearly') {
+          priceId = plan.stripe_price_id_ws_yearly
+        } else if (paymentMethod === 'annual_prepaid') {
+          priceId = plan.stripe_price_id_ws_annual_prepaid
+        } else {
+          priceId = plan.stripe_price_id_ws_monthly
+        }
       }
 
       if (priceId) {
@@ -322,9 +334,9 @@ export async function POST(request: NextRequest) {
         const optionPriceIds: string[] = []
         if (options.company_registration) {
           const { data: optionPrice } = await supabase
-            .from('plan_options_stripe_prices')
+            .from('plan_options')
             .select('stripe_price_id')
-            .eq('option_code', 'company_registration')
+            .eq('code', 'company_registration')
             .single()
           if (optionPrice?.stripe_price_id) {
             optionPriceIds.push(optionPrice.stripe_price_id)
@@ -332,9 +344,9 @@ export async function POST(request: NextRequest) {
         }
         if (options.printer) {
           const { data: optionPrice } = await supabase
-            .from('plan_options_stripe_prices')
+            .from('plan_options')
             .select('stripe_price_id')
-            .eq('option_code', 'printer')
+            .eq('code', 'printer')
             .single()
           if (optionPrice?.stripe_price_id) {
             optionPriceIds.push(optionPrice.stripe_price_id)
@@ -342,9 +354,9 @@ export async function POST(request: NextRequest) {
         }
         if (options.twenty_four_hours) {
           const { data: optionPrice } = await supabase
-            .from('plan_options_stripe_prices')
+            .from('plan_options')
             .select('stripe_price_id')
-            .eq('option_code', 'twenty_four_hours')
+            .eq('code', 'twenty_four_hours')
             .single()
           if (optionPrice?.stripe_price_id) {
             optionPriceIds.push(optionPrice.stripe_price_id)
@@ -355,9 +367,9 @@ export async function POST(request: NextRequest) {
         }
         if (options.locker && options.locker_size) {
           const { data: optionPrice } = await supabase
-            .from('plan_options_stripe_prices')
+            .from('plan_options')
             .select('stripe_price_id')
-            .eq('option_code', options.locker_size === 'large' ? 'locker_large' : 'locker_small')
+            .eq('code', options.locker_size === 'large' ? 'locker_large' : 'locker_small')
             .single()
           if (optionPrice?.stripe_price_id) {
             optionPriceIds.push(optionPrice.stripe_price_id)

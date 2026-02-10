@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { ContractForm } from './contract-form'
 
 interface PlanListProps {
-  planType: 'shared_office' | 'coworking'
+  planType: 'workspace' | 'shared_office'
   plans: any[]
   currentPlan: any
   error: any
@@ -12,32 +12,35 @@ interface PlanListProps {
 
 export function PlanList({ planType, plans, currentPlan, error }: PlanListProps) {
   const planTypeName =
-    planType === 'shared_office' ? 'シェアオフィスプラン' : 'ワークスペースプラン（コワーキングスペースプラン）'
+    planType === 'shared_office' ? 'シェアオフィスプラン' : 'ワークスペースプラン'
   const planTypeDescription =
     planType === 'shared_office'
-      ? '住所利用可能、会議室月4時間まで無料（超過分1時間1,100円）、法人登記オプション、同伴利用可（1日2時間まで）'
+      ? '住所利用・郵便物受取・来客対応、会議室月4時間まで無料（超過分1時間1,100円）、法人登記オプション、同伴利用可（1日2時間まで）'
       : '場所貸しのみ、会議室利用可（1時間1,100円）'
 
-  const formatTime = (time: string) => {
+  const formatTime = (time: string | null) => {
+    if (!time) return ''
     return time.substring(0, 5) // "HH:MM"
   }
 
-  const formatDays = (days: string[]) => {
-    const dayMap: { [key: string]: string } = {
-      monday: '月',
-      tuesday: '火',
-      wednesday: '水',
-      thursday: '木',
-      friday: '金',
-      saturday: '土',
-      sunday: '日',
+  // 平日/週末の時間帯を組み立てる
+  const formatAvailableTime = (plan: any) => {
+    const hasWeekday = plan.weekday_start_time && plan.weekday_end_time
+    const hasWeekend = plan.weekend_start_time && plan.weekend_end_time
+
+    if (hasWeekday && hasWeekend) {
+      return `平日 ${formatTime(plan.weekday_start_time)}〜${formatTime(plan.weekday_end_time)} / 土日祝 ${formatTime(plan.weekend_start_time)}〜${formatTime(plan.weekend_end_time)}`
+    } else if (hasWeekday) {
+      return `平日 ${formatTime(plan.weekday_start_time)}〜${formatTime(plan.weekday_end_time)}`
+    } else if (hasWeekend) {
+      return `土日祝 ${formatTime(plan.weekend_start_time)}〜${formatTime(plan.weekend_end_time)}`
     }
-    // ナイト&ホリデープランの場合、features.noteで詳細を表示
-    if (days.length >= 7) {
-      // 全曜日が含まれている場合は「全日」と表示
-      return '全日'
-    }
-    return days.map((d) => dayMap[d] || d).join('・')
+    return '—'
+  }
+
+  // planTypeに応じた価格を取得
+  const getPlanPrice = (plan: any) => {
+    return planType === 'shared_office' ? plan.shared_office_price : plan.workspace_price
   }
 
   return (
@@ -84,8 +87,8 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
         {plans.length > 0 && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {plans.map((plan) => {
-              const features = plan.features as any
               const isCurrentPlan = currentPlan?.plan_id === plan.id
+              const price = getPlanPrice(plan)
 
               return (
                 <div
@@ -101,59 +104,30 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
                       {plan.name}
                     </h3>
                     <p className="text-2xl font-bold text-room-main mt-2">
-                      ¥{plan.price.toLocaleString()}/月
+                      ¥{price.toLocaleString()}/月
                     </p>
                   </div>
 
                   <div className="space-y-2 text-sm text-room-charcoal-light mb-4">
-                    {features?.note ? (
+                    <p>
+                      <strong>利用時間:</strong> {formatAvailableTime(plan)}
+                    </p>
+                    {planType === 'shared_office' && (
                       <>
                         <p>
-                          <strong>利用時間:</strong> {features.note}
+                          <strong>住所利用:</strong> 可能（郵便物受取・来客対応含む）
                         </p>
                         <p>
-                          <strong>利用可能日:</strong> {formatDays(plan.available_days)}
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p>
-                          <strong>利用時間:</strong> {formatTime(plan.start_time)} - {formatTime(plan.end_time)}
+                          <strong>会議室:</strong> 月4時間まで無料、超過分¥1,100/時間
                         </p>
                         <p>
-                          <strong>利用可能日:</strong> {formatDays(plan.available_days)}
+                          <strong>プリンター:</strong> 標準装備
                         </p>
                       </>
                     )}
-                    {features?.meeting_room && (
+                    {planType === 'workspace' && (
                       <p>
-                        <strong>会議室:</strong>{' '}
-                        {features.meeting_room.free_hours
-                          ? `月${features.meeting_room.free_hours}時間まで無料、超過分¥${features.meeting_room.rate}/時間`
-                          : `¥${features.meeting_room.rate}/時間`}
-                      </p>
-                    )}
-                    {features?.address_usage && (
-                      <p>
-                        <strong>住所利用:</strong> 可能
-                      </p>
-                    )}
-                    {features?.company_registration && (
-                      <p>
-                        <strong>法人登記:</strong>{' '}
-                        {features.company_registration.standard
-                          ? '標準装備'
-                          : `オプション（¥${features.company_registration.optional_price}/月）`}
-                      </p>
-                    )}
-                    {features?.guest_usage && features.guest_usage.free_hours_per_guest && (
-                      <p>
-                        <strong>同伴利用:</strong> 可能（1日{features.guest_usage.free_hours_per_guest}時間まで無料）
-                      </p>
-                    )}
-                    {features?.printer && (
-                      <p>
-                        <strong>プリンター:</strong> 標準装備
+                        <strong>会議室:</strong> ¥1,100/時間
                       </p>
                     )}
                   </div>
@@ -165,7 +139,13 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
                       </p>
                     </div>
                   ) : (
-                    <ContractForm planId={plan.id} planName={plan.name} planPrice={plan.price} planFeatures={features} planData={plan} />
+                    <ContractForm
+                      planId={plan.id}
+                      planName={plan.name}
+                      planPrice={price}
+                      planType={planType}
+                      planData={plan}
+                    />
                   )}
                 </div>
               )
@@ -176,4 +156,3 @@ export function PlanList({ planType, plans, currentPlan, error }: PlanListProps)
     </div>
   )
 }
-

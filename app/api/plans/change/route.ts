@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { userPlanId, newPlanId, changeDate } = body
+    const { userPlanId, newPlanId, newPlanType, changeDate } = body
 
     if (!userPlanId || !newPlanId || !changeDate) {
       return NextResponse.json(
@@ -61,12 +61,17 @@ export async function POST(request: NextRequest) {
     }
 
     // プラン変更予定日を設定
+    const updateData: Record<string, any> = {
+      plan_change_scheduled_date: changeDate,
+      new_plan_id: newPlanId,
+    }
+    // plan_typeの変更がリクエストされた場合のみ含める
+    if (newPlanType && (newPlanType === 'workspace' || newPlanType === 'shared_office')) {
+      updateData.plan_type = newPlanType
+    }
     const { error: updateError } = await supabase
       .from('user_plans')
-      .update({
-        plan_change_scheduled_date: changeDate,
-        new_plan_id: newPlanId,
-      })
+      .update(updateData)
       .eq('id', userPlanId)
 
     if (updateError) {

@@ -50,26 +50,16 @@ export default async function PlansPage({
     .is('ended_at', null)
     .single()
 
-  // プランをシェアオフィスとワークスペースに分類
-  const sharedOfficePlans = plans?.filter((plan) => {
-    const features = plan.features as any
-    return features?.type === 'shared_office'
-  }) || []
-
-  const coworkingPlans = plans?.filter((plan) => {
-    const features = plan.features as any
-    return features?.type === 'coworking'
-  }) || []
+  const allPlans = plans || []
 
   // プラン種類が指定されている場合は、プラン一覧を表示
-  const planType = resolvedSearchParams.type as 'shared_office' | 'coworking' | undefined
+  const planType = resolvedSearchParams.type as 'workspace' | 'shared_office' | undefined
 
   if (planType) {
-    const selectedPlans = planType === 'shared_office' ? sharedOfficePlans : coworkingPlans
     return (
       <PlanList
         planType={planType}
-        plans={selectedPlans}
+        plans={allPlans}
         currentPlan={currentPlan}
         error={plansError}
       />
@@ -79,8 +69,7 @@ export default async function PlansPage({
   // プラン種類選択画面
   return (
     <PlanTypeSelector
-      sharedOfficePlans={sharedOfficePlans}
-      coworkingPlans={coworkingPlans}
+      plans={allPlans}
       currentPlan={currentPlan}
       error={plansError}
     />

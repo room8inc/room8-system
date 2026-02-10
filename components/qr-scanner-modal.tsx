@@ -363,10 +363,10 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
       let overtimeFee = 0
 
       if (checkinData.member_type_at_checkin === 'regular' && checkinData.plan_id_at_checkin) {
-        // プラン情報を取得
+        // プラン情報を取得（新カラム: weekday/weekend分割時間帯）
         const { data: planData } = await supabase
           .from('plans')
-          .select('start_time, end_time, available_days')
+          .select('weekday_start_time, weekday_end_time, weekend_start_time, weekend_end_time')
           .eq('id', checkinData.plan_id_at_checkin)
           .single()
 
@@ -376,9 +376,10 @@ export function QRScannerModal({ isOpen, onClose, onSuccess, mode }: QRScannerMo
             checkinAt,
             checkoutAt,
             {
-              startTime: planData.start_time,
-              endTime: planData.end_time,
-              availableDays: planData.available_days,
+              weekdayStartTime: planData.weekday_start_time,
+              weekdayEndTime: planData.weekday_end_time,
+              weekendStartTime: planData.weekend_start_time,
+              weekendEndTime: planData.weekend_end_time,
             }
           )
 

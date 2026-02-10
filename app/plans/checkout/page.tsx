@@ -346,6 +346,7 @@ function CheckoutPageContent() {
 
   // URLパラメータから契約情報を取得
   const planId = searchParams.get('planId')
+  const planType = searchParams.get('planType') as 'workspace' | 'shared_office' | null
   const contractTerm = searchParams.get('contractTerm') as 'monthly' | 'yearly' | null
   const paymentMethod = searchParams.get('paymentMethod') as 'monthly' | 'annual_prepaid' | null
   const startDate = searchParams.get('startDate') || new Date().toISOString().split('T')[0]
@@ -437,7 +438,11 @@ function CheckoutPageContent() {
         }
 
         // プラン料金を計算（割引適用）
-        let planPrice = plan.price
+        // planTypeに応じた価格を使用（新カラム）
+        const resolvedPlanType = planType || 'workspace'
+        let planPrice = resolvedPlanType === 'shared_office'
+          ? (plan.shared_office_price ?? plan.price)
+          : (plan.workspace_price ?? plan.price)
         if (contractTerm === 'yearly') {
           planPrice = Math.floor(planPrice * 0.8)
         }

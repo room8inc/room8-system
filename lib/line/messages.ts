@@ -1,6 +1,7 @@
 import type { messagingApi } from '@line/bot-sdk'
 import type { PlanInfo, NeedsAddress } from './types'
 import { formatPrice, getPriceDisplay } from './plan-recommend'
+import { fetchDropinRates } from './plan-data'
 
 type Message = messagingApi.Message
 
@@ -174,7 +175,11 @@ export function askAddressMessage(): Message {
   }
 }
 
-export function dropinMessage(): Message[] {
+export async function dropinMessage(): Promise<Message[]> {
+  const rates = await fetchDropinRates()
+  const hourlyText = `¥${rates.hourly.toLocaleString('ja-JP')}`
+  const dailyMaxText = `¥${rates.dailyMax.toLocaleString('ja-JP')}`
+
   const flexMessage: Message = {
     type: 'flex',
     altText: 'ドロップイン料金のご案内',
@@ -207,7 +212,7 @@ export function dropinMessage(): Message[] {
           },
           {
             type: 'text',
-            text: '¥420',
+            text: hourlyText,
             weight: 'bold',
             size: 'xxl',
             color: '#1a1a2e',
@@ -224,7 +229,7 @@ export function dropinMessage(): Message[] {
             contents: [
               {
                 type: 'text',
-                text: '• 1日最大 ¥2,200',
+                text: `• 1日最大 ${dailyMaxText}`,
                 size: 'sm',
                 color: '#555555',
               },
