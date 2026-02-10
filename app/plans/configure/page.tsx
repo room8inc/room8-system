@@ -134,7 +134,7 @@ function ConfigurePageContent() {
   const availableOptions = {
     company_registration: useSharedOffice === true,
     printer: useSharedOffice !== true,
-    twenty_four_hours: plan?.code === 'regular',
+    twenty_four_hours: plan?.code === 'fulltime',
     locker: true,
   }
 

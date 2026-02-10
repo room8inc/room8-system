@@ -51,7 +51,7 @@ export function ContractForm({ planId, planName, planPrice, planData }: Contract
     shared_office: true,                                   // 全プランで選択可能
     company_registration: options.shared_office,           // シェアオフィス選択時のみ
     printer: !options.shared_office,                       // ワークスペースのみ（シェアオフィスは標準装備）
-    twenty_four_hours: planData?.code === 'regular',       // レギュラープランのみ
+    twenty_four_hours: planData?.code === 'fulltime',       // フルタイムプランのみ
     fixed_seat: true,
     locker: true,
   }

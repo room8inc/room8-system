@@ -26,7 +26,7 @@ export default async function PlansPage() {
   }
 
   // 新6ベースプランのみ取得（旧シェアオフィスプラン：entrepreneur, light, fulltimeを除外）
-  const BASE_PLAN_CODES = ['daytime', 'night', 'holiday', 'weekday', 'night_holiday', 'regular']
+  const BASE_PLAN_CODES = ['daytime', 'night', 'holiday', 'weekday', 'night_holiday', 'fulltime']
   const { data: plans, error: plansError } = await supabase
     .from('plans')
     .select('*')
