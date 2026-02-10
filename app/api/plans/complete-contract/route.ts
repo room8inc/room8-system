@@ -188,7 +188,6 @@ export async function POST(request: NextRequest) {
     if (options.company_registration) selectedOptions.company_registration = true
     if (options.printer) selectedOptions.printer = true
     if (options.twenty_four_hours) selectedOptions.twenty_four_hours = true
-    if (options.fixed_seat) selectedOptions.fixed_seat = true
     if (options.locker && options.locker_size) {
       selectedOptions.locker = true
       selectedOptions.locker_size = options.locker_size
@@ -365,9 +364,6 @@ export async function POST(request: NextRequest) {
           if (optionPrice?.stripe_price_id) {
             optionPriceIds.push(optionPrice.stripe_price_id)
           }
-        }
-        if (options.fixed_seat) {
-          // 固定席化はオプションPriceIDがない場合もあるので、後で追加
         }
         if (options.locker && options.locker_size) {
           const { data: optionPrice } = await supabase

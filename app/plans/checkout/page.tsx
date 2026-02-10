@@ -463,7 +463,6 @@ function CheckoutPageContent() {
         if (options.company_registration) optionPrice += 5500
         if (options.printer) optionPrice += 1100
         if (options.twenty_four_hours) optionPrice += 5500
-        if (options.fixed_seat) optionPrice += 23100
         if (options.locker && options.locker_size) {
           optionPrice += options.locker_size === 'large' ? 4950 : 2750
         }

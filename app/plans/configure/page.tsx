@@ -40,7 +40,6 @@ function ConfigurePageContent() {
     company_registration: false,
     printer: false,
     twenty_four_hours: false,
-    fixed_seat: false,
     locker: false,
     locker_size: null as 'large' | 'small' | null,
   })
@@ -136,7 +135,6 @@ function ConfigurePageContent() {
     company_registration: useSharedOffice === true,
     printer: useSharedOffice !== true,
     twenty_four_hours: plan?.code === 'regular',
-    fixed_seat: true,
     locker: true,
   }
 
@@ -156,7 +154,6 @@ function ConfigurePageContent() {
     if (options.company_registration && availableOptions.company_registration) total += 5500
     if (options.printer && availableOptions.printer) total += 1100
     if (options.twenty_four_hours && availableOptions.twenty_four_hours) total += 5500
-    if (options.fixed_seat) total += 23100
     if (options.locker && options.locker_size) {
       total += options.locker_size === 'large' ? LOCKER_PRICE_LARGE : LOCKER_PRICE_SMALL
     }
@@ -388,23 +385,6 @@ function ConfigurePageContent() {
                       <p className="font-bold text-room-main">+¥5,500/月</p>
                     </label>
                   )}
-
-                  {/* 固定席 */}
-                  <label className="flex items-center justify-between rounded-lg border-2 border-room-base-dark bg-room-base-light p-4 cursor-pointer hover:border-room-main transition-all">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={options.fixed_seat}
-                        onChange={(e) => setOptions({ ...options, fixed_seat: e.target.checked })}
-                        className="rounded border-room-base-dark text-room-main focus:ring-room-main h-5 w-5"
-                      />
-                      <div>
-                        <p className="font-medium text-room-charcoal">固定席化</p>
-                        <p className="text-xs text-room-charcoal-light">毎回同じ席を確保</p>
-                      </div>
-                    </div>
-                    <p className="font-bold text-room-main">+¥23,100/月</p>
-                  </label>
 
                   {/* ロッカー */}
                   <div>
