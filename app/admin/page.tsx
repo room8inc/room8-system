@@ -103,18 +103,26 @@ export default async function AdminPage() {
                 ユーザーのプラン変更・削除ができます
               </p>
             </div>
-            <Link
-              href="/admin/campaigns"
-              className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
-            >
-              キャンペーン管理
-            </Link>
-            <Link
-              href="/admin/google-calendar"
-              className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
-            >
-              Googleカレンダー連携
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/admin/lockers"
+                className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
+              >
+                ロッカー管理
+              </Link>
+              <Link
+                href="/admin/campaigns"
+                className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
+              >
+                キャンペーン管理
+              </Link>
+              <Link
+                href="/admin/google-calendar"
+                className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
+              >
+                Googleカレンダー連携
+              </Link>
+            </div>
           </div>
         </div>
 
