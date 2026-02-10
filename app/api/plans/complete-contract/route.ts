@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { cache, cacheKey } from '@/lib/cache/vercel-kv'
-import Stripe from 'stripe'
+import { getStripeClient } from '@/lib/stripe/cancellation-fee'
+import { getPlanPriceId, getOptionPriceId, isStripeLiveMode } from '@/lib/stripe/price-config'
 
 export const runtime = 'nodejs'
-
-function getStripeClient(): Stripe {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY_TEST
-  if (!stripeSecretKey) {
-    throw new Error('STRIPE_SECRET_KEY_TEST環境変数が設定されていません')
-  }
-  return new Stripe(stripeSecretKey, {
-    apiVersion: '2025-10-29.clover',
-  })
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -270,16 +261,16 @@ export async function POST(request: NextRequest) {
     // Subscriptionを作成（2ヶ月目以降の自動決済用）
     // Payment Intentから取得した顧客IDを使用（確実に存在する）
     if (customerId) {
-      // PriceIDを取得（ベースプラン価格は常に既存カラムを使用）
-      // シェアオフィスはオプション(+¥3,300)として自動追加するため、プラン自体のPriceは同じ
+      // PriceIDをconfigから取得（テスト/本番自動切替）
       let priceId: string | null = null
       if (contractTerm === 'yearly') {
-        priceId = plan.stripe_price_id_yearly
+        priceId = getPlanPriceId(plan.code, 'yearly')
       } else if (paymentMethod === 'annual_prepaid') {
-        priceId = plan.stripe_price_id_annual_prepaid
+        priceId = getPlanPriceId(plan.code, 'annual_prepaid')
       } else {
-        priceId = plan.stripe_price_id_monthly
+        priceId = getPlanPriceId(plan.code, 'monthly')
       }
+      console.log(`Stripe mode: ${isStripeLiveMode() ? 'LIVE' : 'TEST'}, plan: ${plan.code}, priceId: ${priceId}`)
 
       if (priceId) {
         // 開始日を翌月1日に設定
@@ -322,59 +313,21 @@ export async function POST(request: NextRequest) {
           .update({ stripe_subscription_id: subscription.id })
           .eq('id', userPlan.id)
 
-        // オプションのPriceIDを追加
+        // オプションのPriceIDをconfigから取得（テスト/本番自動切替）
         const optionPriceIds: string[] = []
-        // シェアオフィスタイプの場合、shared_officeオプション(+¥3,300)を自動追加
-        if (planType === 'shared_office') {
-          const { data: optionPrice } = await supabase
-            .from('plan_options')
-            .select('stripe_price_id')
-            .eq('code', 'shared_office')
-            .single()
-          if (optionPrice?.stripe_price_id) {
-            optionPriceIds.push(optionPrice.stripe_price_id)
-          }
-        }
-        if (options.company_registration) {
-          const { data: optionPrice } = await supabase
-            .from('plan_options')
-            .select('stripe_price_id')
-            .eq('code', 'company_registration')
-            .single()
-          if (optionPrice?.stripe_price_id) {
-            optionPriceIds.push(optionPrice.stripe_price_id)
-          }
-        }
-        if (options.printer) {
-          const { data: optionPrice } = await supabase
-            .from('plan_options')
-            .select('stripe_price_id')
-            .eq('code', 'printer')
-            .single()
-          if (optionPrice?.stripe_price_id) {
-            optionPriceIds.push(optionPrice.stripe_price_id)
-          }
-        }
-        if (options.twenty_four_hours) {
-          const { data: optionPrice } = await supabase
-            .from('plan_options')
-            .select('stripe_price_id')
-            .eq('code', 'twenty_four_hours')
-            .single()
-          if (optionPrice?.stripe_price_id) {
-            optionPriceIds.push(optionPrice.stripe_price_id)
-          }
-        }
+        const optionCodes: string[] = []
+        if (planType === 'shared_office') optionCodes.push('shared_office')
+        if (options.company_registration) optionCodes.push('company_registration')
+        if (options.printer) optionCodes.push('printer')
+        if (options.twenty_four_hours) optionCodes.push('twenty_four_hours')
         if (options.locker && options.locker_size) {
-          const { data: optionPrice } = await supabase
-            .from('plan_options')
-            .select('stripe_price_id')
-            .eq('code', options.locker_size === 'large' ? 'locker_large' : 'locker_small')
-            .single()
-          if (optionPrice?.stripe_price_id) {
-            optionPriceIds.push(optionPrice.stripe_price_id)
-          }
+          optionCodes.push(options.locker_size === 'large' ? 'locker_large' : 'locker_small')
         }
+        for (const code of optionCodes) {
+          const pid = getOptionPriceId(code)
+          if (pid) optionPriceIds.push(pid)
+        }
+        console.log(`Option price IDs: ${JSON.stringify(optionCodes)} → ${JSON.stringify(optionPriceIds)}`)
 
         // オプションのPriceIDをSubscriptionに追加
         if (optionPriceIds.length > 0) {
