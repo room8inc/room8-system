@@ -25,13 +25,13 @@ export default async function PlansPage() {
     redirect('/dashboard')
   }
 
-  // プラン一覧を取得（workspace_priceがあるもの = 新6ベースプランのみ）
-  // 旧シェアオフィスプラン（起業家・レギュラー・ライト）はworkspace_priceがNULLなので除外される
+  // 新6ベースプランのみ取得（旧シェアオフィスプラン：entrepreneur, light, fulltimeを除外）
+  const BASE_PLAN_CODES = ['daytime', 'night', 'holiday', 'weekday', 'night_holiday', 'regular']
   const { data: plans, error: plansError } = await supabase
     .from('plans')
     .select('*')
     .eq('is_active', true)
-    .not('workspace_price', 'is', null)
+    .in('code', BASE_PLAN_CODES)
     .order('display_order', { ascending: true })
 
   // 現在のプラン契約を取得
