@@ -269,24 +269,15 @@ export async function POST(request: NextRequest) {
     // Subscriptionを作成（2ヶ月目以降の自動決済用）
     // Payment Intentから取得した顧客IDを使用（確実に存在する）
     if (customerId) {
-      // PriceIDを取得（plan_typeに応じてws/soを切り替え）
+      // PriceIDを取得（ベースプラン価格は常に既存カラムを使用）
+      // シェアオフィスはオプション(+¥3,300)として自動追加するため、プラン自体のPriceは同じ
       let priceId: string | null = null
-      if (planType === 'shared_office') {
-        if (contractTerm === 'yearly') {
-          priceId = plan.stripe_price_id_so_yearly
-        } else if (paymentMethod === 'annual_prepaid') {
-          priceId = plan.stripe_price_id_so_annual_prepaid
-        } else {
-          priceId = plan.stripe_price_id_so_monthly
-        }
+      if (contractTerm === 'yearly') {
+        priceId = plan.stripe_price_id_yearly
+      } else if (paymentMethod === 'annual_prepaid') {
+        priceId = plan.stripe_price_id_annual_prepaid
       } else {
-        if (contractTerm === 'yearly') {
-          priceId = plan.stripe_price_id_ws_yearly
-        } else if (paymentMethod === 'annual_prepaid') {
-          priceId = plan.stripe_price_id_ws_annual_prepaid
-        } else {
-          priceId = plan.stripe_price_id_ws_monthly
-        }
+        priceId = plan.stripe_price_id_monthly
       }
 
       if (priceId) {
@@ -332,6 +323,17 @@ export async function POST(request: NextRequest) {
 
         // オプションのPriceIDを追加
         const optionPriceIds: string[] = []
+        // シェアオフィスタイプの場合、shared_officeオプション(+¥3,300)を自動追加
+        if (planType === 'shared_office') {
+          const { data: optionPrice } = await supabase
+            .from('plan_options')
+            .select('stripe_price_id')
+            .eq('code', 'shared_office')
+            .single()
+          if (optionPrice?.stripe_price_id) {
+            optionPriceIds.push(optionPrice.stripe_price_id)
+          }
+        }
         if (options.company_registration) {
           const { data: optionPrice } = await supabase
             .from('plan_options')

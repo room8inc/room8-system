@@ -29,9 +29,9 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
 
   // オプションの状態管理
   const [options, setOptions] = useState({
-    company_registration: false,  // 法人登記（+5,500円/月）- シェアオフィスプランのみ
-    printer: false,                // プリンター（+1,100円/月）- ワークスペースプランのみ
-    twenty_four_hours: false,      // 24時間利用（+5,500円/月）- 特定のプランのみ
+    company_registration: false,  // 法人登記（+5,500円/月）- シェアオフィスのみ
+    printer: false,                // プリンター（+1,100円/月）- ワークスペースのみ（シェアオフィスは標準装備）
+    twenty_four_hours: false,      // 24時間利用（+5,500円/月）- レギュラープランのみ
     fixed_seat: false,             // 固定席化（+23,100円/月）- 全プラン
     locker: false,                 // ロッカー（料金要確認）- 全プラン
     locker_size: null as 'large' | 'small' | null, // ロッカーのサイズ
@@ -47,18 +47,11 @@ export function ContractForm({ planId, planName, planPrice, planType, planData }
   const [campaigns, setCampaigns] = useState<any[]>([])
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
 
-  // 24時間利用オプションが利用可能か判定
-  // 条件: 平日も土日も使えるプラン（weekday_start_time と weekend_start_time の両方が存在）
-  const isTwentyFourHoursAvailable = () => {
-    if (!planData) return false
-    return !!(planData.weekday_start_time && planData.weekend_start_time)
-  }
-
   // 利用可能なオプションを判定
   const availableOptions = {
-    company_registration: planType === 'shared_office',
-    printer: planType === 'workspace',
-    twenty_four_hours: isTwentyFourHoursAvailable(),
+    company_registration: planType === 'shared_office',  // 法人登記: シェアオフィスのみ
+    printer: planType === 'workspace',                   // プリンター: ワークスペースのみ（シェアオフィスは標準装備）
+    twenty_four_hours: planData?.code === 'regular',     // 24時間: レギュラープランのみ
     fixed_seat: true, // 全プランで利用可能
     locker: true, // 全プランで利用可能
   }
