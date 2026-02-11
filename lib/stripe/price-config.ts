@@ -14,6 +14,7 @@ type PlanPrices = {
 type StripePriceConfig = {
   plans: Record<string, PlanPrices>
   options: Record<string, string>
+  coupons: Record<string, string>
 }
 
 // ============================================
@@ -75,6 +76,9 @@ const TEST_PRICES: StripePriceConfig = {
     locker_large: 'price_1SPexERZuHLNbQd4Dhey5R11',
     locker_small: 'price_1SPexFRZuHLNbQd4pxw79LnK',
     printer: 'price_1SPexDRZuHLNbQd4JQxzdzmK',
+  },
+  coupons: {
+    group_second_slot: '', // TODO: Stripeでクーポン作成後にIDを設定
   },
 }
 
@@ -138,6 +142,9 @@ const LIVE_PRICES: StripePriceConfig = {
     locker_small: 'price_1PengnDYzeuaMwz67gnGvbai',         // ¥2,200
     printer: 'price_1RA3PWDYzeuaMwz6czajyskf',              // ¥1,100
   },
+  coupons: {
+    group_second_slot: '', // TODO: Stripeでクーポン作成後にIDを設定
+  },
 }
 
 // ============================================
@@ -160,4 +167,8 @@ export function getPlanPriceId(
 
 export function getOptionPriceId(optionCode: string, mode: StripeMode): string | null {
   return getConfig(mode).options[optionCode] ?? null
+}
+
+export function getCouponId(couponCode: string, mode: StripeMode): string | null {
+  return getConfig(mode).coupons[couponCode] || null
 }

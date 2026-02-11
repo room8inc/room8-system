@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 // @ts-ignore - html5-qrcodeの型定義が不完全な場合があるため
 import { Html5Qrcode } from 'html5-qrcode'
 import { createClient } from '@/lib/supabase/client'
+import { getActiveGroupMembership, findAvailableGroupSlot } from '@/lib/utils/group-plans'
 
 export default function CheckInPage() {
   const router = useRouter()
@@ -184,26 +185,50 @@ export default function CheckInPage() {
         }
       }
 
-      // プラン契約の有無を確認
-      let planIdAtCheckin: string | null = null
-      let memberTypeAtCheckin: 'regular' | 'dropin' = 'dropin'
-      const { data: activePlan, error: activePlanError } = await supabase
-        .from('user_plans')
-        .select('plan_id')
-        .eq('user_id', planOwnerUserId)
-        .eq('status', 'active')
-        .is('ended_at', null)
-        .maybeSingle()
+      // グループメンバーシップ確認
+      let groupPlanId: string | null = null
+      let groupSlotId: string | null = null
+      let groupPlanIdAtCheckin: string | null = null
 
-      if (activePlanError && activePlanError.code !== 'PGRST116') {
-        console.warn('Active plan fetch warning:', activePlanError)
-      } else if (activePlan?.plan_id) {
-        planIdAtCheckin = activePlan.plan_id
-        memberTypeAtCheckin = 'regular'
-        console.log('Active plan found:', {
-          planIdAtCheckin,
-          planOwnerUserId,
-        })
+      const groupMembership = await getActiveGroupMembership(supabase, user.id)
+      if (groupMembership) {
+        const availableSlot = await findAvailableGroupSlot(
+          supabase, groupMembership.group_plan_id, new Date()
+        )
+
+        if (availableSlot) {
+          groupPlanId = groupMembership.group_plan_id
+          groupSlotId = availableSlot.id
+          groupPlanIdAtCheckin = availableSlot.plan_id
+          console.log('Group slot found:', { groupPlanId, groupSlotId, groupPlanIdAtCheckin })
+        } else {
+          throw new Error('グループの同時利用上限に達しているか、現在の時間帯で利用可能なスロットがありません')
+        }
+      }
+
+      // プラン契約の有無を確認（グループでない場合のみ）
+      let planIdAtCheckin: string | null = groupPlanIdAtCheckin
+      let memberTypeAtCheckin: 'regular' | 'dropin' = groupPlanId ? 'regular' : 'dropin'
+
+      if (!groupPlanId) {
+        const { data: activePlan, error: activePlanError } = await supabase
+          .from('user_plans')
+          .select('plan_id')
+          .eq('user_id', planOwnerUserId)
+          .eq('status', 'active')
+          .is('ended_at', null)
+          .maybeSingle()
+
+        if (activePlanError && activePlanError.code !== 'PGRST116') {
+          console.warn('Active plan fetch warning:', activePlanError)
+        } else if (activePlan?.plan_id) {
+          planIdAtCheckin = activePlan.plan_id
+          memberTypeAtCheckin = 'regular'
+          console.log('Active plan found:', {
+            planIdAtCheckin,
+            planOwnerUserId,
+          })
+        }
       }
 
       // チェックイン記録を挿入
@@ -214,6 +239,8 @@ export default function CheckInPage() {
         member_type_at_checkin: memberTypeAtCheckin,
         ...(planIdAtCheckin && { plan_id_at_checkin: planIdAtCheckin }),
         ...(staffMemberId && { staff_member_id: staffMemberId }),
+        ...(groupPlanId && { group_plan_id: groupPlanId }),
+        ...(groupSlotId && { group_slot_id: groupSlotId }),
       }
 
       console.log('Inserting checkin data:', checkinData)

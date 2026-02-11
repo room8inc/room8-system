@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // 💡 認証が必要なページの保護（最適化）
-  const protectedPaths = ['/dashboard', '/checkin', '/profile', '/meeting-rooms', '/member-card']
+  const protectedPaths = ['/dashboard', '/checkin', '/profile', '/meeting-rooms', '/member-card', '/group']
   const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path))
   
   if (!user && isProtectedPath) {
