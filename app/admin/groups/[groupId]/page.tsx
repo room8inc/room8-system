@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { isAdmin } from '@/lib/utils/admin'
 import GroupSlotManagement from './group-slot-management'
 import GroupMemberManagement from './group-member-management'
+import GroupDeleteButton from './group-delete-button'
 
 type PageProps = {
   params: Promise<{ groupId: string }>
@@ -111,6 +112,9 @@ export default async function AdminGroupDetailPage({ params }: PageProps) {
                 </span>
               </p>
             </div>
+            {group.status === 'active' && (
+              <GroupDeleteButton groupId={groupId} groupName={group.name} />
+            )}
           </div>
         </div>
 
