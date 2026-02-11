@@ -162,25 +162,41 @@ export async function POST(request: NextRequest) {
 
     const couponId = getCouponId('group_second_slot', stripeMode)
 
-    let subscriptionItem
+    let subscriptionItemId: string
     try {
-      const itemParams: any = {
-        subscription: hostPlan.stripe_subscription_id,
-        price: priceId,
-        metadata: {
-          member_user_id: memberUserId,
-          type: 'invited_member',
-        },
-      }
+      // 同じPriceのアイテムが既にサブスクリプションに存在するか確認
+      const subscription = await stripe.subscriptions.retrieve(hostPlan.stripe_subscription_id)
+      const existingItem = subscription.items.data.find(
+        (item) => item.price.id === priceId
+      )
 
-      // クーポンIDが設定されている場合のみ割引を適用
-      if (couponId) {
-        itemParams.discounts = [{ coupon: couponId }]
-      }
+      if (existingItem) {
+        // 同じPriceが既にある → quantityを増やす
+        const updatedItem = await stripe.subscriptionItems.update(existingItem.id, {
+          quantity: (existingItem.quantity || 1) + 1,
+          proration_behavior: 'none',
+        })
+        subscriptionItemId = updatedItem.id
+        console.log(`Incremented quantity on existing item ${existingItem.id} to ${(existingItem.quantity || 1) + 1}`)
+      } else {
+        // 新しいPriceなので新規アイテム作成
+        const itemParams: any = {
+          subscription: hostPlan.stripe_subscription_id,
+          price: priceId,
+          metadata: {
+            type: 'invited_member',
+          },
+        }
 
-      subscriptionItem = await stripe.subscriptionItems.create(itemParams)
+        if (couponId) {
+          itemParams.discounts = [{ coupon: couponId }]
+        }
+
+        const newItem = await stripe.subscriptionItems.create(itemParams)
+        subscriptionItemId = newItem.id
+      }
     } catch (stripeError: any) {
-      console.error('Stripe subscription item creation error:', stripeError)
+      console.error('Stripe subscription item error:', stripeError)
       return NextResponse.json(
         { error: `Stripeサブスクリプションアイテムの追加に失敗しました: ${stripeError.message}` },
         { status: 500 }
@@ -226,7 +242,8 @@ export async function POST(request: NextRequest) {
         entry_fee_discount: 0,
         first_month_free: false,
         options: {
-          stripe_subscription_item_id: subscriptionItem.id,
+          stripe_subscription_item_id: subscriptionItemId,
+          stripe_price_id: priceId,
           shared_office: effectivePlanType === 'shared_office',
         },
       })
@@ -235,9 +252,17 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Member plan insert error:', insertError)
-      // Stripeアイテムを削除（ロールバック）
+      // Stripeロールバック（quantityを戻すか、アイテム削除）
       try {
-        await stripe.subscriptionItems.del(subscriptionItem.id)
+        const item = await stripe.subscriptionItems.retrieve(subscriptionItemId)
+        if (item.quantity && item.quantity > 1) {
+          await stripe.subscriptionItems.update(subscriptionItemId, {
+            quantity: item.quantity - 1,
+            proration_behavior: 'none',
+          })
+        } else {
+          await stripe.subscriptionItems.del(subscriptionItemId, { proration_behavior: 'none' })
+        }
       } catch (e) {
         console.error('Stripe rollback error:', e)
       }

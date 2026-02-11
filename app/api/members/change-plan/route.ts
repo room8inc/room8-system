@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getStripeMode } from '@/lib/stripe/mode'
 import { getStripeClient } from '@/lib/stripe/cancellation-fee'
-import { getPlanPriceId } from '@/lib/stripe/price-config'
+import { getPlanPriceId, getCouponId } from '@/lib/stripe/price-config'
 import { cache, cacheKey } from '@/lib/cache/vercel-kv'
 
 export const runtime = 'nodejs'
@@ -91,22 +91,73 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Stripeサブスクリプションアイテムの価格を変更
+    // Stripeサブスクリプションアイテムのプラン変更
+    // 旧Priceのquantityを減らし、新Priceのquantityを増やす
     const stripeItemId = memberPlan.options?.stripe_subscription_item_id
-    if (stripeItemId) {
-      const newPriceId = getPlanPriceId(newPlan.code, 'monthly', stripeMode)
-      if (!newPriceId) {
-        return NextResponse.json(
-          { error: 'Stripe価格IDが見つかりません' },
-          { status: 500 }
-        )
-      }
+    const oldPriceId = memberPlan.options?.stripe_price_id
+    const newPriceId = getPlanPriceId(newPlan.code, 'monthly', stripeMode)
 
+    if (!newPriceId) {
+      return NextResponse.json(
+        { error: 'Stripe価格IDが見つかりません' },
+        { status: 500 }
+      )
+    }
+
+    let newStripeItemId = stripeItemId
+    if (stripeItemId && hostPlan) {
       try {
-        await stripe.subscriptionItems.update(stripeItemId, {
-          price: newPriceId,
-          proration_behavior: 'none',
-        })
+        // メイン会員のサブスクリプションを取得
+        const hostPlanData2 = await supabase
+          .from('user_plans')
+          .select('stripe_subscription_id')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .is('ended_at', null)
+          .is('invited_by', null)
+          .single()
+
+        const subscriptionId = hostPlanData2.data?.stripe_subscription_id
+        if (subscriptionId) {
+          // 旧アイテムのquantityを減らす
+          const oldItem = await stripe.subscriptionItems.retrieve(stripeItemId)
+          if (oldItem.quantity && oldItem.quantity > 1) {
+            await stripe.subscriptionItems.update(stripeItemId, {
+              quantity: oldItem.quantity - 1,
+              proration_behavior: 'none',
+            })
+          } else {
+            await stripe.subscriptionItems.del(stripeItemId, {
+              proration_behavior: 'none',
+            })
+          }
+
+          // 新Priceのアイテムを追加（既存があればquantity増加）
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+          const existingNewItem = subscription.items.data.find(
+            (item) => item.price.id === newPriceId
+          )
+
+          if (existingNewItem) {
+            await stripe.subscriptionItems.update(existingNewItem.id, {
+              quantity: (existingNewItem.quantity || 1) + 1,
+              proration_behavior: 'none',
+            })
+            newStripeItemId = existingNewItem.id
+          } else {
+            const couponId = getCouponId('group_second_slot', stripeMode)
+            const itemParams: any = {
+              subscription: subscriptionId,
+              price: newPriceId,
+              metadata: { type: 'invited_member' },
+            }
+            if (couponId) {
+              itemParams.discounts = [{ coupon: couponId }]
+            }
+            const created = await stripe.subscriptionItems.create(itemParams)
+            newStripeItemId = created.id
+          }
+        }
       } catch (stripeError: any) {
         console.error('Stripe item update error:', stripeError)
         return NextResponse.json(
@@ -116,9 +167,15 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // user_plansを更新
+    // user_plansを更新（Stripeアイテム情報も更新）
+    const updatedOptions = {
+      ...memberPlan.options,
+      stripe_subscription_item_id: newStripeItemId,
+      stripe_price_id: newPriceId,
+    }
     const updateData: Record<string, any> = {
       plan_id: newPlanId,
+      options: updatedOptions,
     }
     if (newPlanType) {
       updateData.plan_type = newPlanType

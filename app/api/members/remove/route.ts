@@ -44,19 +44,26 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Stripeサブスクリプションアイテムを削除
+    // Stripeサブスクリプションアイテムのquantityを減らす（1なら削除）
     const stripeItemId = memberPlan.options?.stripe_subscription_item_id
     if (stripeItemId) {
       try {
-        await stripe.subscriptionItems.del(stripeItemId, {
-          proration_behavior: 'none',
-        })
+        const item = await stripe.subscriptionItems.retrieve(stripeItemId)
+        if (item.quantity && item.quantity > 1) {
+          await stripe.subscriptionItems.update(stripeItemId, {
+            quantity: item.quantity - 1,
+            proration_behavior: 'none',
+          })
+        } else {
+          await stripe.subscriptionItems.del(stripeItemId, {
+            proration_behavior: 'none',
+          })
+        }
       } catch (stripeError: any) {
-        console.error('Stripe item deletion error:', stripeError)
-        // アイテムが見つからない場合は続行（既に削除済みの可能性）
+        console.error('Stripe item update error:', stripeError)
         if (stripeError.code !== 'resource_missing') {
           return NextResponse.json(
-            { error: `Stripeアイテムの削除に失敗しました: ${stripeError.message}` },
+            { error: `Stripeアイテムの更新に失敗しました: ${stripeError.message}` },
             { status: 500 }
           )
         }
