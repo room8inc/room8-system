@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     let memberUserId: string
-    let createdPassword: string | null = null
+    let createdPassword: string | undefined
 
     if (existingUser) {
       memberUserId = existingUser.id
@@ -295,7 +295,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 新規ユーザーの場合、ログイン情報を返す（管理者がメンバーに伝える用）
-    if (!existingUser && createdPassword) {
+    if (!existingUser && createdPassword !== undefined) {
       response.credentials = {
         email,
         password: createdPassword,
