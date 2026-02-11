@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ========================================
-    // Stripe サブスクリプション作成
+    // Stripe Checkout Session 作成
     // ========================================
     const stripeMode = await getStripeMode()
     const stripe = getStripeClient(stripeMode)
@@ -198,12 +198,10 @@ export async function POST(request: NextRequest) {
     // 50% OFFクーポンを取得 or 作成
     let couponId = getCouponId('group_second_slot', stripeMode)
     if (!couponId) {
-      // クーポンが未設定の場合、Stripeで自動作成
       try {
         const existingCoupon = await stripe.coupons.retrieve('group_50off')
         couponId = existingCoupon.id
       } catch {
-        // 存在しない場合は作成
         const newCoupon = await stripe.coupons.create({
           id: 'group_50off',
           percent_off: 50,
@@ -214,8 +212,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 各スロットのSubscription Itemを構築
-    const subscriptionItems: { slotId: string; item: any }[] = []
+    // Checkout Session の line_items を構築
+    const lineItems: any[] = []
 
     const sortedSlots = (createdSlots || []).sort(
       (a: any, b: any) => a.slot_number - b.slot_number
@@ -231,45 +229,46 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const item: any = { price: priceId }
+      const lineItem: any = { price: priceId, quantity: 1 }
 
       // 2番目以降のスロットには50% OFFクーポンを適用
       if (slot.slot_number > 1 && couponId) {
-        item.discounts = [{ coupon: couponId }]
+        lineItem.discounts = [{ coupon: couponId }]
       }
 
-      subscriptionItems.push({ slotId: slot.id, item })
+      lineItems.push(lineItem)
     }
 
-    if (subscriptionItems.length > 0) {
-      const subscription = await stripe.subscriptions.create({
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://room8-system.vercel.app'
+
+    if (lineItems.length > 0) {
+      // discountsを使うline_itemがある場合、allow_promotion_codesは使えない
+      // 代わりにdiscountsをトップレベルではなくline_item単位で設定済み
+      const sessionParams: any = {
         customer: customerId,
-        items: subscriptionItems.map((si) => si.item),
+        mode: 'subscription',
+        line_items: lineItems,
+        success_url: `${appUrl}/api/groups/checkout-callback?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/plans/group`,
         metadata: {
           group_plan_id: group.id,
           owner_user_id: user.id,
         },
-      })
-
-      // group_plans.stripe_subscription_id を更新
-      await supabase
-        .from('group_plans')
-        .update({ stripe_subscription_id: subscription.id })
-        .eq('id', group.id)
-
-      // 各スロットのstripe_subscription_item_idを更新
-      for (let i = 0; i < subscriptionItems.length; i++) {
-        if (i < subscription.items.data.length) {
-          await supabase
-            .from('group_slots')
-            .update({
-              stripe_subscription_item_id: subscription.items.data[i].id,
-            })
-            .eq('id', subscriptionItems[i].slotId)
-        }
       }
 
-      console.log(`Group subscription created: ${subscription.id} for group ${group.id}`)
+      // line_itemにdiscountsがある場合はsubscription_dataのdiscountsとの競合を避ける
+      const hasItemDiscounts = lineItems.some((li: any) => li.discounts)
+      if (!hasItemDiscounts) {
+        // クーポンなしの場合のみトップレベルで設定可能
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionParams)
+
+      return NextResponse.json({
+        success: true,
+        group,
+        checkoutUrl: session.url,
+      })
     }
 
     return NextResponse.json({ success: true, group })

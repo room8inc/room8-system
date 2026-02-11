@@ -121,6 +121,12 @@ export default function GroupPlanForm({ plans }: { plans: Plan[] }) {
         throw new Error(data.error || 'エラーが発生しました')
       }
 
+      // Stripe Checkoutにリダイレクト
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+        return
+      }
+
       router.push('/group')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'エラーが発生しました')
