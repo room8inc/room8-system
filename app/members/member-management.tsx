@@ -39,11 +39,13 @@ export function MemberManagement({
   const [showInvite, setShowInvite] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null)
 
   // 招待フォーム
   const [inviteLastName, setInviteLastName] = useState('')
   const [inviteFirstName, setInviteFirstName] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
+  const [invitePassword, setInvitePassword] = useState('')
   const [invitePlanId, setInvitePlanId] = useState('')
 
   const fetchMembers = useCallback(async () => {
@@ -74,6 +76,7 @@ export function MemberManagement({
     setActionLoading(true)
     setError(null)
     setMessage(null)
+    setCredentials(null)
 
     try {
       const res = await fetch('/api/members/invite', {
@@ -83,6 +86,7 @@ export function MemberManagement({
           lastName: inviteLastName,
           firstName: inviteFirstName,
           email: inviteEmail,
+          password: invitePassword || undefined,
           planId: invitePlanId,
           planType: 'workspace',
         }),
@@ -97,12 +101,16 @@ export function MemberManagement({
       if (data.existed) {
         setMessage('既存のアカウントをメンバーに追加しました')
       } else {
-        setMessage('招待メールを送信しました。メンバーがパスワードを設定するとチェックインできるようになります。')
+        setMessage('メンバーのアカウントを作成しました。以下のログイン情報をメンバーに伝えてください。')
+        if (data.credentials) {
+          setCredentials(data.credentials)
+        }
       }
 
       setInviteLastName('')
       setInviteFirstName('')
       setInviteEmail('')
+      setInvitePassword('')
       setInvitePlanId('')
       setShowInvite(false)
       await fetchMembers()
@@ -153,7 +161,7 @@ export function MemberManagement({
             onClick={() => setShowInvite(!showInvite)}
             className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
           >
-            メンバーを招待
+            メンバーを追加
           </button>
         </div>
       </div>
@@ -162,6 +170,30 @@ export function MemberManagement({
       {message && (
         <div className="rounded-md bg-green-50 p-4">
           <p className="text-sm text-green-800">{message}</p>
+        </div>
+      )}
+      {credentials && (
+        <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+          <h3 className="text-sm font-semibold text-blue-800 mb-2">ログイン情報</h3>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-blue-700 w-20">メール:</span>
+              <code className="text-sm bg-white px-2 py-0.5 rounded border">{credentials.email}</code>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-blue-700 w-20">パスワード:</span>
+              <code className="text-sm bg-white px-2 py-0.5 rounded border">{credentials.password}</code>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-blue-600">
+            この情報をメンバーに伝えてください。この画面を閉じると再表示できません。
+          </p>
+          <button
+            onClick={() => setCredentials(null)}
+            className="mt-2 text-xs text-blue-500 hover:text-blue-700 underline"
+          >
+            閉じる
+          </button>
         </div>
       )}
       {error && (
@@ -174,10 +206,10 @@ export function MemberManagement({
       {showInvite && (
         <div className="rounded-lg bg-room-base-light shadow border border-room-base-dark p-6">
           <h2 className="text-lg font-semibold text-room-charcoal mb-4">
-            メンバーを招待
+            メンバーを追加
           </h2>
           <p className="mb-4 text-xs text-room-charcoal-light">
-            招待メールが送信されます。メンバーがパスワードを設定するとチェックインできるようになります。
+            メンバーのアカウントを作成します。ログイン情報はメンバーに直接お伝えください。
             メンバーは50% OFFで利用できます。
           </p>
           <form onSubmit={handleInvite}>
@@ -222,6 +254,18 @@ export function MemberManagement({
                 required
               />
             </div>
+            <div className="mb-3">
+              <label className="block text-xs text-room-charcoal-light mb-1">
+                パスワード（空欄の場合は自動生成）
+              </label>
+              <input
+                type="text"
+                value={invitePassword}
+                onChange={(e) => setInvitePassword(e.target.value)}
+                placeholder="自動生成されます"
+                className="w-full rounded border border-room-base-dark px-3 py-2 text-sm"
+              />
+            </div>
             <div className="mb-4">
               <label className="block text-xs text-room-charcoal-light mb-1">
                 プラン *
@@ -253,7 +297,7 @@ export function MemberManagement({
                 disabled={actionLoading}
                 className="rounded bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light disabled:opacity-50"
               >
-                {actionLoading ? '送信中...' : '招待する'}
+                {actionLoading ? '追加中...' : '追加する'}
               </button>
             </div>
           </form>

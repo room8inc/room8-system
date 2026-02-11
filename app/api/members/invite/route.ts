@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { lastName, firstName, email, planId, planType } = body
+    const { lastName, firstName, email, password, planId, planType } = body
 
     if (!lastName || !firstName || !email || !planId) {
       return NextResponse.json(
@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     let memberUserId: string
+    let createdPassword: string | null = null
 
     if (existingUser) {
       memberUserId = existingUser.id
@@ -117,35 +118,40 @@ export async function POST(request: NextRequest) {
         )
       }
     } else {
-      // 新規ユーザー: Supabase Authで招待
+      // 新規ユーザー: 管理者がアカウントを直接作成（メール送信なし）
       const serviceClient = createServiceClient()
       const fullName = `${lastName} ${firstName}`.trim()
 
-      const { data: inviteData, error: inviteError } =
-        await serviceClient.auth.admin.inviteUserByEmail(email, {
-          data: {
+      // パスワードが指定されていない場合はランダム生成
+      createdPassword = password || Math.random().toString(36).slice(-10) + 'A1!'
+
+      const { data: createData, error: createError } =
+        await serviceClient.auth.admin.createUser({
+          email,
+          password: createdPassword,
+          email_confirm: true,
+          user_metadata: {
             name: fullName,
             is_individual: true,
           },
-          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://room8-system.vercel.app'}/auth/callback`,
         })
 
-      if (inviteError) {
-        console.error('Invite error:', inviteError)
+      if (createError) {
+        console.error('Create user error:', createError)
         return NextResponse.json(
-          { error: `招待メールの送信に失敗しました: ${inviteError.message}` },
+          { error: `アカウントの作成に失敗しました: ${createError.message}` },
           { status: 500 }
         )
       }
 
-      if (!inviteData.user) {
+      if (!createData.user) {
         return NextResponse.json(
           { error: 'ユーザーの作成に失敗しました' },
           { status: 500 }
         )
       }
 
-      memberUserId = inviteData.user.id
+      memberUserId = createData.user.id
 
       // トリガーでpublic.usersに作成されるのを待つ
       await new Promise((resolve) => setTimeout(resolve, 500))
@@ -282,11 +288,21 @@ export async function POST(request: NextRequest) {
       cache.delete(cacheKey('user_plans_full', user.id)),
     ])
 
-    return NextResponse.json({
+    const response: any = {
       success: true,
       existed: !!existingUser,
       memberPlanId: memberUserPlan.id,
-    })
+    }
+
+    // 新規ユーザーの場合、ログイン情報を返す（管理者がメンバーに伝える用）
+    if (!existingUser && createdPassword) {
+      response.credentials = {
+        email,
+        password: createdPassword,
+      }
+    }
+
+    return NextResponse.json(response)
   } catch (error: any) {
     console.error('Member invite error:', error)
     return NextResponse.json(
