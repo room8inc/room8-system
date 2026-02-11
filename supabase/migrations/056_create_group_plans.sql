@@ -115,6 +115,12 @@ CREATE POLICY "group_plans_admin_all"
   USING (public.is_admin_user() = true)
   WITH CHECK (public.is_admin_user() = true);
 
+-- 一般ユーザーは自分がオーナーとしてグループを作成可能
+CREATE POLICY "group_plans_insert_owner"
+  ON group_plans FOR INSERT
+  TO authenticated
+  WITH CHECK (owner_user_id = auth.uid());
+
 -- group_slots
 ALTER TABLE group_slots ENABLE ROW LEVEL SECURITY;
 
@@ -127,6 +133,10 @@ CREATE POLICY "group_slots_select_member"
       SELECT group_plan_id FROM group_members
       WHERE user_id = auth.uid() AND status = 'active'
     )
+    OR group_plan_id IN (
+      SELECT id FROM group_plans
+      WHERE owner_user_id = auth.uid()
+    )
     OR public.is_admin_user() = true
   );
 
@@ -136,6 +146,18 @@ CREATE POLICY "group_slots_admin_all"
   TO authenticated
   USING (public.is_admin_user() = true)
   WITH CHECK (public.is_admin_user() = true);
+
+-- オーナーはスロットをINSERT可能（グループ作成時）
+CREATE POLICY "group_slots_insert_owner"
+  ON group_slots FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    group_plan_id IN (
+      SELECT id FROM group_plans
+      WHERE owner_user_id = auth.uid()
+    )
+    OR public.is_admin_user() = true
+  );
 
 -- group_members
 ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
@@ -153,12 +175,16 @@ CREATE POLICY "group_members_select"
     OR public.is_admin_user() = true
   );
 
--- owner/adminはINSERT/UPDATE/DELETE
+-- owner/adminはINSERT（グループのオーナーも含む = 初回メンバー追加対応）
 CREATE POLICY "group_members_owner_admin_insert"
   ON group_members FOR INSERT
   TO authenticated
   WITH CHECK (
     group_plan_id IN (
+      SELECT id FROM group_plans
+      WHERE owner_user_id = auth.uid()
+    )
+    OR group_plan_id IN (
       SELECT group_plan_id FROM group_members gm
       WHERE gm.user_id = auth.uid() AND gm.role IN ('owner', 'admin') AND gm.status = 'active'
     )
