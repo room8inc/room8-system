@@ -124,6 +124,28 @@ export default function GroupManagement({
     }
   }
 
+  const [cancelLoading, setCancelLoading] = useState(false)
+
+  const handleCancelGroup = async () => {
+    if (!confirm('グループを解約しますか？Stripeのサブスクリプションもキャンセルされます。この操作は元に戻せません。')) {
+      return
+    }
+
+    setCancelLoading(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/groups/cancel', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      router.push('/dashboard')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'エラーが発生しました')
+    } finally {
+      setCancelLoading(false)
+    }
+  }
+
   const roleLabels: Record<string, string> = {
     owner: 'オーナー',
     admin: '管理者',
@@ -134,10 +156,23 @@ export default function GroupManagement({
     <div className="space-y-6">
       {/* グループ名 */}
       <div className="rounded-lg bg-room-base-light shadow border border-room-base-dark p-6">
-        <h1 className="text-2xl font-bold text-room-charcoal">{group.name}</h1>
-        <p className="mt-1 text-sm text-room-charcoal-light">
-          {group.group_type === 'family' ? '家族' : '法人'}グループ
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-room-charcoal">{group.name}</h1>
+            <p className="mt-1 text-sm text-room-charcoal-light">
+              {group.group_type === 'family' ? '家族' : '法人'}グループ
+            </p>
+          </div>
+          {isOwnerOrAdmin && (
+            <button
+              onClick={handleCancelGroup}
+              disabled={cancelLoading}
+              className="rounded-md border border-red-300 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              {cancelLoading ? '処理中...' : 'グループを解約'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* メッセージ */}
