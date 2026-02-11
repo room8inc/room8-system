@@ -51,7 +51,7 @@ export default async function DashboardPage() {
     currentPlanResult,
     adminResult,
     monthlyOvertimeResult,
-    groupMembershipResult,
+    invitedMembersResult,
   ] = await Promise.all([
     // 現在のチェックイン状態を取得（キャッシュしない：リアルタイム性が重要）
     supabase
@@ -120,14 +120,13 @@ export default async function DashboardPage() {
       },
       60 // 1分
     ),
-    // グループメンバーシップを取得
+    // 招待メンバー数を取得（アクティブなプランを持つユーザーのみ）
     supabase
-      .from('group_members')
-      .select('id, role, group_plans!inner(id, name, status)')
-      .eq('user_id', user.id)
+      .from('user_plans')
+      .select('id', { count: 'exact', head: true })
+      .eq('invited_by', user.id)
       .eq('status', 'active')
-      .eq('group_plans.status', 'active')
-      .maybeSingle(),
+      .is('ended_at', null),
   ])
 
   const { data: currentCheckin, error: checkinError } = currentCheckinResult
@@ -136,7 +135,7 @@ export default async function DashboardPage() {
   const currentPlan = currentPlanResult // キャッシュから直接取得
   const admin = adminResult // キャッシュから直接取得
   const monthlyOvertime = monthlyOvertimeResult || []
-  const groupMembership = groupMembershipResult?.data || null
+  const invitedMembersCount = invitedMembersResult?.count || 0
 
   // 今月の累計時間外利用料金を計算
   const monthlyOvertimeFee = monthlyOvertime.reduce((sum, checkin) => sum + (checkin.overtime_fee || 0), 0)
@@ -181,12 +180,12 @@ export default async function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {groupMembership && (
+            {currentPlan && (
               <Link
-                href="/group"
+                href="/members"
                 className="rounded-md border border-room-main px-4 py-2 text-sm text-room-main hover:bg-room-main hover:text-white"
               >
-                グループ管理
+                メンバー管理{invitedMembersCount > 0 ? ` (${invitedMembersCount})` : ''}
               </Link>
             )}
             {admin && (

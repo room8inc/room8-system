@@ -119,12 +119,6 @@ export default async function AdminPage() {
                 キャンペーン管理
               </Link>
               <Link
-                href="/admin/groups"
-                className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
-              >
-                グループ管理
-              </Link>
-              <Link
                 href="/admin/google-calendar"
                 className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
               >

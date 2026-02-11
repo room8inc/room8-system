@@ -78,7 +78,7 @@ const TEST_PRICES: StripePriceConfig = {
     printer: 'price_1SPexDRZuHLNbQd4JQxzdzmK',
   },
   coupons: {
-    group_second_slot: '', // TODO: Stripeでクーポン作成後にIDを設定
+    group_second_slot: '', // TODO: Stripeで50%OFFクーポンを作成後にIDを設定（メンバー招待時に適用）
   },
 }
 
@@ -143,7 +143,7 @@ const LIVE_PRICES: StripePriceConfig = {
     printer: 'price_1RA3PWDYzeuaMwz6czajyskf',              // ¥1,100
   },
   coupons: {
-    group_second_slot: '', // TODO: Stripeでクーポン作成後にIDを設定
+    group_second_slot: '', // TODO: Stripeで50%OFFクーポンを作成後にIDを設定（メンバー招待時に適用）
   },
 }
 

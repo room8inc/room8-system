@@ -114,22 +114,6 @@ export function PlanList({ plans, currentPlan, error }: PlanListProps) {
           </div>
         )}
 
-        {/* グループプラン案内 */}
-        <div className="mt-8 rounded-lg border-2 border-dashed border-room-base-dark bg-room-base-light p-6">
-          <h2 className="text-lg font-bold text-room-charcoal">
-            家族・法人でご利用の方
-          </h2>
-          <p className="mt-2 text-sm text-room-charcoal-light">
-            複数人でシェアできるグループプラン。2人目以降は50% OFFでご利用いただけます。
-          </p>
-          <button
-            onClick={() => router.push('/plans/group')}
-            className="mt-4 rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
-          >
-            グループプランを見る
-          </button>
-        </div>
-
         {!error && (!plans || plans.length === 0) && (
           <div className="rounded-lg bg-room-wood bg-opacity-10 border border-room-wood p-6">
             <p className="text-sm text-room-wood-dark">プラン情報がありません</p>

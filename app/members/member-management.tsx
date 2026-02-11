@@ -1,0 +1,334 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { formatJapaneseName } from '@/lib/utils/name'
+
+type AvailablePlan = {
+  id: string
+  code: string
+  name: string
+  workspace_price: number
+  shared_office_price: number
+}
+
+type Member = {
+  id: string
+  userName: string
+  email: string
+  planName: string
+  planType: string
+  monthlyPrice: number
+  discountedPrice: number
+  discountCode: string
+  startedAt: string
+}
+
+export function MemberManagement({
+  hostPlanName,
+  availablePlans,
+}: {
+  hostPlanName: string
+  availablePlans: AvailablePlan[]
+}) {
+  const router = useRouter()
+  const [members, setMembers] = useState<Member[]>([])
+  const [totalMonthly, setTotalMonthly] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [showInvite, setShowInvite] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  // 招待フォーム
+  const [inviteLastName, setInviteLastName] = useState('')
+  const [inviteFirstName, setInviteFirstName] = useState('')
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [invitePlanId, setInvitePlanId] = useState('')
+
+  const fetchMembers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/members/list')
+      const data = await res.json()
+      if (res.ok) {
+        setMembers(data.members || [])
+        setTotalMonthly(data.totalMonthly || 0)
+      } else {
+        setError(data.error)
+      }
+    } catch {
+      setError('メンバー一覧の取得に失敗しました')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchMembers()
+  }, [fetchMembers])
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!inviteEmail || !inviteLastName || !inviteFirstName || !invitePlanId) return
+
+    setActionLoading(true)
+    setError(null)
+    setMessage(null)
+
+    try {
+      const res = await fetch('/api/members/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lastName: inviteLastName,
+          firstName: inviteFirstName,
+          email: inviteEmail,
+          planId: invitePlanId,
+          planType: 'workspace',
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'エラーが発生しました')
+      }
+
+      if (data.existed) {
+        setMessage('既存のアカウントをメンバーに追加しました')
+      } else {
+        setMessage('招待メールを送信しました。メンバーがパスワードを設定するとチェックインできるようになります。')
+      }
+
+      setInviteLastName('')
+      setInviteFirstName('')
+      setInviteEmail('')
+      setInvitePlanId('')
+      setShowInvite(false)
+      await fetchMembers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'エラーが発生しました')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleRemove = async (memberPlanId: string, memberName: string) => {
+    if (!confirm(`${memberName} をメンバーから削除しますか？`)) return
+
+    setActionLoading(true)
+    setError(null)
+
+    try {
+      const res = await fetch(`/api/members/remove?memberPlanId=${memberPlanId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'エラーが発生しました')
+      }
+
+      setMessage('メンバーを削除しました')
+      await fetchMembers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'エラーが発生しました')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* ヘッダー */}
+      <div className="rounded-lg bg-room-base-light shadow border border-room-base-dark p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-room-charcoal">メンバー管理</h1>
+            <p className="mt-1 text-sm text-room-charcoal-light">
+              あなたのプラン: {hostPlanName}
+            </p>
+          </div>
+          <button
+            onClick={() => setShowInvite(!showInvite)}
+            className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"
+          >
+            メンバーを招待
+          </button>
+        </div>
+      </div>
+
+      {/* メッセージ */}
+      {message && (
+        <div className="rounded-md bg-green-50 p-4">
+          <p className="text-sm text-green-800">{message}</p>
+        </div>
+      )}
+      {error && (
+        <div className="rounded-md bg-red-50 p-4">
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
+
+      {/* 招待フォーム */}
+      {showInvite && (
+        <div className="rounded-lg bg-room-base-light shadow border border-room-base-dark p-6">
+          <h2 className="text-lg font-semibold text-room-charcoal mb-4">
+            メンバーを招待
+          </h2>
+          <p className="mb-4 text-xs text-room-charcoal-light">
+            招待メールが送信されます。メンバーがパスワードを設定するとチェックインできるようになります。
+            メンバーは50% OFFで利用できます。
+          </p>
+          <form onSubmit={handleInvite}>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="block text-xs text-room-charcoal-light mb-1">
+                  姓 *
+                </label>
+                <input
+                  type="text"
+                  value={inviteLastName}
+                  onChange={(e) => setInviteLastName(e.target.value)}
+                  placeholder="鶴田"
+                  className="w-full rounded border border-room-base-dark px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-room-charcoal-light mb-1">
+                  名 *
+                </label>
+                <input
+                  type="text"
+                  value={inviteFirstName}
+                  onChange={(e) => setInviteFirstName(e.target.value)}
+                  placeholder="花子"
+                  className="w-full rounded border border-room-base-dark px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+            </div>
+            <div className="mb-3">
+              <label className="block text-xs text-room-charcoal-light mb-1">
+                メールアドレス *
+              </label>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="hanako@example.com"
+                className="w-full rounded border border-room-base-dark px-3 py-2 text-sm"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-xs text-room-charcoal-light mb-1">
+                プラン *
+              </label>
+              <select
+                value={invitePlanId}
+                onChange={(e) => setInvitePlanId(e.target.value)}
+                className="w-full rounded border border-room-base-dark px-3 py-2 text-sm"
+                required
+              >
+                <option value="">プランを選択してください</option>
+                {availablePlans.map((plan) => (
+                  <option key={plan.id} value={plan.id}>
+                    {plan.name} - &yen;{Math.floor(plan.workspace_price / 2).toLocaleString()}/月（50% OFF）
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowInvite(false)}
+                className="rounded border border-room-base-dark px-4 py-2 text-sm text-room-charcoal hover:bg-room-base-dark"
+              >
+                キャンセル
+              </button>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="rounded bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light disabled:opacity-50"
+              >
+                {actionLoading ? '送信中...' : '招待する'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* メンバー一覧 */}
+      <div className="rounded-lg bg-room-base-light shadow border border-room-base-dark p-6">
+        <h2 className="text-lg font-semibold text-room-charcoal mb-4">
+          メンバー一覧 ({members.length}人)
+        </h2>
+
+        {loading ? (
+          <div className="animate-pulse space-y-3">
+            <div className="h-16 rounded bg-room-base-dark" />
+            <div className="h-16 rounded bg-room-base-dark" />
+          </div>
+        ) : members.length === 0 ? (
+          <p className="text-sm text-room-charcoal-light text-center py-4">
+            まだメンバーはいません。上の「メンバーを招待」ボタンから招待してください。
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {members.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center justify-between rounded border border-room-base-dark p-4"
+              >
+                <div>
+                  <div className="text-sm font-medium text-room-charcoal">
+                    {formatJapaneseName(member.userName)}
+                  </div>
+                  <div className="text-xs text-room-charcoal-light">
+                    {member.email}
+                  </div>
+                  <div className="mt-1 text-xs text-room-charcoal-light">
+                    {member.planName}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-room-charcoal">
+                      &yen;{member.discountedPrice.toLocaleString()}/月
+                    </div>
+                    {member.discountCode === 'group_50off' && (
+                      <span className="text-xs text-green-600 font-medium">
+                        50% OFF
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRemove(member.id, formatJapaneseName(member.userName))}
+                    disabled={actionLoading}
+                    className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    削除
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 合計金額 */}
+        {members.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-room-base-dark flex justify-between items-center">
+            <span className="text-sm font-medium text-room-charcoal">
+              メンバー合計（月額）
+            </span>
+            <span className="text-lg font-bold text-room-main">
+              &yen;{totalMonthly.toLocaleString()}/月
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
