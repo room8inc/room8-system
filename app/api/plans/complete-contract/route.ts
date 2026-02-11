@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { cache, cacheKey } from '@/lib/cache/vercel-kv'
 import { getStripeClient } from '@/lib/stripe/cancellation-fee'
-import { getPlanPriceId, getOptionPriceId, isStripeLiveMode } from '@/lib/stripe/price-config'
+import { getPlanPriceId, getOptionPriceId } from '@/lib/stripe/price-config'
+import { getStripeMode } from '@/lib/stripe/mode'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
-    const stripe = getStripeClient()
+    const stripeMode = await getStripeMode()
+    const stripe = getStripeClient(stripeMode)
     const supabase = await createClient()
     const {
       data: { user },
@@ -264,13 +266,13 @@ export async function POST(request: NextRequest) {
       // PriceIDをconfigから取得（テスト/本番自動切替）
       let priceId: string | null = null
       if (contractTerm === 'yearly') {
-        priceId = getPlanPriceId(plan.code, 'yearly')
+        priceId = getPlanPriceId(plan.code, 'yearly', stripeMode)
       } else if (paymentMethod === 'annual_prepaid') {
-        priceId = getPlanPriceId(plan.code, 'annual_prepaid')
+        priceId = getPlanPriceId(plan.code, 'annual_prepaid', stripeMode)
       } else {
-        priceId = getPlanPriceId(plan.code, 'monthly')
+        priceId = getPlanPriceId(plan.code, 'monthly', stripeMode)
       }
-      console.log(`Stripe mode: ${isStripeLiveMode() ? 'LIVE' : 'TEST'}, plan: ${plan.code}, priceId: ${priceId}`)
+      console.log(`Stripe mode: ${stripeMode.toUpperCase()}, plan: ${plan.code}, priceId: ${priceId}`)
 
       if (priceId) {
         // 開始日を翌月1日に設定
@@ -324,7 +326,7 @@ export async function POST(request: NextRequest) {
           optionCodes.push(options.locker_size === 'large' ? 'locker_large' : 'locker_small')
         }
         for (const code of optionCodes) {
-          const pid = getOptionPriceId(code)
+          const pid = getOptionPriceId(code, stripeMode)
           if (pid) optionPriceIds.push(pid)
         }
         console.log(`Option price IDs: ${JSON.stringify(optionCodes)} → ${JSON.stringify(optionPriceIds)}`)

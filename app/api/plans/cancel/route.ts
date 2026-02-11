@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { cache, cacheKey } from '@/lib/cache/vercel-kv'
 import Stripe from 'stripe'
 import { getStripeClient } from '@/lib/stripe/cancellation-fee'
+import { getStripeMode } from '@/lib/stripe/mode'
 
 type StripeSubscriptionWithPeriod = Stripe.Subscription & {
   current_period_end?: number | null
@@ -17,7 +18,8 @@ type StripeSubscriptionWithPeriod = Stripe.Subscription & {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const stripe = getStripeClient()
+    const stripeMode = await getStripeMode()
+    const stripe = getStripeClient(stripeMode)
     const {
       data: { user },
     } = await supabase.auth.getUser()

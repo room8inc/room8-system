@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service-client'
 import { processScheduledCancellations } from '@/lib/cron/process-cancellations'
-import Stripe from 'stripe'
+import { getStripeClient } from '@/lib/stripe/cancellation-fee'
+import { getStripeMode } from '@/lib/stripe/mode'
 
 export const runtime = 'nodejs'
-
-function getStripeClient(): Stripe {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY_TEST
-  if (!stripeSecretKey) {
-    throw new Error('STRIPE_SECRET_KEY_TEST環境変数が設定されていません')
-  }
-  return new Stripe(stripeSecretKey, {
-    apiVersion: '2025-10-29.clover',
-  })
-}
 
 /**
  * 会員向けの月末まとめ請求処理
@@ -34,7 +25,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const stripe = getStripeClient()
+    const stripeMode = await getStripeMode()
+    const stripe = getStripeClient(stripeMode)
     const supabase = createServiceClient()
     const now = new Date()
 

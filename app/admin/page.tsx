@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { isAdmin } from '@/lib/utils/admin'
 import { formatJapaneseName } from '@/lib/utils/name'
 import { normalizeUserPlans } from '@/lib/utils/user-plans'
+import { StripeModeToggle } from './stripe-mode-toggle'
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -103,7 +104,8 @@ export default async function AdminPage() {
                 ユーザーのプラン変更・削除ができます
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <StripeModeToggle />
               <Link
                 href="/admin/lockers"
                 className="rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light"

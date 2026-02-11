@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/utils/admin'
 import { getStripeClient } from '@/lib/stripe/cancellation-fee'
+import { getStripeMode } from '@/lib/stripe/mode'
 import { cache, cacheKey } from '@/lib/cache/vercel-kv'
 
 export const runtime = 'nodejs'
@@ -88,7 +89,8 @@ export async function POST(request: NextRequest) {
     let stripeResult = null
     if (userPlan.stripe_subscription_id) {
       try {
-        const stripe = getStripeClient()
+        const stripeMode = await getStripeMode()
+        const stripe = getStripeClient(stripeMode)
         const subscription = await stripe.subscriptions.retrieve(
           userPlan.stripe_subscription_id
         )

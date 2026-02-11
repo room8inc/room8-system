@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
-
-function getStripeClient(): Stripe {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY_TEST
-  if (!stripeSecretKey) {
-    throw new Error('STRIPE_SECRET_KEY_TEST環境変数が設定されていません')
-  }
-  return new Stripe(stripeSecretKey, { apiVersion: '2025-10-29.clover' })
-}
+import { getStripeClient } from '@/lib/stripe/cancellation-fee'
+import { getStripeMode } from '@/lib/stripe/mode'
 
 /**
  * ドロップイン会員のクレジットカード登録状況を確認
@@ -16,7 +9,8 @@ function getStripeClient(): Stripe {
  */
 export async function GET(request: NextRequest) {
   try {
-    const stripe = getStripeClient()
+    const stripeMode = await getStripeMode()
+    const stripe = getStripeClient(stripeMode)
     const supabase = await createClient()
     const {
       data: { user },

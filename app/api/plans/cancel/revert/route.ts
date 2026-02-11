@@ -1,24 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { cache, cacheKey } from '@/lib/cache/vercel-kv'
-import Stripe from 'stripe'
-
-function getStripeClient(): Stripe {
-  const stripeSecretKey =
-    process.env.STRIPE_SECRET_KEY ??
-    process.env.STRIPE_SECRET_KEY_TEST
-  if (!stripeSecretKey) {
-    throw new Error('Stripeのシークレットキーが設定されていません')
-  }
-  return new Stripe(stripeSecretKey, {
-    apiVersion: '2023-10-16' as Stripe.LatestApiVersion,
-  })
-}
+import { getStripeClient } from '@/lib/stripe/cancellation-fee'
+import { getStripeMode } from '@/lib/stripe/mode'
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const stripe = getStripeClient()
+    const stripeMode = await getStripeMode()
+    const stripe = getStripeClient(stripeMode)
     const {
       data: { user },
     } = await supabase.auth.getUser()

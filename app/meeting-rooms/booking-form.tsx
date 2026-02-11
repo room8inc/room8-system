@@ -1,14 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { AvailabilityCalendar } from './availability-calendar'
-
-// Stripe公開キーを読み込み
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
+import { fetchStripeMode, getStripePromise } from '@/lib/stripe/client-loader'
+import type { Stripe } from '@stripe/stripe-js'
 
 // 決済フォームコンポーネント
 function PaymentForm({
@@ -290,6 +288,14 @@ export function BookingForm({
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null)
+
+  // Stripeモードに応じた公開キーでStripe.jsを初期化
+  useEffect(() => {
+    fetchStripeMode().then((mode) => {
+      setStripePromise(getStripePromise(mode))
+    })
+  }, [])
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null) // Stripe決済用
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null) // Stripe決済用

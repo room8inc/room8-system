@@ -2,16 +2,14 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { fetchStripeMode, getStripePromise } from '@/lib/stripe/client-loader'
+import type { Stripe } from '@stripe/stripe-js'
 
 // 動的レンダリングを強制（Edge Runtimeエラーを回避）
 export const dynamic = 'force-dynamic'
-
-// Stripe公開キーを読み込み（環境変数から）
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
 
 // 決済フォームコンポーネント
 function CheckoutForm({
@@ -343,6 +341,14 @@ function CheckoutPageContent() {
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null)
+
+  // Stripeモードに応じた公開キーでStripe.jsを初期化
+  useEffect(() => {
+    fetchStripeMode().then((mode) => {
+      setStripePromise(getStripePromise(mode))
+    })
+  }, [])
 
   // URLパラメータから契約情報を取得
   const planId = searchParams.get('planId')

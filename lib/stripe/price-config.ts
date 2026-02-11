@@ -2,9 +2,7 @@
  * Stripe Price ID 設定
  *
  * テスト環境(sk_test_)と本番環境(sk_live_)で Price ID が異なるため、
- * 環境変数 STRIPE_SECRET_KEY の有無で自動切り替えする。
- *
- * STRIPE_SECRET_KEY (本番) が設定されていれば live、なければ test を使用。
+ * 管理画面から切り替え可能な StripeMode に基づいて Price ID を返す。
  */
 
 type PlanPrices = {
@@ -146,21 +144,20 @@ const LIVE_PRICES: StripePriceConfig = {
 // ヘルパー関数
 // ============================================
 
-export function isStripeLiveMode(): boolean {
-  return !!process.env.STRIPE_SECRET_KEY
-}
+import type { StripeMode } from '@/lib/stripe/mode'
 
-function getConfig(): StripePriceConfig {
-  return isStripeLiveMode() ? LIVE_PRICES : TEST_PRICES
+function getConfig(mode: StripeMode): StripePriceConfig {
+  return mode === 'live' ? LIVE_PRICES : TEST_PRICES
 }
 
 export function getPlanPriceId(
   planCode: string,
-  type: 'monthly' | 'yearly' | 'annual_prepaid'
+  type: 'monthly' | 'yearly' | 'annual_prepaid',
+  mode: StripeMode
 ): string | null {
-  return getConfig().plans[planCode]?.[type] ?? null
+  return getConfig(mode).plans[planCode]?.[type] ?? null
 }
 
-export function getOptionPriceId(optionCode: string): string | null {
-  return getConfig().options[optionCode] ?? null
+export function getOptionPriceId(optionCode: string, mode: StripeMode): string | null {
+  return getConfig(mode).options[optionCode] ?? null
 }

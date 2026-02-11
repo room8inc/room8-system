@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service-client'
 import { getStripeClient } from '@/lib/stripe/cancellation-fee'
+import { getStripeMode } from '@/lib/stripe/mode'
 import { processScheduledCancellations } from '@/lib/cron/process-cancellations'
 
 export const runtime = 'nodejs'
@@ -21,7 +22,8 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServiceClient()
-    const stripe = getStripeClient()
+    const stripeMode = await getStripeMode()
+    const stripe = getStripeClient(stripeMode)
 
     const summary = await processScheduledCancellations({
       supabase,

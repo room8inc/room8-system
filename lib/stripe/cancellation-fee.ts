@@ -1,14 +1,25 @@
 import Stripe from 'stripe'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cache, cacheKey } from '@/lib/cache/vercel-kv'
+import type { StripeMode } from '@/lib/stripe/mode'
 
-export function getStripeClient(): Stripe {
-  const stripeSecretKey =
-    process.env.STRIPE_SECRET_KEY ??
-    process.env.STRIPE_SECRET_KEY_TEST
+/**
+ * Stripe クライアント取得
+ * @param mode - 'live' | 'test' を指定。省略時は環境変数の優先順位で決定（後方互換）
+ */
+export function getStripeClient(mode?: StripeMode): Stripe {
+  let stripeSecretKey: string | undefined
+
+  if (mode === 'live') {
+    stripeSecretKey = process.env.STRIPE_SECRET_KEY
+  } else if (mode === 'test') {
+    stripeSecretKey = process.env.STRIPE_SECRET_KEY_TEST
+  } else {
+    stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? process.env.STRIPE_SECRET_KEY_TEST
+  }
 
   if (!stripeSecretKey) {
-    throw new Error('Stripeのシークレットキーが設定されていません')
+    throw new Error(`Stripeの${mode || ''}シークレットキーが設定されていません`)
   }
 
   return new Stripe(stripeSecretKey, {

@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import Stripe from 'stripe'
+import { getStripeClient } from '@/lib/stripe/cancellation-fee'
+import { getStripeMode } from '@/lib/stripe/mode'
 
 export const runtime = 'nodejs'
-
-function getStripeClient(): Stripe {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY_TEST
-  if (!stripeSecretKey) {
-    throw new Error('STRIPE_SECRET_KEY_TEST環境変数が設定されていません')
-  }
-  return new Stripe(stripeSecretKey, {
-    apiVersion: '2025-10-29.clover',
-  })
-}
 
 /**
  * クレジットカード登録用のSetup Intentを作成
@@ -20,7 +11,8 @@ function getStripeClient(): Stripe {
  */
 export async function POST(request: NextRequest) {
   try {
-    const stripe = getStripeClient()
+    const stripeMode = await getStripeMode()
+    const stripe = getStripeClient(stripeMode)
     const supabase = await createClient()
     const {
       data: { user },
