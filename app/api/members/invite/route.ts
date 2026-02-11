@@ -88,8 +88,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 既存ユーザーチェック
-    const { data: existingUser } = await supabase
+    // 既存ユーザーチェック（RLSバイパス: ホストは他ユーザーのレコードを検索できないため）
+    const serviceClient = createServiceClient()
+    const { data: existingUser } = await serviceClient
       .from('users')
       .select('id')
       .eq('email', email)
@@ -97,12 +98,13 @@ export async function POST(request: NextRequest) {
 
     let memberUserId: string
     let createdPassword: string | undefined
+    let isNewUser = false
 
     if (existingUser) {
       memberUserId = existingUser.id
 
       // 既にこのホストに招待されているかチェック
-      const { data: existingInvite } = await supabase
+      const { data: existingInvite } = await serviceClient
         .from('user_plans')
         .select('id')
         .eq('user_id', memberUserId)
@@ -119,7 +121,6 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // 新規ユーザー: 管理者がアカウントを直接作成（メール送信なし）
-      const serviceClient = createServiceClient()
       const fullName = `${lastName} ${firstName}`.trim()
 
       // パスワードが指定されていない場合はランダム生成
@@ -152,6 +153,7 @@ export async function POST(request: NextRequest) {
       }
 
       memberUserId = createData.user.id
+      isNewUser = true
 
       // トリガーでpublic.usersに作成されるのを待つ
       await new Promise((resolve) => setTimeout(resolve, 500))
@@ -231,9 +233,8 @@ export async function POST(request: NextRequest) {
     }
 
     // user_plans にメンバーのプランを作成（RLSバイパス: ホストが別ユーザーのレコードを作成するため）
-    const serviceSupabase = createServiceClient()
     const today = new Date().toISOString().split('T')[0]
-    const { data: memberUserPlan, error: insertError } = await serviceSupabase
+    const { data: memberUserPlan, error: insertError } = await serviceClient
       .from('user_plans')
       .insert({
         user_id: memberUserId,
@@ -291,12 +292,12 @@ export async function POST(request: NextRequest) {
 
     const response: any = {
       success: true,
-      existed: !!existingUser,
+      existed: !isNewUser,
       memberPlanId: memberUserPlan.id,
     }
 
     // 新規ユーザーの場合、ログイン情報を返す（管理者がメンバーに伝える用）
-    if (!existingUser && createdPassword !== undefined) {
+    if (isNewUser && createdPassword !== undefined) {
       response.credentials = {
         email,
         password: createdPassword,
