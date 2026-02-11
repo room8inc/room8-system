@@ -230,9 +230,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // user_plans にメンバーのプランを作成
+    // user_plans にメンバーのプランを作成（RLSバイパス: ホストが別ユーザーのレコードを作成するため）
+    const serviceSupabase = createServiceClient()
     const today = new Date().toISOString().split('T')[0]
-    const { data: memberUserPlan, error: insertError } = await supabase
+    const { data: memberUserPlan, error: insertError } = await serviceSupabase
       .from('user_plans')
       .insert({
         user_id: memberUserId,

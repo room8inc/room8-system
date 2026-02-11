@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service-client'
 import { getStripeMode } from '@/lib/stripe/mode'
 import { getStripeClient } from '@/lib/stripe/cancellation-fee'
 import { getPlanPriceId, getCouponId } from '@/lib/stripe/price-config'
@@ -181,7 +182,9 @@ export async function PUT(request: NextRequest) {
       updateData.plan_type = newPlanType
     }
 
-    const { error: updateError } = await supabase
+    // RLSバイパス: ホストが別ユーザーのレコードを更新するため
+    const serviceSupabase = createServiceClient()
+    const { error: updateError } = await serviceSupabase
       .from('user_plans')
       .update(updateData)
       .eq('id', memberPlanId)

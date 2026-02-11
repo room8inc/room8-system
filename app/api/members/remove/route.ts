@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service-client'
 import { getStripeMode } from '@/lib/stripe/mode'
 import { getStripeClient } from '@/lib/stripe/cancellation-fee'
 import { cache, cacheKey } from '@/lib/cache/vercel-kv'
@@ -70,9 +71,10 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    // user_plansを終了
+    // user_plansを終了（RLSバイパス: ホストが別ユーザーのレコードを更新するため）
+    const serviceSupabase = createServiceClient()
     const today = new Date().toISOString().split('T')[0]
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceSupabase
       .from('user_plans')
       .update({
         status: 'cancelled',
