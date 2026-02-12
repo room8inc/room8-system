@@ -81,9 +81,9 @@ export async function handleTextWithLLM(
   userMessage: string,
   userName?: string
 ): Promise<LLMResponse> {
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = process.env.GEMINI_LINE_API_KEY || process.env.GEMINI_API_KEY
   if (!apiKey) {
-    console.error('[LLM] GEMINI_API_KEY is not set')
+    console.error('[LLM] GEMINI_LINE_API_KEY / GEMINI_API_KEY is not set')
     return FALLBACK_RESPONSE
   }
 
