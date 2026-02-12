@@ -109,7 +109,7 @@ export async function handleTextWithLLM(
         },
       ],
       generationConfig: {
-        maxOutputTokens: 512,
+        maxOutputTokens: 1024,
         temperature: 0.3,
         responseMimeType: 'application/json',
       },
