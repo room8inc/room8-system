@@ -23,9 +23,15 @@ export async function POST(request: NextRequest) {
     const events: WebhookEvent[] = parsed.events || []
 
     // 各イベントを並列処理
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       events.map((event) => handleEvent(event))
     )
+    // エラーがあればログ出力
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        console.error('LINE handleEvent error:', result.reason)
+      }
+    }
   } catch (error) {
     console.error('LINE Webhook error:', error)
   }
