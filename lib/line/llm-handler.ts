@@ -1,4 +1,4 @@
-import { ROOM8_KNOWLEDGE } from './knowledge'
+import { getRoom8Knowledge } from './knowledge'
 
 export type LLMIntent =
   | 'faq'
@@ -16,11 +16,13 @@ export interface LLMResponse {
   staff_message?: string
 }
 
-const SYSTEM_INSTRUCTION = `あなたはRoom8コワーキングスペースのLINEアシスタントです。
+async function buildSystemInstruction(): Promise<string> {
+  const knowledge = await getRoom8Knowledge()
+  return `あなたはRoom8コワーキングスペースのLINEアシスタントです。
 ユーザーからのメッセージの意図を判定し、適切な応答を生成してください。
 
 ## Room8の情報
-${ROOM8_KNOWLEDGE}
+${knowledge}
 
 ## 応答ルール
 - 口調: フレンドリーだが丁寧。絵文字は控えめに（1-2個まで）
@@ -54,6 +56,7 @@ ${ROOM8_KNOWLEDGE}
   "notify_staff": true | false,
   "staff_message": "スタッフへの通知内容（notify_staffがtrueの場合のみ）"
 }`
+}
 
 const FALLBACK_RESPONSE: LLMResponse = {
   intent: 'unknown',
@@ -91,11 +94,13 @@ export async function handleTextWithLLM(
       ? `ユーザー名: ${userName}\nメッセージ: ${userMessage}`
       : `メッセージ: ${userMessage}`
 
+    const systemInstruction = await buildSystemInstruction()
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
 
     const body = {
       system_instruction: {
-        parts: [{ text: SYSTEM_INSTRUCTION }],
+        parts: [{ text: systemInstruction }],
       },
       contents: [
         {

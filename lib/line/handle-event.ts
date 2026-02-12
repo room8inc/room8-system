@@ -18,6 +18,7 @@ import {
 } from './messages'
 import { handleTextWithLLM } from './llm-handler'
 import { notifyStaff } from './staff-notify'
+import { logUnansweredQuestion } from './unanswered-log'
 import {
   checkGoogleCalendarAvailability,
   createGoogleCalendarEvent,
@@ -241,6 +242,22 @@ export async function handleEvent(event: WebhookEvent): Promise<void> {
         text,
         llmResponse.staff_message || text
       )
+    }
+
+    // 未回答質問をログに保存（unknown or staff_request）
+    if (llmResponse.intent === 'unknown' || llmResponse.intent === 'staff_request') {
+      try {
+        await logUnansweredQuestion({
+          lineUserId: userId,
+          userName: userState.display_name || undefined,
+          userMessage: text,
+          botReply: llmResponse.reply,
+          intent: llmResponse.intent,
+          staffMessage: llmResponse.staff_message,
+        })
+      } catch (logError) {
+        console.error('[LINE] Failed to log unanswered question:', logError)
+      }
     }
 
     return
