@@ -31,30 +31,35 @@
 
 | 環境変数名 | 用途 | 取得方法 |
 |-----------|------|---------|
-| `GOOGLE_OAUTH_CLIENT_ID` | OAuth 2.0クライアントID | Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs > 作成 > Webアプリケーション<br>**クライアントIDをコピー** |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | OAuth 2.0クライアントシークレット | Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs > 作成したクライアントID > 編集<br>**クライアントシークレットをコピー** |
-| `GOOGLE_OAUTH_REDIRECT_URI` | OAuth認証のリダイレクトURI（推奨） | 本番環境のURLを明示的に設定（例: `https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback`）<br>**設定しない場合は自動設定されるが、プレビュー環境のURLになる可能性があるため、明示的に設定することを推奨** |
-| `NEXT_PUBLIC_SITE_URL` | 本番環境のURL（オプション） | 本番環境のドメインを設定（例: `https://room8-system.vercel.app`）<br>**GOOGLE_OAUTH_REDIRECT_URIが設定されていない場合に使用される** |
+| `GOOGLE_OAUTH_CLIENT_ID` | OAuth 2.0クライアントID | Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs > 作成 > Webアプリケーション。**クライアントIDをコピー** |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | OAuth 2.0クライアントシークレット | Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs > 作成したクライアントID > 編集。**クライアントシークレットをコピー** |
+| `GOOGLE_OAUTH_REDIRECT_URI` | OAuth認証のリダイレクトURI（推奨） | 本番環境のURLを明示的に設定（例: `https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback`）。**設定しない場合は自動設定されるが、プレビュー環境のURLになる可能性があるため、明示的に設定することを推奨** |
+| `NEXT_PUBLIC_SITE_URL` | 本番環境のURL（オプション） | 本番環境のドメインを設定（例: `https://room8-system.vercel.app`）。**GOOGLE_OAUTH_REDIRECT_URIが設定されていない場合に使用される** |
 
 **設定手順（順番通りに実行）:**
+
 1. Google Cloud Consoleでプロジェクトを作成
 2. Google Calendar APIを有効化
 3. OAuth 2.0クライアントIDを作成（Webアプリケーション）
    - **承認済みのJavaScript生成元**: 空欄のまま（サーバーサイド認証のため不要）
    - **承認済みのリダイレクトURI**: まだ設定しない（次のステップで環境変数を設定してから）
 4. Vercel Dashboard > Settings > Environment Variables で以下を設定:
-   ```
+
+   ```bash
    GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
    GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
    GOOGLE_OAUTH_REDIRECT_URI=https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback
    ```
+
    （`room8-system.vercel.app`を実際のドメインに置き換える）
 5. 再デプロイ（環境変数を変更した場合は必須）
 6. Google Cloud Console > APIとサービス > 認証情報 > OAuth 2.0クライアントIDを編集
    - **承認済みのリダイレクトURI**に、環境変数で設定したURIを追加:
-     ```
+
+     ```text
      https://room8-system.vercel.app/api/admin/google-calendar/oauth/callback
      ```
+
    - **保存**をクリック
 7. 管理画面（`/admin/google-calendar`）で「Googleアカウントで接続」ボタンをクリック
 
@@ -64,7 +69,7 @@
 
 | 環境変数名 | 用途 | 取得方法 |
 |-----------|------|---------|
-| `CRON_SECRET` | Vercel Cronジョブの認証用シークレット（オプション） | 任意のランダムな文字列を生成（例: `openssl rand -hex 32`）<br>**設定しない場合は認証なしで実行される（セキュリティリスクあり）** |
+| `CRON_SECRET` | Vercel Cronジョブの認証用シークレット（オプション） | 任意のランダムな文字列を生成（例: `openssl rand -hex 32`）。**設定しない場合は認証なしで実行される（セキュリティリスクあり）** |
 
 **注意**: `CRON_SECRET`はセキュリティのために設定することを推奨します。設定しない場合、誰でも`/api/cron/sync-google-calendar`にアクセスできてしまいます。
 
@@ -74,12 +79,13 @@ Service Accountのキーを使用する方法です。
 
 | 環境変数名 | 用途 | 取得方法 |
 |-----------|------|---------|
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Google Service Accountのメールアドレス | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Accountのメールアドレス<br>**またはJSONファイルの`client_email`フィールド** |
-| `GOOGLE_PRIVATE_KEY` | Google Service Accountの秘密鍵（JSON形式の`private_key`フィールド） | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Account > Keys > JSONキーをダウンロードして`private_key`フィールドの値を取得<br>**JSONファイルの`private_key`フィールドをそのまま使用（改行文字`\n`を含む）**<br>**または、Base64エンコードされたJSON全体を`GOOGLE_PRIVATE_KEY_BASE64`に設定** |
-| `GOOGLE_PRIVATE_KEY_BASE64` | Google Service AccountのJSONファイル全体をBase64エンコードした値（オプション） | JSONファイル全体をBase64エンコード（`base64 -i service-account.json`）<br>**`error:1E08010C:DECODER routines::unsupported`エラーが出る場合は、この方法を使用** |
-| `GOOGLE_CALENDAR_ID` | GoogleカレンダーのID（予約管理用・オプション） | Google Calendar > 設定 > 共有したいカレンダーの「カレンダーID」を確認（通常は`primary`またはメールアドレス形式）<br>**※ 管理画面でカレンダーを選択できるため、環境変数での設定は不要（後方互換性のために残す）** |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Google Service Accountのメールアドレス | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Accountのメールアドレス。**またはJSONファイルの`client_email`フィールド** |
+| `GOOGLE_PRIVATE_KEY` | Google Service Accountの秘密鍵（JSON形式の`private_key`フィールド） | Google Cloud Console > IAM & Admin > Service Accounts > 作成したService Account > Keys > JSONキーをダウンロードして`private_key`フィールドの値を取得。**JSONファイルの`private_key`フィールドをそのまま使用（改行文字`\n`を含む）**。**または、Base64エンコードされたJSON全体を`GOOGLE_PRIVATE_KEY_BASE64`に設定** |
+| `GOOGLE_PRIVATE_KEY_BASE64` | Google Service AccountのJSONファイル全体をBase64エンコードした値（オプション） | JSONファイル全体をBase64エンコード（`base64 -i service-account.json`）。**`error:1E08010C:DECODER routines::unsupported`エラーが出る場合は、この方法を使用** |
+| `GOOGLE_CALENDAR_ID` | GoogleカレンダーのID（予約管理用・オプション） | Google Calendar > 設定 > 共有したいカレンダーの「カレンダーID」を確認（通常は`primary`またはメールアドレス形式）。**※ 管理画面でカレンダーを選択できるため、環境変数での設定は不要（後方互換性のために残す）** |
 
-**設定手順:**
+**設定手順**:
+
 1. Google Cloud Consoleでプロジェクトを作成
 2. Google Calendar APIを有効化
 3. Service Accountを作成し、JSONキーをダウンロード
@@ -88,6 +94,17 @@ Service Accountのキーを使用する方法です。
 6. **方法3（エラーが出る場合）**: JSONファイル全体をBase64エンコードして`GOOGLE_PRIVATE_KEY_BASE64`に設定（`GOOGLE_PRIVATE_KEY`は設定不要）
 7. Service Accountのメールアドレスをカレンダーに共有（編集権限を付与）
 8. 管理画面（`/admin/google-calendar`）で使用するカレンダーを選択
+
+### LINE Bot関連
+
+| 環境変数名 | 用途 | 取得方法 |
+|-----------|------|---------|
+| `LINE_CHANNEL_SECRET` | LINE Messaging APIのチャネルシークレット（署名検証用） | LINE Developers Console > チャネル > チャネル基本設定 > チャネルシークレット |
+| `LINE_CHANNEL_ACCESS_TOKEN` | LINE Messaging APIのアクセストークン | LINE Developers Console > チャネル > Messaging API設定 > チャネルアクセストークン（長期） |
+| `GEMINI_API_KEY` | Gemini API キー（汎用・画像生成等） | Google AI Studio > API Keys |
+| `GEMINI_LINE_API_KEY` | Gemini API キー（LINE Bot専用・Paid Tier推奨） | Google AI Studio > API Keys（Paid Tier）。設定しない場合は `GEMINI_API_KEY` にフォールバック |
+
+**注意**: `GEMINI_LINE_API_KEY` はPaid TierのAPIキーを推奨します。無料枠のキーではレート制限に引っかかる場合があります。
 
 ## 🔒 セキュリティ注意事項
 
@@ -102,7 +119,8 @@ Service Accountのキーを使用する方法です。
 
 ## 📍 確認方法
 
-環境変数の確認・変更はVercel Dashboardで行います：
+環境変数の確認・変更はVercel Dashboardで行います:
+
 1. Vercel Dashboardにログイン
 2. プロジェクトを選択
 3. Settings > Environment Variables
