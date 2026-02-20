@@ -5,6 +5,79 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
+    }
+
+    const admin = await isAdmin()
+    if (!admin) {
+      return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 })
+    }
+
+    const { userId } = await params
+    const body = await request.json()
+
+    // 許可するフィールドのみ更新
+    const allowedFields: Record<string, any> = {}
+
+    if ('member_type' in body) {
+      const validTypes = ['regular', 'dropin', 'guest']
+      if (!validTypes.includes(body.member_type)) {
+        return NextResponse.json(
+          { error: `member_typeは${validTypes.join(', ')}のいずれかである必要があります` },
+          { status: 400 }
+        )
+      }
+      allowedFields.member_type = body.member_type
+    }
+
+    if ('membership_note' in body) {
+      allowedFields.membership_note = body.membership_note || null
+    }
+
+    if ('has_shared_office' in body) {
+      allowedFields.has_shared_office = !!body.has_shared_office
+    }
+
+    if (Object.keys(allowedFields).length === 0) {
+      return NextResponse.json({ error: '更新するフィールドがありません' }, { status: 400 })
+    }
+
+    const { data, error: updateError } = await supabase
+      .from('users')
+      .update(allowedFields)
+      .eq('id', userId)
+      .select()
+      .single()
+
+    if (updateError) {
+      console.error('User update error:', updateError)
+      return NextResponse.json(
+        { error: `ユーザー更新に失敗しました: ${updateError.message}` },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ success: true, user: data })
+  } catch (error: any) {
+    console.error('User update error:', error)
+    return NextResponse.json(
+      { error: error.message || 'ユーザー更新中にエラーが発生しました' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }

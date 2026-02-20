@@ -6,6 +6,7 @@ import { formatJapaneseName } from '@/lib/utils/name'
 import { UserPlanManagement } from './user-plan-management'
 import { normalizeUserPlans } from '@/lib/utils/user-plans'
 import { DeleteUserButton } from './delete-user-button'
+import { MembershipStatus } from './membership-status'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -147,6 +148,17 @@ export default async function UserDetailPage({
               </p>
             </div>
           </div>
+        </div>
+
+        {/* 会員ステータス */}
+        <div className="mb-8">
+          <MembershipStatus
+            userId={userId}
+            currentMemberType={userData.member_type || 'guest'}
+            stripeCustomerId={userData.stripe_customer_id || null}
+            membershipNote={userData.membership_note || null}
+            hasActiveSubscription={!!currentPlan && !currentPlan.isScheduledCancellation}
+          />
         </div>
 
         {/* プラン管理 */}
