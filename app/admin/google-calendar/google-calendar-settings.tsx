@@ -25,6 +25,7 @@ interface Settings {
   id: string
   calendar_id: string
   calendar_name: string
+  calendar_role: string
   is_active: boolean
 }
 
@@ -48,9 +49,11 @@ export function GoogleCalendarSettings() {
   const [testing, setTesting] = useState(false)
   const [calendars, setCalendars] = useState<Calendar[]>([])
   const [loadingCalendars, setLoadingCalendars] = useState(false)
-  const [selectedCalendarId, setSelectedCalendarId] = useState<string>('')
-  const [currentSettings, setCurrentSettings] = useState<Settings | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [meetingRoomCalendarId, setMeetingRoomCalendarId] = useState<string>('')
+  const [personalCalendarId, setPersonalCalendarId] = useState<string>('')
+  const [currentMeetingRoom, setCurrentMeetingRoom] = useState<Settings | null>(null)
+  const [currentPersonal, setCurrentPersonal] = useState<Settings | null>(null)
+  const [saving, setSaving] = useState<string | null>(null) // 'meeting_room' | 'personal' | null
   const [oauthStatus, setOAuthStatus] = useState<OAuthStatus | null>(null)
   const [loadingOAuth, setLoadingOAuth] = useState(false)
   const [watchChannelStatus, setWatchChannelStatus] = useState<WatchChannelStatus | null>(null)
@@ -67,17 +70,15 @@ export function GoogleCalendarSettings() {
     const params = new URLSearchParams(window.location.search)
     const success = params.get('success')
     const error = params.get('error')
-    
+
     if (success) {
       alert(success)
-      // URLからパラメータを削除
       window.history.replaceState({}, '', window.location.pathname)
-      // OAuthステータスを再読み込み
       loadOAuthStatus()
-      loadCalendars() // カレンダーリストを再読み込み
+      loadCalendars()
       checkConnection()
     }
-    
+
     if (error) {
       const details = params.get('details')
       let errorMessage = `エラー: ${error}`
@@ -91,7 +92,6 @@ export function GoogleCalendarSettings() {
       }
       console.error('OAuth Error:', error, details)
       alert(errorMessage)
-      // URLからパラメータを削除
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [])
@@ -133,15 +133,15 @@ export function GoogleCalendarSettings() {
         throw new Error(data.error || 'Watchチャンネルの登録に失敗しました')
       }
 
-      let message = `Watchチャンネルを登録しました！\n有効期限: ${new Date(data.expiration).toLocaleString('ja-JP')}`
-      if (data.syncResult) {
-        message += `\n\n初回同期: ${data.syncResult.synced}件のイベントを同期しました`
-        if (data.syncResult.errors > 0) {
-          message += `\n（${data.syncResult.errors}件のエラーが発生しました）`
+      let message = 'Watchチャンネルを登録しました！'
+      if (data.results && data.results.length > 0) {
+        message += `\n\n${data.results.length}個のカレンダーにチャンネルを登録:`
+        for (const r of data.results) {
+          message += `\n  - ${r.calendarRole}: 有効期限 ${new Date(r.expiration).toLocaleString('ja-JP')}`
         }
       }
-      if (data.webhookUrl) {
-        message += `\n\nWebhook URL: ${data.webhookUrl}`
+      if (data.syncResult) {
+        message += `\n\n初回同期: ${data.syncResult.synced}件のイベントを同期`
       }
       alert(message)
       await loadWatchChannelStatus()
@@ -157,9 +157,8 @@ export function GoogleCalendarSettings() {
     try {
       const response = await fetch('/api/admin/google-calendar/oauth/auth')
       const data = await response.json()
-      
+
       if (!response.ok) {
-        // エラーレスポンスの場合
         let errorMessage = data.error || '認証URLの取得に失敗しました'
         if (data.details) {
           errorMessage += `\n\n${data.details}`
@@ -176,7 +175,6 @@ export function GoogleCalendarSettings() {
       }
 
       if (data.authUrl) {
-        // リダイレクトURIをアラートで表示（デバッグ用）
         if (data.redirectUri) {
           const confirmed = confirm(
             `リダイレクトURIを確認してください:\n\n${data.redirectUri}\n\nこのURIがGoogle Cloud Consoleの「承認済みのリダイレクトURI」に設定されているか確認してください。\n\n「OK」をクリックするとGoogle認証画面に移動します。`
@@ -186,7 +184,6 @@ export function GoogleCalendarSettings() {
             return
           }
         }
-        // OAuth認証URLにリダイレクト
         window.location.href = data.authUrl
       } else {
         throw new Error(data.error || '認証URLの取得に失敗しました')
@@ -202,8 +199,12 @@ export function GoogleCalendarSettings() {
       const response = await fetch('/api/admin/google-calendar/settings')
       const data = await response.json()
       if (data.settings) {
-        setCurrentSettings(data.settings)
-        setSelectedCalendarId(data.settings.calendar_id)
+        setCurrentMeetingRoom(data.settings)
+        setMeetingRoomCalendarId(data.settings.calendar_id)
+      }
+      if (data.personalSettings) {
+        setCurrentPersonal(data.personalSettings)
+        setPersonalCalendarId(data.personalSettings.calendar_id)
       }
     } catch (error: any) {
       console.error('Failed to load current settings:', error)
@@ -265,23 +266,23 @@ export function GoogleCalendarSettings() {
     }
   }
 
-  const saveCalendarSelection = async () => {
-    if (!selectedCalendarId) {
+  const saveCalendarSelection = async (role: 'meeting_room' | 'personal') => {
+    const calendarId = role === 'meeting_room' ? meetingRoomCalendarId : personalCalendarId
+    if (!calendarId) {
       alert('カレンダーを選択してください')
       return
     }
 
-    setSaving(true)
+    setSaving(role)
     try {
-      const selectedCalendar = calendars.find((cal) => cal.id === selectedCalendarId)
+      const selectedCalendar = calendars.find((cal) => cal.id === calendarId)
       const response = await fetch('/api/admin/google-calendar/settings', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          calendarId: selectedCalendarId,
-          calendarName: selectedCalendar?.name || selectedCalendarId,
+          calendarId,
+          calendarName: selectedCalendar?.name || calendarId,
+          calendarRole: role,
         }),
       })
 
@@ -291,15 +292,97 @@ export function GoogleCalendarSettings() {
         throw new Error(data.error || '設定の保存に失敗しました')
       }
 
-      alert('カレンダー設定を保存しました！')
+      const roleLabel = role === 'meeting_room' ? '会議室' : '個人'
+      alert(`${roleLabel}カレンダー設定を保存しました！`)
       await loadCurrentSettings()
-      await checkConnection() // 接続状況を再確認
+      await checkConnection()
     } catch (error: any) {
       alert(`設定の保存に失敗しました: ${error.message}`)
     } finally {
-      setSaving(false)
+      setSaving(null)
     }
   }
+
+  const removeCalendar = async (role: 'meeting_room' | 'personal') => {
+    const roleLabel = role === 'meeting_room' ? '会議室' : '個人'
+    if (!confirm(`${roleLabel}カレンダーの設定を解除しますか？`)) return
+
+    try {
+      const response = await fetch(`/api/admin/google-calendar/settings?calendarRole=${role}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || '設定の解除に失敗しました')
+      }
+
+      alert(`${roleLabel}カレンダーの設定を解除しました`)
+      if (role === 'meeting_room') {
+        setCurrentMeetingRoom(null)
+        setMeetingRoomCalendarId('')
+      } else {
+        setCurrentPersonal(null)
+        setPersonalCalendarId('')
+      }
+    } catch (error: any) {
+      alert(`設定の解除に失敗しました: ${error.message}`)
+    }
+  }
+
+  const renderCalendarSelector = (
+    role: 'meeting_room' | 'personal',
+    label: string,
+    description: string,
+    selectedId: string,
+    setSelectedId: (id: string) => void,
+    currentSetting: Settings | null
+  ) => (
+    <div className="rounded-md bg-room-base p-4 border border-room-base-dark">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h4 className="text-sm font-medium text-room-charcoal">{label}</h4>
+          <p className="text-xs text-room-charcoal-light">{description}</p>
+        </div>
+        {currentSetting && (
+          <button
+            onClick={() => removeCalendar(role)}
+            className="text-xs text-red-500 hover:text-red-700"
+          >
+            解除
+          </button>
+        )}
+      </div>
+
+      {currentSetting && (
+        <div className="text-xs text-green-700 mb-2 flex items-center gap-1">
+          <span>&#10003;</span>
+          <span>{currentSetting.calendar_name}</span>
+        </div>
+      )}
+
+      <select
+        value={selectedId}
+        onChange={(e) => setSelectedId(e.target.value)}
+        className="block w-full rounded-md border border-room-base-dark bg-white px-3 py-2 text-sm shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
+      >
+        <option value="">カレンダーを選択</option>
+        {calendars.map((cal) => (
+          <option key={cal.id} value={cal.id}>
+            {cal.name} {cal.id === currentSetting?.calendar_id ? '(現在)' : ''}
+          </option>
+        ))}
+      </select>
+
+      <button
+        onClick={() => saveCalendarSelection(role)}
+        disabled={!selectedId || saving === role || selectedId === currentSetting?.calendar_id}
+        className="mt-2 w-full rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {saving === role ? '保存中...' : '保存'}
+      </button>
+    </div>
+  )
 
   return (
     <div className="rounded-lg bg-room-base-light p-6 shadow border border-room-base-dark">
@@ -307,7 +390,7 @@ export function GoogleCalendarSettings() {
         <div>
           <h2 className="text-lg font-semibold text-room-charcoal">Googleカレンダー連携</h2>
           <p className="text-sm text-room-charcoal-light mt-1">
-            Googleカレンダーとの連携状況を確認・テストできます
+            会議室カレンダーと個人カレンダーを設定して、空き状況を2軸で判定します
           </p>
         </div>
         <button
@@ -341,7 +424,7 @@ export function GoogleCalendarSettings() {
                   status.connected ? 'text-green-800' : 'text-red-800'
                 }`}
               >
-                {status.connected ? '✓ 接続済み' : '✗ 未接続'}
+                {status.connected ? '&#10003; 接続済み' : '&#10007; 未接続'}
               </span>
             </div>
             {status.message && (
@@ -351,11 +434,6 @@ export function GoogleCalendarSettings() {
             )}
             {status.error && (
               <p className="text-sm mt-1 text-red-700">{status.error}</p>
-            )}
-            {status.calendarId && (
-              <p className="text-xs mt-1 text-room-charcoal-light">
-                カレンダーID: {status.calendarId}
-              </p>
             )}
           </div>
 
@@ -367,25 +445,20 @@ export function GoogleCalendarSettings() {
               </p>
               <ul className="text-sm text-room-main-dark space-y-1">
                 {status.missing.serviceAccountEmail && (
-                  <li>• GOOGLE_SERVICE_ACCOUNT_EMAIL</li>
+                  <li>&#8226; GOOGLE_SERVICE_ACCOUNT_EMAIL</li>
                 )}
-                {status.missing.privateKey && <li>• GOOGLE_PRIVATE_KEY</li>}
-                {status.missing.calendarId && <li>• GOOGLE_CALENDAR_ID</li>}
+                {status.missing.privateKey && <li>&#8226; GOOGLE_PRIVATE_KEY</li>}
+                {status.missing.calendarId && <li>&#8226; GOOGLE_CALENDAR_ID</li>}
               </ul>
-              <p className="text-xs text-room-charcoal-light mt-2">
-                環境変数はVercel DashboardのSettings &gt; Environment Variablesから設定してください。
-                <br />
-                詳細は <code className="bg-room-base-dark px-1 rounded">ENV_VARIABLES.md</code> を参照してください。
-              </p>
             </div>
           )}
 
-          {/* カレンダー選択 */}
+          {/* カレンダー選択（2軸） */}
           {oauthStatus?.connected && (
             <div className="rounded-md bg-room-wood bg-opacity-10 border border-room-wood p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-room-wood-dark">
-                  使用するカレンダーを選択
+                  カレンダー設定（2軸）
                 </h3>
                 <button
                   onClick={loadCalendars}
@@ -400,37 +473,26 @@ export function GoogleCalendarSettings() {
                 <p className="text-sm text-room-charcoal-light">カレンダーを読み込み中...</p>
               ) : calendars.length === 0 ? (
                 <p className="text-sm text-room-charcoal-light">
-                  カレンダーが見つかりません。Googleアカウントに編集権限が付与されたカレンダーがありません。
+                  カレンダーが見つかりません。
                 </p>
               ) : (
-                <div className="space-y-3">
-                  <select
-                    value={selectedCalendarId}
-                    onChange={(e) => setSelectedCalendarId(e.target.value)}
-                    className="block w-full rounded-md border border-room-base-dark bg-room-base px-3 py-2 shadow-sm focus:border-room-main focus:outline-none focus:ring-room-main"
-                  >
-                    <option value="">カレンダーを選択してください</option>
-                    {calendars.map((cal) => (
-                      <option key={cal.id} value={cal.id}>
-                        {cal.name} {cal.id === currentSettings?.calendar_id ? '(現在選択中)' : ''}
-                      </option>
-                    ))}
-                  </select>
-
-                  {currentSettings && (
-                    <div className="text-xs text-room-charcoal-light">
-                      <p>現在選択中のカレンダー: <strong>{currentSettings.calendar_name}</strong></p>
-                      <p className="mt-1">カレンダーID: {currentSettings.calendar_id}</p>
-                    </div>
+                <div className="space-y-4">
+                  {renderCalendarSelector(
+                    'meeting_room',
+                    '会議室カレンダー',
+                    '会議室の予約状況を管理するカレンダー。全ユーザーの空き判定に使用。',
+                    meetingRoomCalendarId,
+                    setMeetingRoomCalendarId,
+                    currentMeetingRoom
                   )}
-
-                  <button
-                    onClick={saveCalendarSelection}
-                    disabled={!selectedCalendarId || saving || selectedCalendarId === currentSettings?.calendar_id}
-                    className="w-full rounded-md bg-room-main px-4 py-2 text-sm text-white hover:bg-room-main-light focus:outline-none focus:ring-2 focus:ring-room-main focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {saving ? '保存中...' : 'カレンダーを保存'}
-                  </button>
+                  {renderCalendarSelector(
+                    'personal',
+                    '個人カレンダー（鶴田）',
+                    '非会員の予約時、この予定もチェックして鶴田さんの対応可能時間を判定。',
+                    personalCalendarId,
+                    setPersonalCalendarId,
+                    currentPersonal
+                  )}
                 </div>
               )}
             </div>
@@ -442,13 +504,13 @@ export function GoogleCalendarSettings() {
               Googleアカウントで接続（OAuth認証）
             </h3>
             <p className="text-xs text-room-charcoal-light mb-3">
-              管理者のGoogleアカウントでログインして接続できます。Service Accountの設定が不要です。
+              管理者のGoogleアカウントでログインして接続できます。
             </p>
-            
+
             {oauthStatus?.connected ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-green-700 font-medium">✓ 接続済み</span>
+                  <span className="text-sm text-green-700 font-medium">&#10003; 接続済み</span>
                   {oauthStatus.email && (
                     <span className="text-xs text-room-charcoal-light">
                       ({oauthStatus.email})
@@ -479,26 +541,21 @@ export function GoogleCalendarSettings() {
                 リアルタイム同期設定（Push Notifications）
               </h3>
               <p className="text-xs text-room-charcoal-light mb-3">
-                Googleカレンダーの変更をリアルタイムで検知して自動同期します。別システムや直接Googleカレンダーに追加された予約も自動で反映されます。
+                Googleカレンダーの変更をリアルタイムで検知して自動同期します。
+                全アクティブカレンダーにWatchチャンネルを登録します。
               </p>
-              
+
               {watchChannelStatus?.registered ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className={`text-sm font-medium ${watchChannelStatus.isExpired ? 'text-red-700' : 'text-green-700'}`}>
-                      {watchChannelStatus.isExpired ? '⚠ 有効期限切れ' : '✓ 登録済み'}
+                      {watchChannelStatus.isExpired ? '&#9888; 有効期限切れ' : '&#10003; 登録済み'}
                     </span>
                   </div>
                   {watchChannelStatus.expiration && (
                     <p className="text-xs text-room-charcoal-light">
                       有効期限: {new Date(watchChannelStatus.expiration).toLocaleString('ja-JP')}
                     </p>
-                  )}
-                  {watchChannelStatus.webhookUrl && (
-                    <div className="text-xs text-room-charcoal-light bg-room-base-dark p-2 rounded break-all">
-                      <p className="font-medium mb-1">Webhook URL:</p>
-                      <code className="text-xs">{watchChannelStatus.webhookUrl}</code>
-                    </div>
                   )}
                   {watchChannelStatus.isExpired && (
                     <p className="text-xs text-red-700">
@@ -523,7 +580,7 @@ export function GoogleCalendarSettings() {
                 </button>
               )}
               <p className="text-xs text-room-charcoal-light mt-2">
-                注意: チャンネルの有効期限は約7日間です。期限切れの場合は再登録が必要です。また、毎日3時に定期同期も実行されます。
+                注意: チャンネルの有効期限は約7日間です。毎日3時に定期同期も実行されます。
               </p>
             </div>
           )}
@@ -546,9 +603,6 @@ export function GoogleCalendarSettings() {
                   <li>上記の「Googleアカウントで接続」ボタンをクリック</li>
                 </ol>
               </div>
-              <p className="text-xs text-room-charcoal-light mt-2">
-                詳細は <code className="bg-room-base-dark px-1 rounded">ENV_VARIABLES.md</code> を参照してください。
-              </p>
             </div>
           )}
         </div>

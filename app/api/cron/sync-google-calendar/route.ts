@@ -7,10 +7,10 @@ export const runtime = 'nodejs'
 /**
  * Googleカレンダーの定期同期ジョブ（1日1回実行）
  * Vercel Cronから呼び出される
- * 
+ *
  * 実行内容:
  * 1. Watchチャンネルの有効期限をチェックし、必要に応じて自動再登録
- * 2. GoogleカレンダーのイベントをDBに同期
+ * 2. 全アクティブカレンダーのイベントをDBに同期
  */
 export async function GET(request: NextRequest) {
   try {
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       // エラーでも同期処理は続行
     }
 
-    // 2. 今日から30日後までのイベントを同期
+    // 2. 今日から30日後までのイベントを同期（全アクティブカレンダー）
     const today = new Date()
     const startDate = new Date(today)
     startDate.setDate(today.getDate() - 1) // 1日前から（念のため）
@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
       success: true,
       synced: result.synced,
       errors: result.errors,
+      calendars: result.calendars,
       startDate: startDateStr,
       endDate: endDateStr,
       watchChannelRenewed,
@@ -73,4 +74,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

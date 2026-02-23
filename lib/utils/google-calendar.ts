@@ -1,5 +1,7 @@
 import { google } from 'googleapis'
 
+export type CalendarRole = 'meeting_room' | 'personal'
+
 /**
  * Google Calendar APIクライアントを取得（環境変数から）
  */
@@ -185,26 +187,29 @@ async function refreshOAuthToken(refreshToken: string): Promise<{ access_token: 
 }
 
 /**
- * Google Calendar APIクライアントを取得（データベースからカレンダーIDを取得）
- * Service AccountまたはOAuth認証を使用
+ * APIクライアント（認証部分）を取得する内部ヘルパー
  */
-export async function getGoogleCalendarClient() {
+async function getCalendarApiClient() {
   let calendar: any
-  let auth: any
 
   // まずOAuthトークンを試す（設定されている場合）
   try {
     const oauthClient = await getGoogleCalendarClientFromOAuth()
     calendar = oauthClient.calendar
-    auth = oauthClient.auth
   } catch (oauthError) {
     // OAuthが設定されていない場合はService Accountを使用
     console.log('OAuth認証が設定されていません。Service Accountを使用します。')
     const envClient = getGoogleCalendarClientFromEnv()
     calendar = envClient.calendar
   }
-  
-  // データベースからアクティブなカレンダーIDを取得
+
+  return calendar
+}
+
+/**
+ * Supabaseクライアントを取得する内部ヘルパー
+ */
+async function getSupabaseAdmin() {
   const { createClient } = await import('@supabase/supabase-js')
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -213,32 +218,95 @@ export async function getGoogleCalendarClient() {
     throw new Error('Supabaseの環境変数が設定されていません')
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey)
+  return createClient(supabaseUrl, supabaseKey)
+}
 
-  const { data: settings, error } = await supabase
+/**
+ * 指定されたロールのカレンダー設定を取得
+ */
+export async function getCalendarByRole(role: CalendarRole): Promise<{ calendar: any; calendarId: string; calendarRole: CalendarRole } | null> {
+  const calendar = await getCalendarApiClient()
+  const supabase = await getSupabaseAdmin()
+
+  const { data: settings } = await supabase
+    .from('google_calendar_settings')
+    .select('calendar_id, calendar_role')
+    .eq('is_active', true)
+    .eq('calendar_role', role)
+    .single()
+
+  if (!settings) {
+    return null
+  }
+
+  return { calendar, calendarId: settings.calendar_id, calendarRole: role }
+}
+
+/**
+ * 全アクティブカレンダーの設定を取得
+ */
+export async function getAllActiveCalendars(): Promise<Array<{ calendar: any; calendarId: string; calendarRole: CalendarRole; calendarName?: string }>> {
+  const calendar = await getCalendarApiClient()
+  const supabase = await getSupabaseAdmin()
+
+  const { data: settings } = await supabase
+    .from('google_calendar_settings')
+    .select('calendar_id, calendar_role, calendar_name')
+    .eq('is_active', true)
+
+  if (!settings || settings.length === 0) {
+    // 環境変数にフォールバック
+    const calendarId = process.env.GOOGLE_CALENDAR_ID
+    if (calendarId) {
+      return [{ calendar, calendarId, calendarRole: 'meeting_room' }]
+    }
+    return []
+  }
+
+  return settings.map(s => ({
+    calendar,
+    calendarId: s.calendar_id,
+    calendarRole: s.calendar_role as CalendarRole,
+    calendarName: s.calendar_name,
+  }))
+}
+
+/**
+ * Google Calendar APIクライアントを取得（データベースからカレンダーIDを取得）
+ * デフォルトは meeting_room ロール（後方互換性）
+ */
+export async function getGoogleCalendarClient(role: CalendarRole = 'meeting_room') {
+  const result = await getCalendarByRole(role)
+
+  if (result) {
+    return { calendar: result.calendar, calendarId: result.calendarId }
+  }
+
+  // ロール指定で見つからない場合、is_active=trueの最初のカレンダーを取得（後方互換性）
+  const calendar = await getCalendarApiClient()
+  const supabase = await getSupabaseAdmin()
+
+  const { data: settings } = await supabase
     .from('google_calendar_settings')
     .select('calendar_id')
     .eq('is_active', true)
+    .limit(1)
     .single()
 
-  if (error || !settings) {
-    // データベースに設定がない場合は環境変数から取得（後方互換性）
-    const calendarId = process.env.GOOGLE_CALENDAR_ID
-    if (!calendarId) {
-      throw new Error('GoogleカレンダーIDが設定されていません。管理画面でカレンダーを選択してください。')
-    }
-    return { calendar, calendarId }
+  if (settings) {
+    return { calendar, calendarId: settings.calendar_id }
   }
 
-  return { calendar, calendarId: settings.calendar_id }
+  // データベースに設定がない場合は環境変数から取得（後方互換性）
+  const calendarId = process.env.GOOGLE_CALENDAR_ID
+  if (!calendarId) {
+    throw new Error('GoogleカレンダーIDが設定されていません。管理画面でカレンダーを選択してください。')
+  }
+  return { calendar, calendarId }
 }
 
 /**
  * Googleカレンダーから指定日時の予定を取得して、空き状況をチェック
- * @param date 予約日（YYYY-MM-DD形式）
- * @param startTime 開始時刻（HH:mm形式）
- * @param endTime 終了時刻（HH:mm形式）
- * @returns 空きがある場合はtrue、予定がある場合はfalse
  */
 export async function checkGoogleCalendarAvailability(
   date: string,
@@ -273,30 +341,19 @@ export async function checkGoogleCalendarAvailability(
 
       if (!eventStart || !eventEnd) continue
 
-      // イベントの日付を日本時間で取得（Intl.DateTimeFormatを使用）
-      // eventStartはUTCで返されるので、日本時間（Asia/Tokyo）での日付を取得
       const formatter = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Tokyo',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
       })
-      const eventDateStr = formatter.format(eventStart) // YYYY-MM-DD形式で返される
+      const eventDateStr = formatter.format(eventStart)
 
-      console.log(`イベント確認: チェック日付=${date}, イベントUTC=${eventStart.toISOString()}, イベントJST日付=${eventDateStr}`)
+      if (eventDateStr !== date) continue
 
-      // 日付が一致しない場合はスキップ
-      if (eventDateStr !== date) {
-        console.log(`日付不一致: スキップ - チェック日付=${date}, イベント日付=${eventDateStr}`)
-        continue
-      }
-
-      // 時間の重複チェック: 開始時刻が予定終了時刻より前で、終了時刻が予定開始時刻より後
-      // 両方ともUTC時刻で比較（Dateオブジェクトは内部でUTC時刻を保持している）
       const overlaps = startDateTime.getTime() < eventEnd.getTime() && endDateTime.getTime() > eventStart.getTime()
 
       if (overlaps) {
-        console.log(`Googleカレンダーの予定と重複: ${date} ${startTime}-${endTime} vs ${eventStart.toISOString()}(${eventDateStr}) - ${eventEnd.toISOString()}`)
         return {
           available: false,
           reason: `この時間帯はGoogleカレンダーに予定が入っています（${event.summary || '予定あり'}）`,
@@ -307,7 +364,6 @@ export async function checkGoogleCalendarAvailability(
     return { available: true }
   } catch (error: any) {
     console.error('Google Calendar availability check error:', error)
-    // エラーが発生した場合は、予約を許可しない（安全側に倒す）
     return {
       available: false,
       reason: `Googleカレンダーの確認中にエラーが発生しました: ${error.message}`,
@@ -317,22 +373,18 @@ export async function checkGoogleCalendarAvailability(
 
 /**
  * Googleカレンダーにイベントを追加
- * @param date 予約日（YYYY-MM-DD形式）
- * @param startTime 開始時刻（HH:mm形式）
- * @param endTime 終了時刻（HH:mm形式）
- * @param title イベントタイトル
- * @param description イベント説明（任意）
- * @returns 作成されたイベントID
+ * @param calendarRole 追加先のカレンダーロール（デフォルト: meeting_room）
  */
 export async function createGoogleCalendarEvent(
   date: string,
   startTime: string,
   endTime: string,
   title: string,
-  description?: string
+  description?: string,
+  calendarRole: CalendarRole = 'meeting_room'
 ): Promise<string> {
   try {
-    const { calendar, calendarId } = await getGoogleCalendarClient()
+    const { calendar, calendarId } = await getGoogleCalendarClient(calendarRole)
 
     const normalizeTime = (time: string) => {
       if (/^\d{2}:\d{2}:\d{2}$/.test(time)) {
@@ -385,11 +437,10 @@ export async function createGoogleCalendarEvent(
 
 /**
  * Googleカレンダーからイベントを削除
- * @param eventId イベントID
  */
-export async function deleteGoogleCalendarEvent(eventId: string): Promise<void> {
+export async function deleteGoogleCalendarEvent(eventId: string, calendarRole: CalendarRole = 'meeting_room'): Promise<void> {
   try {
-    const { calendar, calendarId } = await getGoogleCalendarClient()
+    const { calendar, calendarId } = await getGoogleCalendarClient(calendarRole)
 
     await calendar.events.delete({
       calendarId: calendarId,
@@ -397,8 +448,6 @@ export async function deleteGoogleCalendarEvent(eventId: string): Promise<void> 
     })
   } catch (error: any) {
     console.error('Google Calendar event deletion error:', error)
-    // エラーが発生しても例外を投げない（削除は失敗しても致命的ではない）
     console.warn(`Googleカレンダーからの予定削除に失敗しました: ${error.message}`)
   }
 }
-
